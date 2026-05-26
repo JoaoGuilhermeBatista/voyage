@@ -1,0 +1,17 @@
+# Flutter
+.dart_tool/
+build/
+
+# Java
+target/
+.idea/
+*.iml
+
+# Env
+.env
+
+# VSCode
+.vscode/
+
+# Mac/Linux
+.DS_Store
