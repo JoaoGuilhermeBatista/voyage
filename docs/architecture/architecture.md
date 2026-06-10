@@ -1,57 +1,51 @@
 # LUVOY — Architecture
 
-## Frontend
+## Stack
 
-- Flutter
-- Riverpod
-- GoRouter
-- Dio
-- Clean Architecture
-- Feature-first structure
-
----
-
-## Backend
-
-- Supabase
-- PostgreSQL
-- Edge Functions (future)
-- REST APIs
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Flutter 3 + Riverpod + GoRouter + Dio |
+| Backend | Spring Boot 3 + Java 21 |
+| Security | Spring Security + JWT |
+| ORM | JPA + Hibernate + Lombok |
+| Database | PostgreSQL 15 |
+| Analytics | Firebase Analytics |
+| Maps | Google Maps Platform |
+| Payments | Stripe |
+| PDF | Flutter packages: pdf, printing |
 
 ---
 
 ## Architecture Style
 
-The project follows:
-- feature-first architecture
-- scalable modular architecture
-- separation of concerns
-- reusable components
+Feature-first + Clean Architecture
 
----
+### Frontend Layers
 
-## Frontend Layers
+- Presentation: screens, widgets, providers
+- Domain: entities, usecases, repositories (abstract)
+- Data: services (Dio), DTOs, repository implementations
 
-### Presentation
-- screens
-- widgets
-- providers
+### Backend Layers
 
-### Domain
-- entities
-- usecases
-- repositories
-
-### Data
-- services
-- DTOs
-- API clients
+- Controller → Service → Repository
+- DTOs para todo I/O de API
+- JPA Entities nunca expostas diretamente nas respostas
 
 ---
 
 ## Rules
 
-Frontend must NEVER:
-- contain business logic inside widgets
-- make direct database calls
-- mix state management approaches
+### Frontend
+
+Must NEVER:
+- conter business logic dentro de widgets
+- fazer chamadas diretas ao banco
+- misturar abordagens de state management
+
+### Backend
+
+Must NEVER:
+- expor JPA entities diretamente nas respostas
+- colocar business logic em controllers
+- pular validação de DTOs

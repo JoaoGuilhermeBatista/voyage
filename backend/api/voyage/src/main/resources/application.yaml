@@ -11,8 +11,13 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-
     show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 server:
   port: 8080
+
+jwt:
+  secret: ${JWT_SECRET:luvoy-dev-secret-key-2026-change-this-in-production}
