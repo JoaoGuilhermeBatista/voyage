@@ -6,71 +6,18 @@
 
 ## Autenticação
 
-Todas as rotas (exceto signup, login e listagem pública de destinos/coleções) exigem:
+Signup e login são feitos **diretamente no Supabase Auth** pelo cliente (React/Flutter) — não passam pelo Spring Boot.
+
+Todas as rotas protegidas exigem o JWT emitido pelo Supabase:
 ```
-Authorization: Bearer <jwt_token>
-```
-
----
-
-## Auth
-
-### POST /auth/signup
-
-Request:
-```json
-{
-  "name": "João Silva",
-  "email": "joao@email.com",
-  "password": "senha123"
-}
+Authorization: Bearer <supabase-jwt>
 ```
 
-Response 201:
-```json
-{
-  "token": "<jwt>",
-  "user": {
-    "id": "uuid",
-    "name": "João Silva",
-    "email": "joao@email.com",
-    "onboardingCompleted": false
-  }
-}
-```
-
-Erros:
-- `400` — campo ausente ou email inválido
-- `409` — email já cadastrado
-
----
-
-### POST /auth/login
-
-Request:
-```json
-{
-  "email": "joao@email.com",
-  "password": "senha123"
-}
-```
-
-Response 200:
-```json
-{
-  "token": "<jwt>",
-  "user": {
-    "id": "uuid",
-    "name": "João Silva",
-    "email": "joao@email.com",
-    "onboardingCompleted": true
-  }
-}
-```
-
-Erros:
-- `400` — campo ausente
-- `401` — credenciais inválidas
+Rotas públicas (sem auth):
+- `GET /destinations`
+- `GET /destinations/:slug`
+- `GET /collections`
+- `GET /collections/:slug`
 
 ---
 
@@ -78,14 +25,15 @@ Erros:
 
 ### GET /users/me
 
+Na primeira chamada, cria o registro do usuário no banco usando o `sub` e `email` do JWT (upsert).
+
 Response 200:
 ```json
 {
   "id": "uuid",
-  "name": "João Silva",
   "email": "joao@email.com",
   "avatarUrl": null,
-  "onboardingCompleted": true
+  "onboardingCompleted": false
 }
 ```
 
@@ -390,6 +338,28 @@ Erros:
 
 ---
 
+## Currency
+
+### GET /currency/rates
+
+Rota pública — não exige autenticação.
+Resposta cacheada por 24h no Spring Boot (não chama a API externa a cada requisição).
+
+Response 200:
+```json
+{
+  "base": "BRL",
+  "updatedAt": "2026-07-01T00:00:01Z",
+  "rates": {
+    "EUR": 0.1621,
+    "GBP": 0.1389,
+    "USD": 0.1842
+  }
+}
+```
+
+---
+
 ## PDF
 
 ### POST /pdf/export/:itineraryId
@@ -402,6 +372,7 @@ Response 200:
 ```
 
 Erros:
+- `402` — usuário free que já usou o PDF gratuito (pdfExportCount >= 1)
 - `403` — roteiro pertence a outro usuário
 - `404` — roteiro não encontrado
 
