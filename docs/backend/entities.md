@@ -3,17 +3,20 @@
 ## User
 
 ```
-id                   UUID        PK
-name                 String
+id                   UUID        PK  ← mesmo UUID do sub no JWT do Supabase
 email                String      unique
-passwordHash         String
 avatarUrl            String      nullable
 onboardingCompleted  Boolean     default: false
+isPremium            Boolean     default: false
+pdfExportCount       Integer     default: 0
 preferences          OnboardingPreferences  OneToOne (nullable)
 createdAt            LocalDateTime
 updatedAt            LocalDateTime
 deletedAt            LocalDateTime  nullable (soft delete)
 ```
+
+> `passwordHash` removido — credenciais gerenciadas pelo Supabase Auth.
+> `name` removido — vem do JWT do Supabase quando necessário.
 
 ---
 
