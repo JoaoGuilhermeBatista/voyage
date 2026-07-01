@@ -3,15 +3,15 @@ spring:
     name: luvoy-api
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/luvoy
-    username: luvoy_user
-    password: luvoy
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -20,4 +20,15 @@ server:
   port: 8080
 
 jwt:
-  secret: ${JWT_SECRET:luvoy-dev-secret-key-2026-change-this-in-production}
+  secret: ${JWT_SECRET}
+
+supabase:
+  url: ${SUPABASE_URL}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
+
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY}
+
+exchange-rate:
+  api-key: ${EXCHANGE_RATE_API_KEY}
