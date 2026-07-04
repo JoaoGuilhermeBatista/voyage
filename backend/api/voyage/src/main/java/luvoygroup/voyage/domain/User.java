@@ -16,23 +16,24 @@ import java.util.UUID;
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
-    @Column(nullable = false)
-    private String name;
 
     @Column(nullable = false, unique = true)
     private String email;
-
-    @Column(nullable = false)
-    private String passwordHash;
 
     private String avatarUrl;
 
     @Column(nullable = false)
     @Builder.Default
     private boolean onboardingCompleted = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isPremium = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private int pdfExportCount = 0;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private OnboardingPreferences preferences;
