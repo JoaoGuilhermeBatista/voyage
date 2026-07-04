@@ -1,0 +1,219 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-ivory: var(--ivory);
+  --color-beige: var(--beige);
+  --color-cream: var(--cream);
+  --color-sand: var(--sand);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-navy: var(--navy);
+  --color-slate: var(--slate);
+  --color-ink: var(--ink);
+
+  --font-serif: 'Cormorant Garamond', ui-serif, Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-elegant: 0 30px 60px -30px color-mix(in oklab, var(--navy) 35%, transparent);
+}
+
+:root {
+  --radius: 0.25rem;
+
+  --ivory: oklch(0.982 0.012 88);
+  --beige: oklch(0.955 0.022 82);
+  --cream: oklch(0.93 0.03 78);
+  --sand: oklch(0.89 0.04 76);
+  --gold: oklch(0.78 0.1 78);
+  --gold-soft: oklch(0.9 0.06 86);
+  --navy: oklch(0.28 0.04 250);
+  --slate: oklch(0.55 0.025 245);
+  --ink: oklch(0.18 0.012 260);
+
+  --background: var(--ivory);
+  --foreground: var(--navy);
+  --card: var(--ivory);
+  --card-foreground: var(--navy);
+  --popover: var(--ivory);
+  --popover-foreground: var(--navy);
+  --primary: var(--navy);
+  --primary-foreground: var(--ivory);
+  --secondary: var(--beige);
+  --secondary-foreground: var(--navy);
+  --muted: var(--beige);
+  --muted-foreground: var(--slate);
+  --accent: var(--gold);
+  --accent-foreground: var(--ivory);
+  --destructive: oklch(0.55 0.18 27);
+  --destructive-foreground: var(--ivory);
+  --border: color-mix(in oklab, var(--navy) 12%, transparent);
+  --input: color-mix(in oklab, var(--navy) 12%, transparent);
+  --ring: var(--gold);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-weight: 300;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--gold) 30%, transparent);
+    color: var(--navy);
+  }
+}
+
+@layer utilities {
+  .font-display { font-family: var(--font-serif); font-weight: 500; }
+  .font-display-italic { font-family: var(--font-serif); font-style: italic; font-weight: 300; }
+  .tracking-luxe { letter-spacing: 0.4em; }
+  .tracking-wider-luxe { letter-spacing: 0.3em; }
+  .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.3em; font-weight: 500; }
+  .luvoy-hairline { height: 1px; background: linear-gradient(90deg, transparent, var(--gold) 50%, transparent); }
+
+  @keyframes luvoy-rise {
+    0% { opacity: 0; transform: translateY(28px); filter: blur(6px); }
+    60% { filter: blur(0); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+  @keyframes luvoy-fade { 0% { opacity: 0; } 100% { opacity: 1; } }
+  @keyframes luvoy-zoom {
+    0% { transform: scale(1.08); filter: blur(4px); }
+    100% { transform: scale(1); filter: blur(0); }
+  }
+  @keyframes luvoy-reveal {
+    0% { opacity: 0; transform: translateY(40px) scale(0.985); filter: blur(8px); }
+    100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  @keyframes luvoy-shimmer {
+    0%, 100% { opacity: 0.45; transform: translate3d(0, 0, 0) scale(1); }
+    50% { opacity: 0.75; transform: translate3d(0, -2%, 0) scale(1.04); }
+  }
+  @keyframes luvoy-glow-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--gold) 0%, transparent); }
+    50% { box-shadow: 0 0 60px 6px color-mix(in oklab, var(--gold) 22%, transparent); }
+  }
+
+  .anim-rise { animation: luvoy-rise 1.3s cubic-bezier(0.19, 1, 0.22, 1) both; }
+  .anim-fade { animation: luvoy-fade 1.6s ease-out both; }
+  .anim-zoom { animation: luvoy-zoom 2.6s cubic-bezier(0.19, 1, 0.22, 1) both; }
+  .anim-reveal { animation: luvoy-reveal 1.4s cubic-bezier(0.19, 1, 0.22, 1) both; }
+
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+  .delay-700 { animation-delay: 700ms; }
+  .delay-1000 { animation-delay: 1000ms; }
+
+  .glow-soft {
+    box-shadow:
+      0 20px 60px -30px color-mix(in oklab, var(--gold) 35%, transparent),
+      0 0 40px -10px color-mix(in oklab, var(--gold-soft) 40%, transparent);
+  }
+  .glow-warm {
+    box-shadow:
+      0 30px 80px -40px color-mix(in oklab, var(--gold) 45%, transparent),
+      0 0 80px -20px color-mix(in oklab, var(--gold-soft) 55%, transparent);
+  }
+  .glow-ring {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--gold) 30%, transparent),
+                0 20px 50px -25px color-mix(in oklab, var(--gold) 30%, transparent);
+  }
+  .glow-text { text-shadow: 0 0 30px color-mix(in oklab, var(--gold-soft) 50%, transparent); }
+  .glow-pulse { animation: luvoy-glow-pulse 4.5s ease-in-out infinite; }
+
+  .haze-warm { position: relative; }
+  .haze-warm::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(120% 80% at 80% 10%, color-mix(in oklab, var(--gold-soft) 35%, transparent), transparent 60%),
+      radial-gradient(100% 70% at 10% 90%, color-mix(in oklab, var(--cream) 25%, transparent), transparent 65%);
+    mix-blend-mode: screen;
+    animation: luvoy-shimmer 9s ease-in-out infinite;
+  }
+
+  .lift-soft {
+    transition: transform 900ms cubic-bezier(0.19, 1, 0.22, 1),
+                box-shadow 900ms cubic-bezier(0.19, 1, 0.22, 1),
+                filter 900ms ease-out;
+  }
+  .lift-soft:hover {
+    transform: translateY(-6px);
+    box-shadow:
+      0 40px 80px -40px color-mix(in oklab, var(--navy) 25%, transparent),
+      0 0 60px -20px color-mix(in oklab, var(--gold-soft) 35%, transparent);
+  }
+
+  .reveal-on-load > * { animation: luvoy-reveal 1.4s cubic-bezier(0.19, 1, 0.22, 1) both; }
+  .reveal-on-load > *:nth-child(1) { animation-delay: 0ms; }
+  .reveal-on-load > *:nth-child(2) { animation-delay: 120ms; }
+  .reveal-on-load > *:nth-child(3) { animation-delay: 240ms; }
+  .reveal-on-load > *:nth-child(4) { animation-delay: 360ms; }
+  .reveal-on-load > *:nth-child(5) { animation-delay: 480ms; }
+  .reveal-on-load > *:nth-child(6) { animation-delay: 600ms; }
+
+  .golden-hour { position: relative; isolation: isolate; }
+  .golden-hour > img,
+  .golden-hour > picture > img {
+    filter: saturate(1.08) contrast(1.04) brightness(1.04) sepia(0.10) hue-rotate(-6deg);
+  }
+  .golden-hour::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(120% 80% at 85% 0%, color-mix(in oklab, var(--gold-soft) 38%, transparent), transparent 60%),
+      radial-gradient(100% 70% at 0% 100%, color-mix(in oklab, var(--cream) 22%, transparent), transparent 65%);
+    mix-blend-mode: soft-light;
+  }
+  .golden-hour > *:not(img):not(picture) { position: relative; z-index: 2; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .anim-rise, .anim-fade, .anim-zoom, .anim-reveal,
+    .reveal-on-load > *, .glow-pulse, .haze-warm::after {
+      animation: none !important;
+    }
+    .lift-soft { transition: none !important; }
+  }
+}
