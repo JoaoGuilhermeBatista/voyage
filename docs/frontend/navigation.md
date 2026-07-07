@@ -21,20 +21,19 @@ React Web: **TanStack Router** com navegação por abas no topo (desktop) ou bot
 
 ## Aba 1 — Explorar
 
-Conteúdo editorial estático + destinos curados.
-Equivale ao home atual do Lovable.
+Conteúdo editorial estático + destinos curados. Única aba pública (sem login).
 
 Seções:
 - Hero cinematográfico
 - Destinos em destaque (carrossel)
 - Editoriais (fullbleed / split)
-- Grade de todos os 21 destinos
+- Grade de todos os destinos
 - As 9 Coleções LUVOY
-- Por país (6 grupos)
+- Por país
+- Widget de câmbio do dia — cotação EUR, GBP, USD em BRL (público, sem auth)
 
 Rotas filhas:
 - `/explore/destinations/:slug` — dossiê do destino
-- `/explore/destinations/:slug/itinerary` — roteiro editorial estático
 
 ---
 
@@ -47,8 +46,8 @@ Seções:
 - "Seu próximo destino" — destino top recomendado pelo engine
 - "Baseado nos seus interesses" — grid de destinos pontuados
 - "Coleções para você" — coleções filtradas por preferência
-- "Câmbio do dia" — cotação EUR, GBP, USD em BRL
 - Clima atual nos seus destinos favoritos
+- **Comunidade** — feed de posts de viajantes (exclusivo Premium; usuários free veem CTA de upgrade)
 
 Backend: `GET /api/v1/recommendations` — endpoint a criar (usa a lógica de score do Itinerary Engine sem gerar roteiro completo).
 
@@ -56,20 +55,22 @@ Backend: `GET /api/v1/recommendations` — endpoint a criar (usa a lógica de sc
 
 ## Aba 3 — Roteiros
 
-Histórico de roteiros gerados pelo Itinerary Engine.
-Vazio state: CTA para criar o primeiro roteiro.
+Centraliza tanto os roteiros editoriais prontos quanto os roteiros personalizados gerados pelo engine.
 
 Seções:
-- Lista de roteiros salvos (card com cidade, datas, dias)
+- **Roteiros editoriais** — itinerários curados pela equipe para cada destino (leitura, sem personalização)
+- **Meus roteiros** — lista de roteiros personalizados gerados pelo usuário (card com cidade, datas, dias)
 - Tap no card → roteiro completo com dias e POIs
-- Botão "Exportar PDF" em cada roteiro
+- Botão "Exportar PDF" em cada roteiro pessoal
 - Botão "Criar novo roteiro" (fixo no topo)
 
+Vazio state (meus roteiros): CTA para criar o primeiro roteiro.
+
 Backend:
-- `GET /api/v1/itineraries` — lista
-- `POST /api/v1/itineraries` — criar
-- `DELETE /api/v1/itineraries/:id` — deletar
-- `POST /api/v1/pdf/export/:id` — exportar
+- `GET /api/v1/itineraries` — lista de roteiros do usuário
+- `POST /api/v1/itineraries` — criar roteiro
+- `DELETE /api/v1/itineraries/:id` — deletar roteiro
+- `POST /api/v1/pdf/export/:id` — exportar PDF
 
 ---
 
@@ -98,7 +99,6 @@ Seções:
 - "Minhas preferências" → editar onboarding (`PATCH /api/v1/users/preferences`)
 - "Meu plano" → exibe Free ou Premium
 - "Tornar-se Premium" → abre Stripe Checkout (se free)
-- "Câmbio do dia" (atalho)
 - "Sair" → logout Supabase
 
 ---
@@ -121,6 +121,8 @@ App abre
 ## Guardas de rota
 
 Abas 2–5 exigem autenticação. Usuário não autenticado que tenta acessar qualquer aba protegida é redirecionado para Login.
+
+Comunidade (dentro da aba Para Você) exige Premium. Usuário free vê o conteúdo da aba normalmente mas o bloco de comunidade exibe um CTA de upgrade.
 
 No React Web: redirecionamento via loader do TanStack Router.
 No Flutter: GoRouter redirect com verificação de sessão Supabase.

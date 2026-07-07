@@ -1,18 +1,20 @@
 # LUVOY — Community Feature Spec
 
 **Status:** Em definição — aguardando decisões de produto.
-Criar este doc antes de implementar. Preencher as seções marcadas com `[A DEFINIR]`.
 
 ---
 
 ## Visão geral
 
-Uma aba de comunidade dentro do app LUVOY onde usuários podem compartilhar
+Espaço dentro da aba **Para Você** onde usuários Premium podem compartilhar
 experiências de viagem, dicas e descobertas — mantendo o posicionamento premium
 e editorial do produto.
 
 **Premissa:** A comunidade deve sentir-se como uma revista de viagem colaborativa,
 não como uma rede social genérica. Qualidade sobre quantidade.
+
+**Acesso:** Exclusivo para assinantes Premium. Usuários do plano gratuito veem
+o bloco de comunidade com um CTA de upgrade, mas não acessam o conteúdo.
 
 ---
 
@@ -44,20 +46,12 @@ não como uma rede social genérica. Qualidade sobre quantidade.
 - Moderação manual antes de publicar
 - Denúncia + revisão
 
-### 5. Privacidade
-`[A DEFINIR]` O conteúdo é público para todos os usuários do app?
-- Apenas para usuários logados?
-- Apenas para usuários premium?
-- Público para qualquer visitante?
-
-### 6. Relação com o Premium
-`[A DEFINIR]` A comunidade é um benefício exclusivo do plano premium ou aberta a todos?
-
 ---
 
 ## O que JÁ foi decidido
 
-- Haverá uma aba de comunidade no app
+- A comunidade vive dentro da aba **Para Você**, não em aba própria
+- É exclusiva do plano **Premium** — usuários free veem CTA de upgrade
 - Deve manter o posicionamento "quiet luxury" do produto
 - Não é uma rede social genérica — é curada/editorial por natureza
 
@@ -71,7 +65,7 @@ Post
   user         User   ManyToOne FK
   destination  Destination  nullable FK    ← se vinculado a destino
   content      Text                        ← texto da dica/relato
-  imageUrl     String  nullable            ← [A DEFINIR] se terá imagens
+  imageUrl     String  nullable
   createdAt    LocalDateTime
   deletedAt    LocalDateTime  nullable (soft delete)
 
@@ -84,7 +78,7 @@ Post
 
 ```
 GET  /api/v1/community              → feed de posts (paginado)
-POST /api/v1/community              → criar post
+POST /api/v1/community              → criar post (Premium only → 402 se free)
 GET  /api/v1/community/:id          → post individual
 DELETE /api/v1/community/:id        → deletar próprio post (soft delete)
 
@@ -97,31 +91,9 @@ POST /api/v1/community/:id/comments      → comentar
 
 ---
 
-## Flutter — posição na navegação
-
-`[A DEFINIR]` A aba de comunidade entra na bottom navigation bar, substituindo ou adicionando a uma aba existente?
-
-Estrutura atual do app_router:
-- Home
-- Destinos
-- Roteiro (gerado)
-- Favoritos
-- Perfil
-
----
-
-## React Web — presença
-
-`[A DEFINIR]` A comunidade aparece no frontend React (Lovable) ou é exclusiva do mobile?
-
----
-
 ## Impacto nos specs existentes
 
 Quando as decisões acima forem tomadas, atualizar:
 - `docs/backend/entities.md` — adicionar Post e entidades de interação
 - `docs/backend/endpoints.md` — adicionar rotas /community
 - `docs/architecture/database.md` — adicionar tabelas
-- `docs/product/mvp.md` — atualizar scope (community estava como "NOT included")
-- `docs/frontend/flutter-structure.md` — adicionar feature `community/`
-- `docs/ux/ux-flow.md` — adicionar community no fluxo de navegação

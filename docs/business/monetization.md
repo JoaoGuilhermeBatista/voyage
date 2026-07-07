@@ -5,7 +5,7 @@
 LUVOY não compete por preço.
 Foco em valor percebido, exclusividade e experiência premium.
 
-NUNCA usar banner ads — destrói a percepção de luxo.
+O produto não exibe nenhum tipo de anúncio — nem banners, nem pop-ups, nem rewarded ads. A ausência de publicidade é parte do posicionamento premium e da experiência de uso.
 
 ---
 
@@ -25,12 +25,7 @@ NUNCA usar banner ads — destrói a percepção de luxo.
 - Histórico completo de roteiros
 - Acesso antecipado a novos destinos
 - Seção "Escondidos" com coordenadas desbloqueadas
-
-### Rewarded Ad (alternativa gratuita)
-
-- Usuário assiste 1 ad para desbloquear 1 roteiro extra
-- Não intrusivo — acionado apenas quando o usuário quer mais roteiros
-- Preserva a percepção premium ao manter ads fora do fluxo principal
+- Acesso à comunidade de viajantes
 
 ---
 
