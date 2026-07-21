@@ -12,4 +12,4 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
 
 jwt:
-  secret: test-secret-key-luvoy-minimum-32-chars-ok
+  secret: bHV2b3ktdGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3Rz

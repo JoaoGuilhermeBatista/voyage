@@ -51,6 +51,12 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponse("FORBIDDEN", ex.getMessage(), 403));
     }
 
+    @ExceptionHandler(PaymentRequiredException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentRequired(PaymentRequiredException ex) {
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
+            .body(new ErrorResponse("PAYMENT_REQUIRED", ex.getMessage(), 402));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
