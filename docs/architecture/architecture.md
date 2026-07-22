@@ -7,13 +7,17 @@
 | Frontend Web | React 19 + TanStack Start v1 + Tailwind v4 + shadcn/ui |
 | Frontend Mobile | Flutter 3 + Riverpod + GoRouter + Dio |
 | Backend | Spring Boot 3 + Java 21 |
-| Security | Spring Security + JWT |
+| Security | Spring Security + Supabase JWT (validação, sem geração) |
 | ORM | JPA + Hibernate + Lombok |
-| Database | PostgreSQL 15 |
+| Database | PostgreSQL 15 via Supabase |
+| Auth | Supabase Auth (cliente autentica diretamente no Supabase) |
+| Storage | Supabase Storage (imagens de destinos) |
 | Analytics | Firebase Analytics |
-| Maps | Google Maps Platform |
+| Maps | Google Maps Platform (Flutter) + Distance Matrix (backend/engine) |
 | Payments | Stripe |
 | PDF | Flutter packages: pdf, printing |
+| LLM | OpenAI GPT-4 via Spring AI (geração de conteúdo editorial) |
+| Containerização | Docker (Dockerfile + docker-compose) |
 
 ---
 

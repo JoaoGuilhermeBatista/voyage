@@ -178,3 +178,36 @@ ActivityDTO {
 - POIs com horário incompatível com o slot nunca aparecem
 - Slots vazios são omitidos (não causam erro)
 - Roteiro de 1 dia (startDate == endDate) funciona normalmente
+
+---
+
+## Edição de POI pós-geração
+
+Após o roteiro ser gerado, o usuário pode substituir qualquer POI de qualquer slot.
+
+### Fluxo
+
+```
+Usuário toca "Editar" em um POI do roteiro
+  └─► GET /itineraries/:id/activities/:activityId/alternatives
+        └─► Frontend exibe 3 alternativas da mesma categoria
+              └─► "Ver todas as opções" → lista completa
+                    └─► Usuário seleciona
+                          └─► PATCH /itineraries/:id/activities/:activityId
+                                └─► { "poiId": "uuid" }
+```
+
+### Regras
+
+- A substituição mantém o mesmo slot (manhã/tarde/noite)
+- O novo POI deve pertencer ao mesmo destino do roteiro
+- POIs já usados em outros slots do roteiro são excluídos das alternativas
+- A invariante "mesmo POI não aparece duas vezes" é preservada após a troca
+- Alternativas são filtradas pela mesma categoria do POI original (ex: MUSEUM → só museus)
+- Disponível para usuários free e Premium (é parte da experiência central, não um gate)
+
+### Dependência
+
+Esta feature depende diretamente de POIs cadastrados no banco por destino e categoria.
+Se um destino tem menos de 2 POIs numa categoria, o botão "Editar" para atividades dessa categoria
+é ocultado no frontend (sem alternativas para oferecer).

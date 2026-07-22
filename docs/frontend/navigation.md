@@ -29,11 +29,14 @@ Seções:
 - Editoriais (fullbleed / split)
 - Grade de todos os destinos
 - As 9 Coleções LUVOY
-- Por país
+- Por país / continente
 - Widget de câmbio do dia — cotação EUR, GBP, USD em BRL (público, sem auth)
+- **Seção After Dark** — bloco Noir escuro com 3 cards premium → CTA para `/premium`
+- **Preview Premium** — amostra de roteiro hora a hora → CTA "Tornar-se Premium"
+- **Ícone de busca** (fixo no topo da aba) — busca destinos por nome, país ou cidade
 
 Rotas filhas:
-- `/explore/destinations/:slug` — dossiê do destino
+- `/destinos/:slug` — dossiê do destino
 
 ---
 
@@ -60,16 +63,36 @@ Centraliza tanto os roteiros editoriais prontos quanto os roteiros personalizado
 Seções:
 - **Roteiros editoriais** — itinerários curados pela equipe para cada destino (leitura, sem personalização)
 - **Meus roteiros** — lista de roteiros personalizados gerados pelo usuário (card com cidade, datas, dias)
-- Tap no card → roteiro completo com dias e POIs
+- Tap no card → roteiro completo dividido em três atos: **Manhã · Tarde · Noite**
 - Botão "Exportar PDF" em cada roteiro pessoal
 - Botão "Criar novo roteiro" (fixo no topo)
+
+### Gating por plano nos atos do roteiro
+
+| Ato | Usuário Free | Usuário Premium |
+|-----|-------------|-----------------|
+| Manhã | Acesso completo | Acesso completo |
+| Tarde | Blur + CTA "Desbloquear com Noir" | Acesso completo |
+| Noite | Blur + CTA "Desbloquear com Noir" | Acesso completo (tema dark ink) |
+
+### Edição de POI
+
+Cada atividade do roteiro tem um botão "Editar" que abre um painel com alternativas:
+- Exibe 3 opções da mesma categoria no mesmo destino
+- Botão "Ver todas as opções" expande para lista completa
+- Usuário seleciona → POI substituído, slot preservado
+- Disponível para todos os usuários (free e Premium)
+- Botão oculto quando destino tem menos de 2 POIs na mesma categoria
 
 Vazio state (meus roteiros): CTA para criar o primeiro roteiro.
 
 Backend:
 - `GET /api/v1/itineraries` — lista de roteiros do usuário
 - `POST /api/v1/itineraries` — criar roteiro
+- `GET /api/v1/itineraries/:id` — roteiro completo
 - `DELETE /api/v1/itineraries/:id` — deletar roteiro
+- `GET /api/v1/itineraries/:id/activities/:activityId/alternatives` — alternativas de POI
+- `PATCH /api/v1/itineraries/:id/activities/:activityId` — substituir POI
 - `POST /api/v1/pdf/export/:id` — exportar PDF
 
 ---

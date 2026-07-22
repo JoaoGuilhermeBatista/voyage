@@ -71,6 +71,28 @@ Erros:
 
 Rotas públicas — não exigem autenticação.
 
+### GET /destinations?q={termo}
+
+Busca por nome, cidade ou país. Parâmetro `q` é opcional — sem ele retorna todos os destinos.
+
+Response 200:
+```json
+[
+  {
+    "id": "uuid",
+    "slug": "paris",
+    "name": "Paris",
+    "country": "França",
+    "heroImageUrl": "https://...",
+    "tagline": "A capital do silêncio luxuoso"
+  }
+]
+```
+
+Retorna `[]` quando nenhum resultado encontrado.
+
+---
+
 ### GET /destinations
 
 Response 200:
@@ -270,6 +292,52 @@ Response 204 (sem body) — soft delete.
 Erros:
 - `403` — roteiro pertence a outro usuário
 - `404` — roteiro não encontrado
+
+---
+
+### GET /itineraries/:id/activities/:activityId/alternatives
+
+Retorna POIs alternativos para substituir uma atividade do roteiro.
+O backend identifica a categoria e o destino a partir da atividade — o cliente não precisa passar esses dados.
+Exclui automaticamente o POI atual e os POIs já usados em outros slots do roteiro.
+
+Response 200:
+```json
+[
+  {
+    "id": "uuid",
+    "title": "Musée d'Orsay",
+    "category": "MUSEUM",
+    "address": "1 Rue de la Légion d'Honneur, Paris",
+    "averageDurationMinutes": 120,
+    "budgetTier": "MODERATE",
+    "latitude": 48.8600,
+    "longitude": 2.3266
+  }
+]
+```
+
+Erros:
+- `403` — roteiro pertence a outro usuário
+- `404` — atividade não encontrada
+
+---
+
+### PATCH /itineraries/:id/activities/:activityId
+
+Substitui o POI de uma atividade do roteiro. O slot (manhã/tarde/noite) permanece inalterado.
+
+Request:
+```json
+{ "poiId": "uuid-do-novo-poi" }
+```
+
+Response 200: estrutura completa do roteiro atualizado (igual ao GET /itineraries/:id).
+
+Erros:
+- `400` — POI não pertence ao mesmo destino do roteiro
+- `403` — roteiro pertence a outro usuário
+- `404` — atividade ou POI não encontrado
 
 ---
 
