@@ -21,6 +21,12 @@ public class DestinationService {
             .toList();
     }
 
+    public List<DestinationSummaryDTO> search(String q) {
+        return destinationRepository.searchByQuery(q).stream()
+            .map(DestinationSummaryDTO::from)
+            .toList();
+    }
+
     public DestinationDetailDTO findBySlug(String slug) {
         return destinationRepository.findBySlug(slug)
             .filter(d -> d.isActive())

@@ -138,7 +138,7 @@ Ordem obrigatória por `orderIndex`:
 | 12 | PRATOS |
 | 13 | MAPA |
 
-Total de seções a criar: 21 destinos × 14 seções = **294 registros**.
+Total de seções a criar: 38 destinos × 14 seções = **532 registros**.
 
 ---
 

@@ -15,7 +15,10 @@ public class DestinationController {
     private final DestinationService destinationService;
 
     @GetMapping
-    public List<DestinationSummaryDTO> listAll() {
+    public List<DestinationSummaryDTO> listAll(@RequestParam(required = false) String q) {
+        if (q != null && !q.isBlank()) {
+            return destinationService.search(q);
+        }
         return destinationService.findAllActive();
     }
 

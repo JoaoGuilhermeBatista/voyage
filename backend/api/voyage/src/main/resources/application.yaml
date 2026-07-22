@@ -16,6 +16,16 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  cache:
+    type: simple
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:not-configured}
+      chat:
+        options:
+          model: gpt-4o
+
 server:
   port: 8080
 
@@ -23,12 +33,12 @@ jwt:
   secret: ${JWT_SECRET}
 
 supabase:
-  url: ${SUPABASE_URL}
-  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
+  url: ${SUPABASE_URL:not-configured}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:not-configured}
 
 google:
   maps:
-    api-key: ${GOOGLE_MAPS_API_KEY}
+    api-key: ${GOOGLE_MAPS_API_KEY:not-configured}
 
 exchange-rate:
-  api-key: ${EXCHANGE_RATE_API_KEY}
+  api-key: ${EXCHANGE_RATE_API_KEY:not-configured}

@@ -2,6 +2,7 @@ package luvoygroup.voyage.repository;
 
 import luvoygroup.voyage.domain.Poi;
 import luvoygroup.voyage.domain.enums.BudgetTier;
+import luvoygroup.voyage.domain.enums.PoiCategory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,4 +19,17 @@ public interface PoiRepository extends JpaRepository<Poi, UUID> {
     );
 
     List<Poi> findAllByDestinationIdAndActiveTrue(UUID destinationId);
+
+    @Query("""
+        SELECT p FROM Poi p
+        WHERE p.destination.id = :destinationId
+          AND p.category = :category
+          AND p.active = true
+          AND p.id NOT IN :excludeIds
+        """)
+    List<Poi> findAlternatives(
+        @Param("destinationId") UUID destinationId,
+        @Param("category") PoiCategory category,
+        @Param("excludeIds") List<UUID> excludeIds
+    );
 }

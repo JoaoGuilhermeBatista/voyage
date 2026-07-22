@@ -32,7 +32,7 @@ public class DestinationSection {
     private SectionType sectionType;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb", nullable = false)
+    @Column(nullable = false)
     @Builder.Default
     private List<SectionItem> content = new ArrayList<>();
 
