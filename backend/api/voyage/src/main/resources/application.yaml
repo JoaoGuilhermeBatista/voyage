@@ -17,7 +17,9 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
   cache:
-    type: simple
+    type: caffeine
+    caffeine:
+      spec: maximumSize=100,expireAfterWrite=86400s
 
   ai:
     openai:
