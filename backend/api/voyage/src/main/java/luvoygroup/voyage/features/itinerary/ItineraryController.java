@@ -55,4 +55,25 @@ public class ItineraryController {
     ) {
         itineraryService.delete(id, UUID.fromString(principal.id()));
     }
+
+    @GetMapping("/{id}/activities/{activityId}/alternatives")
+    @Operation(summary = "Lista até 3 POIs alternativos para substituir uma atividade")
+    public List<PoiDetailDTO> getAlternatives(
+        @AuthenticationPrincipal AuthenticatedUser principal,
+        @PathVariable UUID id,
+        @PathVariable UUID activityId
+    ) {
+        return itineraryService.getAlternatives(id, activityId, UUID.fromString(principal.id()));
+    }
+
+    @PatchMapping("/{id}/activities/{activityId}")
+    @Operation(summary = "Substitui o POI de uma atividade no roteiro")
+    public ActivityDTO substituteActivity(
+        @AuthenticationPrincipal AuthenticatedUser principal,
+        @PathVariable UUID id,
+        @PathVariable UUID activityId,
+        @Valid @RequestBody SubstituteRequest request
+    ) {
+        return itineraryService.substituteActivity(id, activityId, request.poiId(), UUID.fromString(principal.id()));
+    }
 }

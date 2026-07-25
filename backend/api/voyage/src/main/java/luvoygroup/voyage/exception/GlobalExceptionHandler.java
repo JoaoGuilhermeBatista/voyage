@@ -57,6 +57,12 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponse("PAYMENT_REQUIRED", ex.getMessage(), 402));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("BAD_REQUEST", ex.getMessage(), 400));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()

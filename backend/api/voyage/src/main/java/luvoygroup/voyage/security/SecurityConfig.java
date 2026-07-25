@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/collections/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/currency/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/api/v1/stripe/webhook").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex

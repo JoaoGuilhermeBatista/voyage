@@ -44,3 +44,6 @@ google:
 
 exchange-rate:
   api-key: ${EXCHANGE_RATE_API_KEY:not-configured}
+
+stripe:
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:not-configured}

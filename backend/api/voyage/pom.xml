@@ -96,6 +96,12 @@
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.6.0</version>
 		</dependency>
+		<dependency>
+			<groupId>com.stripe</groupId>
+			<artifactId>stripe-java</artifactId>
+			<version>26.3.0</version>
+		</dependency>
+
 		<!-- Spring AI: adicionar quando implementar LlmService (feature #6)
 		     Requer repositório: https://repo.spring.io/milestone
 		     <dependency>
