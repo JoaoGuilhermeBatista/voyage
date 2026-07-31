@@ -1,0 +1,38 @@
+package luvoygroup.voyage.features.admin;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import luvoygroup.voyage.features.admin.dto.GenerateDestinationRequest;
+import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/admin")
+@RequiredArgsConstructor
+@Tag(name = "Admin", description = "Endpoints administrativos (requer X-Admin-Token)")
+public class AdminController {
+
+    private final AdminService adminService;
+
+    @Value("${admin.token:not-configured}")
+    private String adminToken;
+
+    @PostMapping("/destinations/generate")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Gera e salva um novo destino usando GPT-4o")
+    public ResponseEntity<DestinationSummaryDTO> generateDestination(
+        @RequestHeader("X-Admin-Token") String token,
+        @Valid @RequestBody GenerateDestinationRequest request
+    ) {
+        if (!adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(adminService.generateAndSaveDestination(request));
+    }
+}

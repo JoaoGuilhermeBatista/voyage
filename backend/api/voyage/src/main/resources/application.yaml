@@ -47,3 +47,6 @@ exchange-rate:
 
 stripe:
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:not-configured}
+
+admin:
+  token: ${ADMIN_TOKEN:not-configured}
