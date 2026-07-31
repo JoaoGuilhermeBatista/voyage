@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -71,6 +72,17 @@ public class GlobalExceptionHandler {
             .orElse("Dados inválidos");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse("BAD_REQUEST", message, 400));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
+        int status = ex.getStatusCode().value();
+        String error = ex.getStatusCode() == HttpStatus.BAD_REQUEST ? "BAD_REQUEST"
+            : ex.getStatusCode() == HttpStatus.NOT_FOUND ? "NOT_FOUND"
+            : ex.getStatusCode() == HttpStatus.FORBIDDEN ? "FORBIDDEN"
+            : "ERROR";
+        return ResponseEntity.status(status)
+            .body(new ErrorResponse(error, ex.getReason(), status));
     }
 
     @ExceptionHandler(Exception.class)

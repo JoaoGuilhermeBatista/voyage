@@ -7,9 +7,27 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+  ai:
+    openai:
+      api-key: sk-test-fake-key-not-used-in-tests
+      chat:
+        options:
+          model: gpt-4o
+  cache:
+    type: simple
 
 jwt:
   secret: bHV2b3ktdGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3Rz
+
+exchange-rate:
+  api-key: not-configured
+
+stripe:
+  webhook-secret: not-configured
+
+admin:
+  token: test-admin-token
