@@ -21,4 +21,7 @@ public interface DestinationRepository extends JpaRepository<Destination, UUID> 
           OR LOWER(d.city) LIKE LOWER(CONCAT('%', :q, '%')))
         """)
     List<Destination> searchByQuery(@Param("q") String q);
+
+    @Query("SELECT d FROM Destination d WHERE d.active = true AND d.pois IS EMPTY")
+    List<Destination> findAllWithNoPois();
 }

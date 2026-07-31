@@ -3,6 +3,7 @@ package luvoygroup.voyage.features.admin;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import luvoygroup.voyage.features.admin.dto.BatchGenerationReport;
 import luvoygroup.voyage.features.admin.dto.GenerateDestinationRequest;
 import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
 import lombok.RequiredArgsConstructor;
@@ -34,5 +35,16 @@ public class AdminController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(adminService.generateAndSaveDestination(request));
+    }
+
+    @PostMapping("/pois/generate-batch")
+    @Operation(summary = "Gera POIs via GPT-4o para todos os destinos sem POIs, de 5 em 5. Para no primeiro erro.")
+    public ResponseEntity<BatchGenerationReport> generatePoisBatch(
+        @RequestHeader("X-Admin-Token") String token
+    ) {
+        if (!adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.ok(adminService.generatePoisBatch());
     }
 }
