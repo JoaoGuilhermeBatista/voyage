@@ -37,7 +37,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/destinations/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/collections/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/currency/**").permitAll()
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/api/v1/stripe/webhook").permitAll()
                 .requestMatchers("/api/v1/admin/**").permitAll()
                 .anyRequest().authenticated()
