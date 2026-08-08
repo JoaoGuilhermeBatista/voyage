@@ -45,7 +45,8 @@ public class SecurityConfig {
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((request, response, e) -> {
                     response.setStatus(401);
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding("UTF-8");
+                    response.setContentType("application/json; charset=UTF-8");
                     response.getWriter().write(
                         objectMapper.writeValueAsString(
                             new ErrorResponse("UNAUTHORIZED", "Token inválido ou expirado", 401)
@@ -54,7 +55,8 @@ public class SecurityConfig {
                 })
                 .accessDeniedHandler((request, response, e) -> {
                     response.setStatus(403);
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding("UTF-8");
+                    response.setContentType("application/json; charset=UTF-8");
                     response.getWriter().write(
                         objectMapper.writeValueAsString(
                             new ErrorResponse("FORBIDDEN", "Acesso não autorizado", 403)

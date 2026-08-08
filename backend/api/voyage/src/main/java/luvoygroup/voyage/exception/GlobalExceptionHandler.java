@@ -3,10 +3,12 @@ package luvoygroup.voyage.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -77,16 +79,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
         int status = ex.getStatusCode().value();
-        String error = ex.getStatusCode() == HttpStatus.BAD_REQUEST ? "BAD_REQUEST"
-            : ex.getStatusCode() == HttpStatus.NOT_FOUND ? "NOT_FOUND"
-            : ex.getStatusCode() == HttpStatus.FORBIDDEN ? "FORBIDDEN"
-            : "ERROR";
+        String error = switch (status) {
+            case 400 -> "BAD_REQUEST";
+            case 403 -> "FORBIDDEN";
+            case 404 -> "NOT_FOUND";
+            case 409 -> "CONFLICT";
+            case 422 -> "UNPROCESSABLE_ENTITY";
+            default -> "ERROR";
+        };
         return ResponseEntity.status(status)
             .body(new ErrorResponse(error, ex.getReason(), status));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        log.error("Unhandled exception: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(new ErrorResponse("INTERNAL_ERROR", "Erro interno inesperado", 500));
     }

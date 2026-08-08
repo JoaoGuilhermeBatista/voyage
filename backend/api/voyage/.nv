@@ -1,0 +1,32 @@
+# ============================================================
+# LUVOY — Backend Spring Boot
+# Copie este arquivo para .env e preencha com os valores reais
+# O arquivo .env NUNCA deve ser commitado no git
+# ============================================================
+
+# PostgreSQL via Supabase
+# Encontrar em: Supabase Dashboard → Settings → Database → Connection string → URI
+SPRING_DATASOURCE_URL=jdbc:postgresql://db.<seu-projeto>.supabase.co:5432/postgres
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=<senha-do-banco>
+
+# JWT Secret do Supabase — DEVE ser igual ao do projeto Supabase (formato base64)
+# Encontrar em: Supabase Dashboard → Settings → API → JWT Settings → JWT Secret
+JWT_SECRET=<jwt-secret-base64>
+
+# Supabase (para chamadas internas: Storage, Edge Functions)
+# Encontrar em: Supabase Dashboard → Settings → API
+SUPABASE_URL=https://<seu-projeto>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+
+# Google Maps Platform
+# console.cloud.google.com → APIs & Services → Credentials → Create API Key
+GOOGLE_MAPS_API_KEY=<google-maps-api-key>
+
+# ExchangeRate-API
+# exchangerate-api.com → Dashboard → Your API Key
+EXCHANGE_RATE_API_KEY=<exchange-rate-api-key>
+
+# OpenAI (geração de conteúdo editorial via Spring AI)
+# platform.openai.com → API Keys
+OPENAI_API_KEY=<openai-api-key>

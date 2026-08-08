@@ -36,9 +36,14 @@ public class BillingService {
                 .orElseThrow(() -> new IllegalStateException("Payload do evento Stripe inválido"));
 
             Session session = (Session) dataObject;
-            String customerEmail = session.getCustomerEmail();
+            String customerEmail = session.getCustomerEmail() != null
+                ? session.getCustomerEmail()
+                : (session.getCustomerDetails() != null ? session.getCustomerDetails().getEmail() : null);
 
-            if (customerEmail == null) return;
+            if (customerEmail == null) {
+                log.warn("Webhook Stripe: checkout.session.completed sem email de cliente — session {}", session.getId());
+                return;
+            }
 
             userRepo.findByEmail(customerEmail).ifPresentOrElse(user -> {
                 user.setPremium(true);
