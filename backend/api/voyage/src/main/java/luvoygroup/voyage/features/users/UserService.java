@@ -26,6 +26,7 @@ public class UserService {
             userRepository.save(User.builder()
                 .id(supabaseId)
                 .email(email)
+                .name(email.split("@")[0])
                 .build())
         );
         return UserProfileDTO.from(user);

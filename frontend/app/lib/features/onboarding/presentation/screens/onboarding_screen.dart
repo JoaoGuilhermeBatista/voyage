@@ -17,15 +17,15 @@ const _budgetOptions = [
 ];
 
 const _rhythmOptions = [
-  _Option(value: 'SLOW', label: 'Tranquilo', icon: Icons.self_improvement_outlined),
-  _Option(value: 'BALANCED', label: 'Equilibrado', icon: Icons.balance_outlined),
+  _Option(value: 'RELAXED', label: 'Tranquilo', icon: Icons.self_improvement_outlined),
+  _Option(value: 'MODERATE', label: 'Equilibrado', icon: Icons.balance_outlined),
   _Option(value: 'INTENSE', label: 'Intenso', icon: Icons.bolt_outlined),
 ];
 
 const _groupTypeOptions = [
   _Option(value: 'SOLO', label: 'Solo', icon: Icons.person_outline),
   _Option(value: 'COUPLE', label: 'Casal', icon: Icons.favorite_border),
-  _Option(value: 'FRIENDS', label: 'Amigos', icon: Icons.group_outlined),
+  _Option(value: 'GROUP', label: 'Amigos', icon: Icons.group_outlined),
   _Option(value: 'FAMILY', label: 'Família', icon: Icons.family_restroom_outlined),
 ];
 
