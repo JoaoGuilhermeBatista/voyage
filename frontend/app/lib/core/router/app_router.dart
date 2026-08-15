@@ -63,15 +63,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // Logado — determinar se onboarding foi concluído.
-      // Prioridade: StateProvider local (atualizado pela tela de onboarding
-      // ou pelo listener do backend acima).
-      // Se o backend ainda está carregando e não temos confirmação local,
-      // não forçamos o redirecionamento para onboarding (evita flash para
-      // usuários já onboardados).
+      // Quando o backend carregou, ele é a fonte de verdade (evita que o
+      // StateProvider de uma sessão anterior confunda um usuário novo).
+      // O StateProvider local serve apenas como fallback durante o loading.
       final backendCompleted =
           userAsync.valueOrNull?.onboardingCompleted ?? false;
-      final effectiveOnboardingCompleted =
-          onboardingCompleted || backendCompleted;
+      final effectiveOnboardingCompleted = backendCompleted ||
+          (userAsync.isLoading && onboardingCompleted);
 
       if (path == '/login') {
         return effectiveOnboardingCompleted ? '/home' : '/onboarding';
