@@ -32,34 +32,34 @@ const _groupTypeOptions = [
 const _interestOptions = [
   'cultura',
   'gastronomia',
-  'praia',
-  'arte',
-  'história',
-  'arquitetura',
   'natureza',
   'moda',
+  'bem-estar',
+  'vida-noturna',
+  'vida-local',
+  'musica',
 ];
 
 const _interestLabels = {
   'cultura': 'Cultura',
   'gastronomia': 'Gastronomia',
-  'praia': 'Praia',
-  'arte': 'Arte',
-  'história': 'História',
-  'arquitetura': 'Arquitetura',
   'natureza': 'Natureza',
   'moda': 'Moda',
+  'bem-estar': 'Bem-estar',
+  'vida-noturna': 'Vida Noturna',
+  'vida-local': 'Vida Local',
+  'musica': 'Música & Shows',
 };
 
 const _interestIcons = {
   'cultura': Icons.museum_outlined,
   'gastronomia': Icons.restaurant_outlined,
-  'praia': Icons.beach_access_outlined,
-  'arte': Icons.palette_outlined,
-  'história': Icons.account_balance_outlined,
-  'arquitetura': Icons.apartment_outlined,
   'natureza': Icons.park_outlined,
   'moda': Icons.checkroom_outlined,
+  'bem-estar': Icons.spa_outlined,
+  'vida-noturna': Icons.local_bar_outlined,
+  'vida-local': Icons.storefront_outlined,
+  'musica': Icons.music_note_outlined,
 };
 
 // ---------------------------------------------------------------------------

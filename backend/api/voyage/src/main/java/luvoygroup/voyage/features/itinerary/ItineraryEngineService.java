@@ -16,6 +16,8 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
+// Trip-specific params (companions, tripBudget, tripVibe) override onboarding prefs when provided.
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -46,19 +48,25 @@ public class ItineraryEngineService {
             .orElseThrow(() -> new ResourceNotFoundException("Destino não encontrado"));
         int dayCount = (int) ChronoUnit.DAYS.between(request.startDate(), request.endDate()) + 1;
 
+        // Effective params: trip-specific overrides onboarding when provided
+        BudgetTier effectiveBudget = request.tripBudget() != null ? request.tripBudget() : prefs.getBudget();
+        GroupType effectiveGroup  = request.companions()  != null ? request.companions()  : prefs.getGroupType();
+        TripVibe  tripVibe        = request.tripVibe();
+
         // Step 3: Filter POIs by budget
         List<Poi> candidates = poiRepo.findActiveByDestinationAndBudget(
-            request.destinationId(), budgetTiers(prefs.getBudget()));
-        if (candidates.size() < 5)
+            request.destinationId(), budgetTiers(effectiveBudget));
+        if (candidates.size() < 8)
             throw new InsufficientContentException(
-                "O destino ainda não tem POIs suficientes para gerar um roteiro. Mínimo: 5.");
+                "O destino ainda não tem POIs suficientes para gerar um roteiro. Mínimo: 8.");
 
         // Steps 4 & 5: Score and sort
         List<Poi> ranked = candidates.stream()
-            .sorted(Comparator.comparingInt((Poi p) -> scoreFor(p, prefs)).reversed())
+            .sorted(Comparator.comparingInt((Poi p) -> scoreFor(p, prefs, effectiveGroup, tripVibe)).reversed())
             .collect(Collectors.toCollection(ArrayList::new));
 
-        log.info("Engine: {} POIs candidatos para {} dias em {}", ranked.size(), dayCount, destination.getName());
+        log.info("Engine: {} POIs candidatos para {} dias em {} [budget={}, group={}, vibe={}]",
+            ranked.size(), dayCount, destination.getName(), effectiveBudget, effectiveGroup, tripVibe);
 
         // Step 6, 7, 8: Distribute, order by proximity, persist
         String title = destination.getName() + " — " + dayCount + (dayCount == 1 ? " dia" : " dias");
@@ -72,8 +80,8 @@ public class ItineraryEngineService {
             .title(title)
             .build());
 
-        List<SlotSpec> slotSpecs = slotSpecs(prefs.getRhythm());
-        Set<UUID> usedIds = new HashSet<>();
+        List<SlotSpec> slotSpecs = slotSpecs(prefs.getRhythm(), tripVibe);
+        Set<UUID> usedIds = new LinkedHashSet<>(); // insertion order = reuse order for long trips
         List<DayDTO> dayDTOs = new ArrayList<>();
 
         for (int d = 0; d < dayCount; d++) {
@@ -116,12 +124,24 @@ public class ItineraryEngineService {
 
     private List<Poi> pickPois(List<Poi> ranked, Set<UUID> usedIds, ItinerarySlot slot, int count) {
         List<Poi> result = new ArrayList<>();
+        // First pass: prefer unused POIs
         for (Poi poi : ranked) {
             if (result.size() >= count) break;
             if (usedIds.contains(poi.getId())) continue;
             if (!isCompatible(poi, slot)) continue;
             result.add(poi);
             usedIds.add(poi.getId());
+        }
+        // Second pass: reuse in insertion order (oldest used first = max gap between repeats)
+        if (result.size() < count) {
+            Map<UUID, Poi> byId = ranked.stream().collect(Collectors.toMap(Poi::getId, p -> p));
+            for (UUID id : usedIds) {
+                if (result.size() >= count) break;
+                Poi poi = byId.get(id);
+                if (poi == null || result.contains(poi)) continue;
+                if (!isCompatible(poi, slot)) continue;
+                result.add(poi);
+            }
         }
         return result;
     }
@@ -135,12 +155,13 @@ public class ItineraryEngineService {
         };
     }
 
-    private int scoreFor(Poi poi, OnboardingPreferences prefs) {
+    private int scoreFor(Poi poi, OnboardingPreferences prefs, GroupType group, TripVibe vibe) {
         int score = 0;
         for (String interest : prefs.getInterests()) {
             if (poi.getTags().contains(interest)) score += 10;
         }
-        score += groupBonus(poi.getCategory(), prefs.getGroupType());
+        score += groupBonus(poi.getCategory(), group);
+        score += vibeBonus(poi.getCategory(), vibe);
         return score;
     }
 
@@ -207,6 +228,27 @@ public class ItineraryEngineService {
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
+    private int vibeBonus(PoiCategory cat, TripVibe vibe) {
+        if (vibe == null) return 0;
+        return switch (vibe) {
+            case ROMANTIC -> switch (cat) {
+                case RESTAURANT -> 8; case BEACH -> 5; default -> 0;
+            };
+            case ADVENTURE -> switch (cat) {
+                case PARK -> 8; case BEACH -> 5; default -> 0;
+            };
+            case CULTURE -> switch (cat) {
+                case MUSEUM -> 8; default -> 0;
+            };
+            case WELLNESS -> switch (cat) {
+                case PARK -> 8; case BEACH -> 5; default -> 0;
+            };
+            case BUSINESS -> switch (cat) {
+                case RESTAURANT -> 5; case SHOPPING -> 3; default -> 0;
+            };
+        };
+    }
+
     private List<BudgetTier> budgetTiers(BudgetTier budget) {
         return switch (budget) {
             case ECONOMY -> List.of(BudgetTier.ECONOMY);
@@ -215,21 +257,26 @@ public class ItineraryEngineService {
         };
     }
 
-    private List<SlotSpec> slotSpecs(TravelRhythm rhythm) {
+    private List<SlotSpec> slotSpecs(TravelRhythm rhythm, TripVibe vibe) {
+        boolean addNightlife = vibe == TripVibe.ROMANTIC || vibe == TripVibe.ADVENTURE;
         return switch (rhythm) {
             case RELAXED -> List.of(
                 new SlotSpec(ItinerarySlot.MORNING, 1),
                 new SlotSpec(ItinerarySlot.AFTERNOON, 1)
             );
-            case MODERATE -> List.of(
-                new SlotSpec(ItinerarySlot.MORNING, 1),
-                new SlotSpec(ItinerarySlot.AFTERNOON, 1),
-                new SlotSpec(ItinerarySlot.EVENING, 1)
-            );
+            case MODERATE -> {
+                List<SlotSpec> specs = new ArrayList<>(List.of(
+                    new SlotSpec(ItinerarySlot.MORNING, 1),
+                    new SlotSpec(ItinerarySlot.AFTERNOON, 1),
+                    new SlotSpec(ItinerarySlot.EVENING, 1)
+                ));
+                if (addNightlife) specs.add(new SlotSpec(ItinerarySlot.EVENING, 1));
+                yield specs;
+            }
             case INTENSE -> List.of(
                 new SlotSpec(ItinerarySlot.MORNING, 1),
                 new SlotSpec(ItinerarySlot.AFTERNOON, 2),
-                new SlotSpec(ItinerarySlot.EVENING, 1)
+                new SlotSpec(ItinerarySlot.EVENING, addNightlife ? 2 : 1)
             );
         };
     }

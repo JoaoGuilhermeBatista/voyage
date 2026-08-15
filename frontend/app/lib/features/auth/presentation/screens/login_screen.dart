@@ -54,7 +54,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
 
     final state = ref.read(authNotifierProvider);
-    if (state.hasError) {
+    if (state.hasError && mounted) {
       final error = state.error;
       setState(() {
         if (error is AuthException) {

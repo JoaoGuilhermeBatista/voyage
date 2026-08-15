@@ -1,0 +1,56 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/api_client.dart';
+import 'itinerary_models.dart';
+
+class ItineraryRepository {
+  final Dio _dio;
+  ItineraryRepository(this._dio);
+
+  Future<List<ItinerarySummaryModel>> fetchAll() async {
+    final response = await _dio.get('/itineraries');
+    return (response.data as List<dynamic>)
+        .map((j) =>
+            ItinerarySummaryModel.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ItineraryModel> fetchById(String id) async {
+    final response = await _dio.get('/itineraries/$id');
+    return ItineraryModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<ItineraryModel> generate({
+    required String destinationId,
+    required DateTime startDate,
+    required DateTime endDate,
+    String? stayArea,
+    String? tripVibe,
+    String? companions,
+    String? tripBudget,
+  }) async {
+    final body = <String, dynamic>{
+      'destinationId': destinationId,
+      'startDate': _formatDate(startDate),
+      'endDate': _formatDate(endDate),
+    };
+    if (stayArea != null) body['stayArea'] = stayArea;
+    if (tripVibe != null) body['tripVibe'] = tripVibe;
+    if (companions != null) body['companions'] = companions;
+    if (tripBudget != null) body['tripBudget'] = tripBudget;
+
+    final response = await _dio.post('/itineraries', data: body);
+    return ItineraryModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> delete(String id) async {
+    await _dio.delete('/itineraries/$id');
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+final itineraryRepositoryProvider = Provider<ItineraryRepository>((ref) {
+  return ItineraryRepository(ref.watch(apiClientProvider).dio);
+});

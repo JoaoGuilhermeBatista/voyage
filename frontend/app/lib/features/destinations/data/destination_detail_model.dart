@@ -8,6 +8,10 @@ class DestinationDetailModel {
   final String? description;
   final String heroImageUrl;
   final String? signature;
+  final String? weatherTemp;
+  final String? weatherCond;
+  final String? sunrise;
+  final String? sunset;
   final List<String> tags;
   final List<DestinationSectionModel> sections;
   final List<PoiModel> pois;
@@ -22,6 +26,10 @@ class DestinationDetailModel {
     this.description,
     required this.heroImageUrl,
     this.signature,
+    this.weatherTemp,
+    this.weatherCond,
+    this.sunrise,
+    this.sunset,
     required this.tags,
     required this.sections,
     required this.pois,
@@ -38,6 +46,10 @@ class DestinationDetailModel {
       description: json['description'] as String?,
       heroImageUrl: json['heroImageUrl'] as String? ?? '',
       signature: json['signature'] as String?,
+      weatherTemp: json['weatherTemp'] as String?,
+      weatherCond: json['weatherCond'] as String?,
+      sunrise: json['sunrise'] as String?,
+      sunset: json['sunset'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       sections: (json['sections'] as List<dynamic>?)
               ?.map((s) => DestinationSectionModel.fromJson(s as Map<String, dynamic>))

@@ -86,7 +86,7 @@ class ItineraryEngineServiceTest {
         when(prefsRepo.findByUserId(userId)).thenReturn(Optional.empty());
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
 
         assertThrows(OnboardingNotCompletedException.class,
             () -> engineService.generate(userId, request));
@@ -102,7 +102,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(List.of(makePoi(BudgetTier.MODERATE), makePoi(BudgetTier.MODERATE)));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
 
         assertThrows(InsufficientContentException.class,
             () -> engineService.generate(userId, request));
@@ -115,7 +115,7 @@ class ItineraryEngineServiceTest {
         ItineraryRequest request = new ItineraryRequest(
             destinationId,
             LocalDate.of(2027, 8, 10),
-            LocalDate.of(2027, 8, 5));
+            LocalDate.of(2027, 8, 5), null, null, null, null);
 
         assertThrows(InvalidDateRangeException.class,
             () -> engineService.generate(userId, request));
@@ -128,7 +128,7 @@ class ItineraryEngineServiceTest {
         ItineraryRequest request = new ItineraryRequest(
             destinationId,
             LocalDate.now().minusDays(1),
-            LocalDate.now().plusDays(3));
+            LocalDate.now().plusDays(3), null, null, null, null);
 
         assertThrows(InvalidDateRangeException.class,
             () -> engineService.generate(userId, request));
@@ -144,7 +144,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(15, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -174,7 +174,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(economyOnly);
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(1));
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(1), null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -194,7 +194,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(15, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -213,7 +213,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(15, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -233,7 +233,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(20, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -252,7 +252,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(10, BudgetTier.MODERATE));
 
         LocalDate today = LocalDate.now().plusDays(1);
-        ItineraryRequest request = new ItineraryRequest(destinationId, today, today);
+        ItineraryRequest request = new ItineraryRequest(destinationId, today, today, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -272,7 +272,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(6, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3));
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
 
         assertDoesNotThrow(() -> engineService.generate(userId, request));
 

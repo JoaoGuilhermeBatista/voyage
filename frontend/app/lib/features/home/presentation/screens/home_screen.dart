@@ -2,10 +2,30 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../../shared/widgets/loading_shimmer.dart';
 import '../../../destinations/data/destination_summary_model.dart';
 import '../../../destinations/presentation/providers/destination_provider.dart';
+
+// Seções temáticas: cada grupo define qual substring de tag deve casar.
+// Se nenhum destino tiver tags suficientes, a seção é omitida automaticamente.
+const _thematicGroups = [
+  _ThemeGroup(key: 'cultura', label: 'Cultura & Arte'),
+  _ThemeGroup(key: 'gastronomia', label: 'Gastronomia'),
+  _ThemeGroup(key: 'moda', label: 'Moda & Design'),
+  _ThemeGroup(key: 'natureza', label: 'Natureza'),
+  _ThemeGroup(key: 'bem-estar', label: 'Bem-estar'),
+  _ThemeGroup(key: 'vida noturna', label: 'Vida Noturna'),
+];
+
+class _ThemeGroup {
+  final String key;
+  final String label;
+  const _ThemeGroup({required this.key, required this.label});
+}
+
+// ---------------------------------------------------------------------------
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -39,16 +59,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SliverToBoxAdapter(child: _buildSearch()),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
             provider.when(
-              data: (destinations) => _buildList(destinations),
-              loading: () => _buildShimmerList(),
+              data: (destinations) => _query.isNotEmpty
+                  ? _buildSearchResults(destinations)
+                  : _buildDiscoveryLayout(destinations),
+              loading: () => _buildShimmer(),
               error: (e, _) => _buildError(e),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
     );
   }
+
+  // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
     return Padding(
@@ -56,10 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Explorar',
-            style: Theme.of(context).textTheme.displayMedium,
-          ),
+          Text('Explorar', style: Theme.of(context).textTheme.displayMedium),
           const SizedBox(height: 4),
           Text(
             'Destinos curados para cada tipo de viagem',
@@ -72,6 +93,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  // ── Search ──────────────────────────────────────────────────────────────────
+
   Widget _buildSearch() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
@@ -80,7 +103,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onChanged: (value) => setState(() => _query = value.trim()),
         decoration: InputDecoration(
           hintText: 'Buscar destino...',
-          hintStyle: TextStyle(color: AppTheme.softBlack.withValues(alpha: 0.35)),
+          hintStyle:
+              TextStyle(color: AppTheme.softBlack.withValues(alpha: 0.35)),
           prefixIcon: Icon(
             Icons.search_rounded,
             color: AppTheme.softBlack.withValues(alpha: 0.4),
@@ -89,7 +113,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           suffixIcon: _query.isNotEmpty
               ? IconButton(
                   icon: Icon(Icons.close_rounded,
-                      color: AppTheme.softBlack.withValues(alpha: 0.4), size: 18),
+                      color: AppTheme.softBlack.withValues(alpha: 0.4),
+                      size: 18),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _query = '');
@@ -101,7 +126,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildList(List<DestinationSummaryModel> destinations) {
+  // ── Discovery layout (no search active) ────────────────────────────────────
+
+  Widget _buildDiscoveryLayout(List<DestinationSummaryModel> destinations) {
+    if (destinations.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 80),
+          child: Center(
+            child: Text(
+              'Nenhum destino disponível',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.softBlack.withValues(alpha: 0.45),
+                  ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final featured = destinations.take(10).toList();
+
+    // Build thematic sections that have at least 2 matching destinations
+    final thematic = <_ThemeGroup, List<DestinationSummaryModel>>{};
+    for (final group in _thematicGroups) {
+      final filtered = destinations.where((d) => d.tags.any(
+            (t) => t.toLowerCase().contains(group.key),
+          )).toList();
+      if (filtered.length >= 2) thematic[group] = filtered;
+    }
+
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          _SectionHeader(title: 'Em Destaque'),
+          const SizedBox(height: 12),
+          _HorizontalCarousel(destinations: featured),
+
+          for (final entry in thematic.entries) ...[
+            const SizedBox(height: 28),
+            _SectionHeader(title: entry.key.label),
+            const SizedBox(height: 12),
+            _HorizontalCarousel(destinations: entry.value),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Search results (vertical) ───────────────────────────────────────────────
+
+  Widget _buildSearchResults(List<DestinationSummaryModel> destinations) {
     if (destinations.isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
@@ -119,12 +196,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, index) => Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: _DestinationCard(destination: destinations[index]),
+            child: _VerticalDestinationCard(destination: destinations[index]),
           ),
           childCount: destinations.length,
         ),
@@ -132,20 +209,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildShimmerList() {
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) => const Padding(
-            padding: EdgeInsets.only(bottom: 16),
-            child: CardShimmer(),
+  // ── Loading ─────────────────────────────────────────────────────────────────
+
+  Widget _buildShimmer() {
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              width: 120,
+              height: 16,
+              decoration: BoxDecoration(
+                color: AppTheme.shimmerBase,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
           ),
-          childCount: 6,
-        ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 260,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              itemCount: 5,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, __) => const SizedBox(
+                width: 200,
+                child: CardShimmer(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  // ── Error ───────────────────────────────────────────────────────────────────
 
   Widget _buildError(Object error) {
     return SliverToBoxAdapter(
@@ -175,14 +277,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-// ── Destination Card ─────────────────────────────────────────────────────────
+// ── Section header ────────────────────────────────────────────────────────────
 
-class _DestinationCard extends StatelessWidget {
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Text(
+        title,
+        style: GoogleFonts.cormorantGaramond(
+          fontSize: 26,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.softBlack,
+          height: 1.2,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Horizontal carousel ───────────────────────────────────────────────────────
+
+class _HorizontalCarousel extends StatelessWidget {
+  final List<DestinationSummaryModel> destinations;
+  const _HorizontalCarousel({required this.destinations});
+
+  static const double _cardWidth = 200;
+  static const double _cardHeight = 268;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _cardHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        clipBehavior: Clip.none,
+        itemCount: destinations.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) => SizedBox(
+          width: _cardWidth,
+          child: _CarouselCard(destination: destinations[index]),
+        ),
+      ),
+    );
+  }
+}
+
+class _CarouselCard extends StatelessWidget {
   final DestinationSummaryModel destination;
+  const _CarouselCard({required this.destination});
 
-  const _DestinationCard({required this.destination});
-
-  static const List<Color> _placeholderColors = [
+  static const List<Color> _placeholders = [
     Color(0xFF2C3E50),
     Color(0xFF34495E),
     Color(0xFF1A252F),
@@ -192,8 +342,133 @@ class _DestinationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final index = destination.slug.codeUnits.fold(0, (a, b) => a + b);
-    final placeholder = _placeholderColors[index % _placeholderColors.length];
+    final colorIndex =
+        destination.slug.codeUnits.fold(0, (a, b) => a + b) %
+            _placeholders.length;
+    final placeholder = _placeholders[colorIndex];
+    final hasImage = destination.heroImageUrl.isNotEmpty;
+
+    return GestureDetector(
+      onTap: () => context.push('/destinos/${destination.slug}'),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Image or placeholder
+            if (hasImage)
+              CachedNetworkImage(
+                imageUrl: destination.heroImageUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(color: placeholder),
+                errorWidget: (_, __, ___) => Container(color: placeholder),
+              )
+            else
+              Container(color: placeholder),
+
+            // Gradient overlay
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.15),
+                    Colors.black.withValues(alpha: 0.78),
+                  ],
+                  stops: const [0.35, 0.6, 1.0],
+                ),
+              ),
+            ),
+
+            // Country badge top-left
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2), width: 0.5),
+                ),
+                child: Text(
+                  destination.country.toUpperCase(),
+                  style: GoogleFonts.manrope(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.0,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+
+            // Name + tagline bottom
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      destination.name,
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      destination.tagline,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.75),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Vertical card (search results only) ──────────────────────────────────────
+
+class _VerticalDestinationCard extends StatelessWidget {
+  final DestinationSummaryModel destination;
+  const _VerticalDestinationCard({required this.destination});
+
+  static const List<Color> _placeholders = [
+    Color(0xFF2C3E50),
+    Color(0xFF34495E),
+    Color(0xFF1A252F),
+    Color(0xFF2E4053),
+    Color(0xFF212F3C),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colorIndex =
+        destination.slug.codeUnits.fold(0, (a, b) => a + b) %
+            _placeholders.length;
+    final placeholder = _placeholders[colorIndex];
     final hasImage = destination.heroImageUrl.isNotEmpty;
 
     return GestureDetector(
@@ -201,22 +476,20 @@ class _DestinationCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: SizedBox(
-          height: 240,
+          height: 220,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Imagem ou placeholder
               if (hasImage)
                 CachedNetworkImage(
                   imageUrl: destination.heroImageUrl,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(color: placeholder),
-                  errorWidget: (context, url, err) => Container(color: placeholder),
+                  placeholder: (_, __) => Container(color: placeholder),
+                  errorWidget: (_, __, ___) => Container(color: placeholder),
                 )
               else
                 Container(color: placeholder),
 
-              // Gradiente overlay
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -232,13 +505,12 @@ class _DestinationCard extends StatelessWidget {
                 ),
               ),
 
-              // Badge país
               Positioned(
-                top: 16,
+                top: 14,
                 left: 16,
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.35),
                     borderRadius: BorderRadius.circular(20),
@@ -255,13 +527,12 @@ class _DestinationCard extends StatelessWidget {
                 ),
               ),
 
-              // Conteúdo inferior
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -272,26 +543,22 @@ class _DestinationCard extends StatelessWidget {
                             .textTheme
                             .displayMedium
                             ?.copyWith(
-                              fontSize: 28,
+                              fontSize: 26,
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
                             ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         destination.tagline,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                  height: 1.4,
-                                ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              height: 1.4,
+                              fontSize: 13,
+                            ),
                       ),
-                      if (destination.tags.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        _buildTags(context),
-                      ],
                     ],
                   ),
                 ),
@@ -300,35 +567,6 @@ class _DestinationCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTags(BuildContext context) {
-    final visible = destination.tags.take(3).toList();
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      children: visible
-          .map(
-            (tag) => Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.goldenOrange.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: AppTheme.goldenOrange.withValues(alpha: 0.5), width: 0.5),
-              ),
-              child: Text(
-                tag,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-              ),
-            ),
-          )
-          .toList(),
     );
   }
 }

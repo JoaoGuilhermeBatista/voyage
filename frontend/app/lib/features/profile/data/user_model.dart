@@ -4,6 +4,10 @@ class UserModel {
   final String? avatarUrl;
   final bool onboardingCompleted;
   final bool isPremium;
+  final String? budget;
+  final String? rhythm;
+  final String? groupType;
+  final List<String> interests;
 
   const UserModel({
     required this.id,
@@ -11,6 +15,10 @@ class UserModel {
     this.avatarUrl,
     required this.onboardingCompleted,
     required this.isPremium,
+    this.budget,
+    this.rhythm,
+    this.groupType,
+    this.interests = const [],
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -20,6 +28,10 @@ class UserModel {
       avatarUrl: json['avatarUrl'] as String?,
       onboardingCompleted: json['onboardingCompleted'] as bool? ?? false,
       isPremium: json['isPremium'] as bool? ?? false,
+      budget: json['budget'] as String?,
+      rhythm: json['rhythm'] as String?,
+      groupType: json['groupType'] as String?,
+      interests: (json['interests'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 }

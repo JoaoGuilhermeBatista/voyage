@@ -29,7 +29,8 @@ public class UserService {
                 .name(email.split("@")[0])
                 .build())
         );
-        return UserProfileDTO.from(user);
+        OnboardingPreferences prefs = prefsRepository.findByUserId(user.getId()).orElse(null);
+        return UserProfileDTO.fromUserAndPrefs(user, prefs);
     }
 
     @Transactional
