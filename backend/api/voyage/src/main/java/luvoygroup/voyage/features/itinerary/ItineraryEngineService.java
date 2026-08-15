@@ -135,12 +135,19 @@ public class ItineraryEngineService {
         // Second pass: reuse in insertion order (oldest used first = max gap between repeats)
         if (result.size() < count) {
             Map<UUID, Poi> byId = ranked.stream().collect(Collectors.toMap(Poi::getId, p -> p));
-            for (UUID id : usedIds) {
+            List<UUID> toRefresh = new ArrayList<>();
+            for (UUID id : new ArrayList<>(usedIds)) {
                 if (result.size() >= count) break;
                 Poi poi = byId.get(id);
                 if (poi == null || result.contains(poi)) continue;
                 if (!isCompatible(poi, slot)) continue;
                 result.add(poi);
+                toRefresh.add(id);
+            }
+            // Move reused POIs to end so they're last to be picked again next time
+            for (UUID id : toRefresh) {
+                usedIds.remove(id);
+                usedIds.add(id);
             }
         }
         return result;

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../data/itinerary_models.dart';
+import '../../data/itinerary_repository.dart';
 import '../providers/itinerary_provider.dart';
 
 class ItineraryScreen extends ConsumerWidget {
@@ -146,12 +147,47 @@ class _ItineraryBody extends StatelessWidget {
 
 // ── Hero app bar ──────────────────────────────────────────────────────────────
 
-class _HeroAppBar extends StatelessWidget {
+class _HeroAppBar extends ConsumerWidget {
   final ItineraryModel itinerary;
   const _HeroAppBar({required this.itinerary});
 
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir roteiro'),
+        content: const Text('Tem certeza que deseja excluir este roteiro? Esta ação não pode ser desfeita.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(itineraryRepositoryProvider).delete(itinerary.id);
+      ref.invalidate(itinerariesProvider);
+      if (context.mounted) context.pop();
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível excluir o roteiro.')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final hasImage = itinerary.destinationHeroImageUrl.isNotEmpty;
 
     return SliverAppBar(
@@ -171,6 +207,34 @@ class _HeroAppBar extends StatelessWidget {
           ),
         ),
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: CircleAvatar(
+            backgroundColor: Colors.black.withValues(alpha: 0.35),
+            child: PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+              padding: EdgeInsets.zero,
+              color: AppTheme.background,
+              onSelected: (value) {
+                if (value == 'delete') _confirmDelete(context, ref);
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                      SizedBox(width: 8),
+                      Text('Excluir roteiro', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.parallax,
         background: Stack(
