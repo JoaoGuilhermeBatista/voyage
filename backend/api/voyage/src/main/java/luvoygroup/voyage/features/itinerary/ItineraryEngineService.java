@@ -258,9 +258,9 @@ public class ItineraryEngineService {
 
     private List<BudgetTier> budgetTiers(BudgetTier budget) {
         return switch (budget) {
-            case ECONOMY -> List.of(BudgetTier.ECONOMY);
+            case ECONOMY  -> List.of(BudgetTier.ECONOMY, BudgetTier.MODERATE);
             case MODERATE -> List.of(BudgetTier.ECONOMY, BudgetTier.MODERATE);
-            case LUXURY -> List.of(BudgetTier.ECONOMY, BudgetTier.MODERATE, BudgetTier.LUXURY);
+            case LUXURY   -> List.of(BudgetTier.ECONOMY, BudgetTier.MODERATE, BudgetTier.LUXURY);
         };
     }
 
