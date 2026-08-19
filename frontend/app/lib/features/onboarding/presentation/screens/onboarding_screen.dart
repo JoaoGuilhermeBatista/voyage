@@ -4,79 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../profile/presentation/providers/user_provider.dart';
-
-// ---------------------------------------------------------------------------
-// Constantes de domínio
-// ---------------------------------------------------------------------------
-
-const _budgetOptions = [
-  _Option(value: 'ECONOMY', label: 'Econômico', icon: Icons.savings_outlined),
-  _Option(
-      value: 'MODERATE', label: 'Moderado', icon: Icons.account_balance_wallet_outlined),
-  _Option(value: 'LUXURY', label: 'Luxo', icon: Icons.diamond_outlined),
-];
-
-const _rhythmOptions = [
-  _Option(value: 'RELAXED', label: 'Tranquilo', icon: Icons.self_improvement_outlined),
-  _Option(value: 'MODERATE', label: 'Equilibrado', icon: Icons.balance_outlined),
-  _Option(value: 'INTENSE', label: 'Intenso', icon: Icons.bolt_outlined),
-];
-
-const _groupTypeOptions = [
-  _Option(value: 'SOLO', label: 'Solo', icon: Icons.person_outline),
-  _Option(value: 'COUPLE', label: 'Casal', icon: Icons.favorite_border),
-  _Option(value: 'GROUP', label: 'Amigos', icon: Icons.group_outlined),
-  _Option(value: 'FAMILY', label: 'Família', icon: Icons.family_restroom_outlined),
-];
-
-const _interestOptions = [
-  'cultura',
-  'gastronomia',
-  'natureza',
-  'moda',
-  'bem-estar',
-  'vida-noturna',
-  'vida-local',
-  'musica',
-];
-
-const _interestLabels = {
-  'cultura': 'Cultura',
-  'gastronomia': 'Gastronomia',
-  'natureza': 'Natureza',
-  'moda': 'Moda',
-  'bem-estar': 'Bem-estar',
-  'vida-noturna': 'Vida Noturna',
-  'vida-local': 'Vida Local',
-  'musica': 'Música & Shows',
-};
-
-const _interestIcons = {
-  'cultura': Icons.museum_outlined,
-  'gastronomia': Icons.restaurant_outlined,
-  'natureza': Icons.park_outlined,
-  'moda': Icons.checkroom_outlined,
-  'bem-estar': Icons.spa_outlined,
-  'vida-noturna': Icons.local_bar_outlined,
-  'vida-local': Icons.storefront_outlined,
-  'musica': Icons.music_note_outlined,
-};
-
-// ---------------------------------------------------------------------------
-// Modelo auxiliar imutável para as opções
-// ---------------------------------------------------------------------------
-
-class _Option {
-  final String value;
-  final String label;
-  final IconData icon;
-
-  const _Option({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
-}
+import '../widgets/preference_steps.dart';
 
 // ---------------------------------------------------------------------------
 // Tela de Onboarding
@@ -150,6 +78,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // Marca onboarding concluído no StateProvider do router
       ref.read(onboardingCompletedProvider.notifier).state = true;
 
+      // Recarrega o userProvider e aguarda para que o backend já esteja
+      // "fresco" (onboardingCompleted = true) quando o redirect do GoRouter
+      // rodar — senão ele vê o valor antigo em cache e manda de volta pro
+      // onboarding mesmo com a navegação para /home já disparada.
+      ref.invalidate(userProvider);
+      await ref.read(userProvider.future);
+
       if (mounted) {
         context.go('/home');
       }
@@ -185,19 +120,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (index) => setState(() => _currentPage = index),
                 children: [
-                  _BudgetStep(
+                  BudgetStep(
                     selected: _budget,
                     onSelected: (v) => setState(() => _budget = v),
                   ),
-                  _RhythmStep(
+                  RhythmStep(
                     selected: _rhythm,
                     onSelected: (v) => setState(() => _rhythm = v),
                   ),
-                  _GroupTypeStep(
+                  GroupTypeStep(
                     selected: _groupType,
                     onSelected: (v) => setState(() => _groupType = v),
                   ),
-                  _InterestsStep(
+                  InterestsStep(
                     selected: _interests,
                     onToggle: (v) => setState(() {
                       if (_interests.contains(v)) {
@@ -284,333 +219,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                 ),
         ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Etapa 1 — Orçamento
-// ---------------------------------------------------------------------------
-
-class _BudgetStep extends StatelessWidget {
-  final String? selected;
-  final ValueChanged<String> onSelected;
-
-  const _BudgetStep({required this.selected, required this.onSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return _StepScaffold(
-      stepNumber: '01',
-      title: 'Qual é o seu\norçamento de viagem?',
-      subtitle: 'Nos ajude a personalizar os melhores destinos para você.',
-      child: Column(
-        children: _budgetOptions
-            .map((opt) => _SelectionCard(
-                  option: opt,
-                  isSelected: selected == opt.value,
-                  onTap: () => onSelected(opt.value),
-                ))
-            .toList(),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Etapa 2 — Ritmo de viagem
-// ---------------------------------------------------------------------------
-
-class _RhythmStep extends StatelessWidget {
-  final String? selected;
-  final ValueChanged<String> onSelected;
-
-  const _RhythmStep({required this.selected, required this.onSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return _StepScaffold(
-      stepNumber: '02',
-      title: 'Como você prefere\nexplorar um destino?',
-      subtitle: 'Defina o ritmo ideal para as suas aventuras.',
-      child: Column(
-        children: _rhythmOptions
-            .map((opt) => _SelectionCard(
-                  option: opt,
-                  isSelected: selected == opt.value,
-                  onTap: () => onSelected(opt.value),
-                ))
-            .toList(),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Etapa 3 — Tipo de grupo
-// ---------------------------------------------------------------------------
-
-class _GroupTypeStep extends StatelessWidget {
-  final String? selected;
-  final ValueChanged<String> onSelected;
-
-  const _GroupTypeStep({required this.selected, required this.onSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return _StepScaffold(
-      stepNumber: '03',
-      title: 'Com quem você\ncostuma viajar?',
-      subtitle: 'Vamos sugerir experiências para o seu estilo de grupo.',
-      child: GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.3,
-        children: _groupTypeOptions
-            .map((opt) => _SelectionCard(
-                  option: opt,
-                  isSelected: selected == opt.value,
-                  onTap: () => onSelected(opt.value),
-                  isCompact: true,
-                ))
-            .toList(),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Etapa 4 — Interesses
-// ---------------------------------------------------------------------------
-
-class _InterestsStep extends StatelessWidget {
-  final Set<String> selected;
-  final ValueChanged<String> onToggle;
-
-  const _InterestsStep({required this.selected, required this.onToggle});
-
-  @override
-  Widget build(BuildContext context) {
-    return _StepScaffold(
-      stepNumber: '04',
-      title: 'O que mais te\nencanta em viagens?',
-      subtitle: 'Escolha quantos quiser. Podemos personalizar ainda mais.',
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: _interestOptions.map((interest) {
-          final isSelected = selected.contains(interest);
-          return GestureDetector(
-            onTap: () => onToggle(interest),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? AppTheme.goldenOrange.withAlpha(26) : AppTheme.softWhite,
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(
-                  color: isSelected ? AppTheme.goldenOrange : const Color(0xFFE8E4DC),
-                  width: isSelected ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _interestIcons[interest] ?? Icons.star_outline,
-                    size: 16,
-                    color: isSelected ? AppTheme.goldenOrange : AppTheme.softBlack,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    _interestLabels[interest] ?? interest,
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected ? AppTheme.goldenOrange : AppTheme.softBlack,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Layout base de cada etapa
-// ---------------------------------------------------------------------------
-
-class _StepScaffold extends StatelessWidget {
-  final String stepNumber;
-  final String title;
-  final String subtitle;
-  final Widget child;
-
-  const _StepScaffold({
-    required this.stepNumber,
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
-          Text(
-            stepNumber,
-            style: GoogleFonts.manrope(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2,
-              color: AppTheme.goldenOrange,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 32,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.softBlack,
-              height: 1.15,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: GoogleFonts.manrope(
-              fontSize: 14,
-              color: const Color(0xFF666666),
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 28),
-          child,
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Card de seleção única (orçamento, ritmo, grupo)
-// ---------------------------------------------------------------------------
-
-class _SelectionCard extends StatelessWidget {
-  final _Option option;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool isCompact;
-
-  const _SelectionCard({
-    required this.option,
-    required this.isSelected,
-    required this.onTap,
-    this.isCompact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: double.infinity,
-        margin: isCompact
-            ? EdgeInsets.zero
-            : const EdgeInsets.only(bottom: 12),
-        padding: EdgeInsets.symmetric(
-          horizontal: isCompact ? 12 : 20,
-          vertical: isCompact ? 12 : 16,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.goldenOrange.withAlpha(26)
-              : AppTheme.softWhite,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppTheme.goldenOrange : const Color(0xFFE8E4DC),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: isCompact
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    option.icon,
-                    size: 28,
-                    color: isSelected
-                        ? AppTheme.goldenOrange
-                        : AppTheme.primaryBlue,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    option.label,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.manrope(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected
-                          ? AppTheme.goldenOrange
-                          : AppTheme.softBlack,
-                    ),
-                  ),
-                ],
-              )
-            : Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppTheme.goldenOrange.withAlpha(51)
-                          : AppTheme.background,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      option.icon,
-                      size: 22,
-                      color: isSelected
-                          ? AppTheme.goldenOrange
-                          : AppTheme.primaryBlue,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    option.label,
-                    style: GoogleFonts.manrope(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected
-                          ? AppTheme.goldenOrange
-                          : AppTheme.softBlack,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (isSelected)
-                    const Icon(
-                      Icons.check_circle_rounded,
-                      color: AppTheme.goldenOrange,
-                      size: 22,
-                    ),
-                ],
-              ),
       ),
     );
   }

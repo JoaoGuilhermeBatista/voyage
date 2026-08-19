@@ -2,6 +2,7 @@ package luvoygroup.voyage.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -74,6 +75,12 @@ public class GlobalExceptionHandler {
             .orElse("Dados inválidos");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse("BAD_REQUEST", message, 400));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleMessageNotReadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("BAD_REQUEST", "Dados inválidos", 400));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

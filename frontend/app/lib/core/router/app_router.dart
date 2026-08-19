@@ -13,6 +13,7 @@ import '../../features/itinerary/presentation/screens/itinerary_screen.dart';
 import '../../features/destinations/presentation/screens/destination_screen.dart';
 import '../../features/favorites/presentation/screens/favorites_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/profile/presentation/screens/edit_preferences_screen.dart';
 import '../../features/profile/presentation/providers/user_provider.dart';
 import '../../shared/widgets/scaffold_with_nav_bar.dart';
 
@@ -112,6 +113,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ItineraryScreen(
           id: state.pathParameters['id']!,
         ),
+      ),
+      GoRoute(
+        path: '/perfil/preferencias',
+        builder: (context, state) => const EditPreferencesScreen(),
       ),
 
       // Shell — 5 abas com bottom nav bar
