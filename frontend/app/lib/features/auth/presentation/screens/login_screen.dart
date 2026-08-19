@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/themes/app_theme.dart';
+import '../../../../core/utils/validators.dart';
 import '../providers/auth_provider.dart';
+
+const _mensagemConfirmacaoPendente =
+    'Enviamos um email de confirmação. Verifique sua caixa de entrada antes '
+    'de entrar.';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -18,12 +23,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   String? _errorMessage;
+  String? _infoMessage;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() => _errorMessage = null));
+    _tabController.addListener(() => setState(() {
+          _errorMessage = null;
+          _infoMessage = null;
+        }));
   }
 
   @override
@@ -35,7 +44,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _submit() async {
-    setState(() => _errorMessage = null);
+    setState(() {
+      _errorMessage = null;
+      _infoMessage = null;
+    });
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -45,9 +57,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       return;
     }
 
-    final notifier = ref.read(authNotifierProvider.notifier);
+    final emailError = validateEmail(email);
+    if (emailError != null) {
+      setState(() => _errorMessage = emailError);
+      return;
+    }
 
-    if (_tabController.index == 0) {
+    final notifier = ref.read(authNotifierProvider.notifier);
+    final isSignUp = _tabController.index != 0;
+
+    if (!isSignUp) {
       await notifier.signIn(email, password);
     } else {
       await notifier.signUp(email, password);
@@ -63,6 +82,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           _errorMessage = 'Ocorreu um erro. Tente novamente.';
         }
       });
+    } else if (isSignUp && mounted) {
+      try {
+        final currentSession = ref.read(supabaseProvider).auth.currentSession;
+        if (currentSession == null) {
+          setState(() => _infoMessage = _mensagemConfirmacaoPendente);
+        }
+      } catch (_) {
+        // supabaseProvider não disponível/inicializado (ex.: cenário de
+        // teste sem mock de SupabaseClient) — nada a reportar aqui.
+      }
     }
   }
 
@@ -103,6 +132,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
                 _buildError(),
+              ],
+              if (_infoMessage != null) ...[
+                const SizedBox(height: 16),
+                _buildInfo(),
               ],
               const SizedBox(height: 24),
               _buildSubmitButton(isLoading),
@@ -236,6 +269,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               _errorMessage!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: const Color(0xFFB00020),
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfo() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.mark_email_read_outlined,
+              color: AppTheme.primaryBlue, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _infoMessage!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.primaryBlue,
                   ),
             ),
           ),
