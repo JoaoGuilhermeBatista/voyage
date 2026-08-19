@@ -267,9 +267,11 @@ class ItineraryEngineServiceTest {
         OnboardingPreferences intense = prefsWithRhythm(TravelRhythm.INTENSE);
         when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(intense));
         when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
-        // Apenas 6 POIs para 3 dias com ritmo INTENSE (precisaria de 12)
+        // Apenas 9 POIs para 3 dias com ritmo INTENSE (precisaria de 12) — acima do
+        // mínimo global de 8 (ver ItineraryEngineService.generate), mas ainda
+        // insuficiente para cobrir todos os slots sem reuso.
         when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
-            .thenReturn(makePoiList(6, BudgetTier.MODERATE));
+            .thenReturn(makePoiList(9, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
             destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
