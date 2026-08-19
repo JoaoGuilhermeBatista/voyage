@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
+import '../../../currency/presentation/providers/currency_provider.dart';
 import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
 import '../providers/itinerary_provider.dart';
@@ -126,6 +127,8 @@ class _ItineraryBody extends StatelessWidget {
                         color: AppTheme.softBlack.withValues(alpha: 0.5),
                       ),
                 ),
+                const SizedBox(height: 12),
+                const _CurrencyRatesBar(),
               ],
             ),
           ),
@@ -141,6 +144,53 @@ class _ItineraryBody extends StatelessWidget {
         ],
         const SliverToBoxAdapter(child: SizedBox(height: 48)),
       ],
+    );
+  }
+}
+
+// ── Currency rates bar ───────────────────────────────────────────────────────
+//
+// Indicador discreto do câmbio do dia (EUR/USD/GBP → BRL), útil para
+// orçamento de viagem. Fallback gracioso: enquanto carrega ou se a chamada
+// falhar, a seção simplesmente não aparece — nunca quebra a tela.
+
+class _CurrencyRatesBar extends ConsumerWidget {
+  const _CurrencyRatesBar();
+
+  String _fmt(double value) => value.toStringAsFixed(2).replaceAll('.', ',');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ratesAsync = ref.watch(currencyRatesProvider);
+
+    return ratesAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (rates) {
+        final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppTheme.softBlack.withValues(alpha: 0.5),
+            );
+        return Row(
+          children: [
+            Icon(
+              Icons.currency_exchange,
+              size: 13,
+              color: AppTheme.softBlack.withValues(alpha: 0.35),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Câmbio hoje: 1 EUR = R\$ ${_fmt(rates.eurToBrl)} · '
+                '1 USD = R\$ ${_fmt(rates.usdToBrl)} · '
+                '1 GBP = R\$ ${_fmt(rates.gbpToBrl)}',
+                style: style,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
