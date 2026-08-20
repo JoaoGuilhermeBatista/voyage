@@ -6,6 +6,8 @@ import jakarta.validation.Valid;
 import luvoygroup.voyage.features.admin.dto.BatchGenerationReport;
 import luvoygroup.voyage.features.admin.dto.GenerateDestinationRequest;
 import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
+import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
+import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -46,5 +48,19 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.generatePoisBatch());
+    }
+
+    @PostMapping("/destinations/{slug}/itinerary-templates/generate")
+    @Operation(summary = "Gera um novo template de roteiro para o destino via GPT-4o, escolhendo apenas entre POIs reais já cadastrados")
+    public ResponseEntity<ItineraryTemplateDTO> generateItineraryTemplate(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token,
+        @PathVariable String slug,
+        @Valid @RequestBody GenerateTemplateRequest request
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(adminService.generateItineraryTemplate(slug, request));
     }
 }

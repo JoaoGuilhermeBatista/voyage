@@ -6,6 +6,9 @@ import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.domain.enums.PoiCategory;
 import luvoygroup.voyage.features.admin.dto.*;
 import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
+import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
+import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
+import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
 import luvoygroup.voyage.repository.DestinationRepository;
 import luvoygroup.voyage.repository.PoiRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,7 @@ public class AdminService {
     private final LlmService llmService;
     private final DestinationRepository destinationRepo;
     private final PoiRepository poiRepo;
+    private final ItineraryTemplateService itineraryTemplateService;
 
     @Transactional
     public DestinationSummaryDTO generateAndSaveDestination(GenerateDestinationRequest request) {
@@ -122,6 +126,10 @@ public class AdminService {
             log.warn("POI ignorado (dados inválidos): {} — {}", gp.title(), e.getMessage());
             return null;
         }
+    }
+
+    public ItineraryTemplateDTO generateItineraryTemplate(String slug, GenerateTemplateRequest request) {
+        return itineraryTemplateService.generateForDestination(slug, request.durationDays(), request.budgetTier());
     }
 
     private LocalTime parseTime(String time) {
