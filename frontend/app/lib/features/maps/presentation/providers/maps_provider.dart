@@ -1,0 +1,35 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/services/api_client.dart';
+import '../../data/maps_models.dart';
+import '../../data/maps_repository.dart';
+
+final mapsRepositoryProvider = Provider<MapsRepository>((ref) {
+  return MapsRepository(ref.watch(apiClientProvider));
+});
+
+/// Rota entre dois pontos via GET /api/v1/maps/directions. Chave da family
+/// é (originLat, originLng, destLat, destLng) — um record posicional do
+/// Dart 3, então duas chamadas com as mesmas coordenadas reaproveitam o
+/// mesmo Future (mesmo padrão de cache de currencyRatesProvider).
+final directionsProvider = FutureProvider.family<
+    DirectionsModel, (double originLat, double originLng, double destLat, double destLng)>(
+  (ref, coords) async {
+    final repository = ref.watch(mapsRepositoryProvider);
+    return repository.getDirections(
+      originLat: coords.$1,
+      originLng: coords.$2,
+      destLat: coords.$3,
+      destLng: coords.$4,
+    );
+  },
+);
+
+/// URL de embed para um ponto via GET /api/v1/maps/embed-url. Chave da
+/// family é (lat, lng).
+final embedUrlProvider =
+    FutureProvider.family<EmbedUrlModel, (double lat, double lng)>(
+  (ref, coords) async {
+    final repository = ref.watch(mapsRepositoryProvider);
+    return repository.getEmbedUrl(lat: coords.$1, lng: coords.$2);
+  },
+);

@@ -26,6 +26,10 @@ jwt:
 exchange-rate:
   api-key: not-configured
 
+google:
+  maps:
+    api-key: not-configured
+
 stripe:
   webhook-secret: not-configured
 

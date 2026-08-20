@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../currency/presentation/providers/currency_provider.dart';
+import '../../../maps/presentation/widgets/open_in_maps_button.dart';
 import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
 import '../providers/itinerary_provider.dart';
@@ -622,6 +623,11 @@ class _ActivityTile extends ConsumerWidget {
                               ),
                         ),
                       ),
+                      if (poi.latitude != null && poi.longitude != null)
+                        OpenInMapsButton(
+                          lat: poi.latitude!,
+                          lng: poi.longitude!,
+                        ),
                     ],
                   ),
                 ],

@@ -125,6 +125,8 @@ class PoiDetailModel {
   final List<String> images;
   final String budgetTier;
   final int? averageDurationMinutes;
+  final double? latitude;
+  final double? longitude;
 
   const PoiDetailModel({
     required this.id,
@@ -135,6 +137,8 @@ class PoiDetailModel {
     this.images = const [],
     required this.budgetTier,
     this.averageDurationMinutes,
+    this.latitude,
+    this.longitude,
   });
 
   factory PoiDetailModel.fromJson(Map<String, dynamic> json) {
@@ -150,6 +154,8 @@ class PoiDetailModel {
           const [],
       budgetTier: json['budgetTier'] as String,
       averageDurationMinutes: json['averageDurationMinutes'] as int?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 }
