@@ -47,6 +47,25 @@ class ItineraryRepository {
     await _dio.delete('/itineraries/$id');
   }
 
+  Future<List<PoiDetailModel>> getAlternatives(
+      String itineraryId, String activityId) async {
+    final response = await _dio
+        .get('/itineraries/$itineraryId/activities/$activityId/alternatives');
+    return (response.data as List<dynamic>)
+        .map((j) => PoiDetailModel.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ItineraryActivityModel> substituteActivity(
+      String itineraryId, String activityId, String poiId) async {
+    final response = await _dio.patch(
+      '/itineraries/$itineraryId/activities/$activityId',
+      data: {'poiId': poiId},
+    );
+    return ItineraryActivityModel.fromJson(
+        response.data as Map<String, dynamic>);
+  }
+
   String _formatDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

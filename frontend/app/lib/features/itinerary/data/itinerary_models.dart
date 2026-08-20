@@ -122,6 +122,7 @@ class PoiDetailModel {
   final String category;
   final String? description;
   final String? address;
+  final List<String> images;
   final String budgetTier;
   final int? averageDurationMinutes;
 
@@ -131,6 +132,7 @@ class PoiDetailModel {
     required this.category,
     this.description,
     this.address,
+    this.images = const [],
     required this.budgetTier,
     this.averageDurationMinutes,
   });
@@ -142,6 +144,10 @@ class PoiDetailModel {
       category: json['category'] as String,
       description: json['description'] as String?,
       address: json['address'] as String?,
+      images: (json['images'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
       budgetTier: json['budgetTier'] as String,
       averageDurationMinutes: json['averageDurationMinutes'] as int?,
     );

@@ -138,6 +138,7 @@ class _ItineraryBody extends StatelessWidget {
           for (final slot in const ['MORNING', 'AFTERNOON', 'EVENING'])
             if (day.activitiesForSlot(slot).isNotEmpty)
               _SlotSection(
+                itineraryId: itinerary.id,
                 slot: slot,
                 activities: day.activitiesForSlot(slot),
               ),
@@ -361,9 +362,14 @@ class _DayHeader extends StatelessWidget {
 // ── Slot section ──────────────────────────────────────────────────────────────
 
 class _SlotSection extends StatelessWidget {
+  final String itineraryId;
   final String slot;
   final List<ItineraryActivityModel> activities;
-  const _SlotSection({required this.slot, required this.activities});
+  const _SlotSection({
+    required this.itineraryId,
+    required this.slot,
+    required this.activities,
+  });
 
   static const _slotLabels = {
     'MORNING': 'Manhã',
@@ -403,7 +409,9 @@ class _SlotSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            ...activities.map((a) => _ActivityTile(activity: a)),
+            ...activities.map(
+              (a) => _ActivityTile(itineraryId: itineraryId, activity: a),
+            ),
           ],
         ),
       ),
@@ -413,9 +421,10 @@ class _SlotSection extends StatelessWidget {
 
 // ── Activity tile ─────────────────────────────────────────────────────────────
 
-class _ActivityTile extends StatelessWidget {
+class _ActivityTile extends ConsumerWidget {
+  final String itineraryId;
   final ItineraryActivityModel activity;
-  const _ActivityTile({required this.activity});
+  const _ActivityTile({required this.itineraryId, required this.activity});
 
   static const _categoryLabels = {
     'MUSEUM': 'Museu',
@@ -433,8 +442,23 @@ class _ActivityTile extends StatelessWidget {
     'LUXURY': '€€€',
   };
 
+  void _openEditSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AlternativesSheet(
+        itineraryId: itineraryId,
+        activity: activity,
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final poi = activity.poi;
     final categoryLabel =
         _categoryLabels[poi.category] ?? poi.category;
@@ -466,6 +490,45 @@ class _ActivityTile extends StatelessWidget {
                     ),
               ),
             ),
+          ),
+          const SizedBox(width: 12),
+
+          // Thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: poi.images.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: poi.images.first,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    placeholder: (_, _) => ColoredBox(
+                      color: AppTheme.shimmerBase,
+                      child: const SizedBox(width: 56, height: 56),
+                    ),
+                    errorWidget: (_, _, _) => ColoredBox(
+                      color: AppTheme.shimmerBase,
+                      child: SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: Icon(
+                          Icons.image_outlined,
+                          color: AppTheme.softBlack.withValues(alpha: 0.3),
+                        ),
+                      ),
+                    ),
+                  )
+                : ColoredBox(
+                    color: AppTheme.shimmerBase,
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: Icon(
+                        Icons.image_outlined,
+                        color: AppTheme.softBlack.withValues(alpha: 0.3),
+                      ),
+                    ),
+                  ),
           ),
           const SizedBox(width: 12),
 
@@ -565,7 +628,301 @@ class _ActivityTile extends StatelessWidget {
               ],
             ),
           ),
+          IconButton(
+            icon: Icon(
+              Icons.edit_outlined,
+              size: 20,
+              color: AppTheme.softBlack.withValues(alpha: 0.45),
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => _openEditSheet(context, ref),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Alternatives bottom sheet ────────────────────────────────────────────────
+//
+// Aberto ao tocar no ícone de editar de um _ActivityTile. Busca até 3 POIs
+// alternativos da mesma categoria e permite trocar o POI da atividade.
+//
+// Decisões de UX confirmadas:
+// 1. Erro ao buscar alternativas → mensagem de erro dentro do próprio sheet
+//    (não fecha), com botão "Tentar novamente".
+// 2. Seleção de alternativa → o card inteiro é tocável (tap já seleciona e
+//    dispara a troca, sem botão "Escolher" separado).
+// 3. Erro ao trocar (substitute) → mantém o sheet aberto, mostra snackbar de
+//    erro, permite tentar de novo sem refazer a busca.
+
+class _AlternativesSheet extends ConsumerStatefulWidget {
+  final String itineraryId;
+  final ItineraryActivityModel activity;
+  const _AlternativesSheet({
+    required this.itineraryId,
+    required this.activity,
+  });
+
+  @override
+  ConsumerState<_AlternativesSheet> createState() =>
+      _AlternativesSheetState();
+}
+
+class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
+  bool _loading = true;
+  String? _error;
+  List<PoiDetailModel> _alternatives = const [];
+  String? _substitutingPoiId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAlternatives();
+  }
+
+  Future<void> _loadAlternatives() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final result = await ref
+          .read(itineraryRepositoryProvider)
+          .getAlternatives(widget.itineraryId, widget.activity.id);
+      if (!mounted) return;
+      setState(() {
+        _alternatives = result;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Não foi possível carregar as alternativas.';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _selectAlternative(PoiDetailModel poi) async {
+    if (_substitutingPoiId != null) return;
+    setState(() => _substitutingPoiId = poi.id);
+    try {
+      await ref.read(itineraryRepositoryProvider).substituteActivity(
+            widget.itineraryId,
+            widget.activity.id,
+            poi.id,
+          );
+      if (!mounted) return;
+      ref.invalidate(itineraryDetailProvider(widget.itineraryId));
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _substitutingPoiId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível trocar o local.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Trocar local',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 24,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.softBlack,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildContent(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: CircularProgressIndicator(color: AppTheme.primaryBlue)),
+      );
+    }
+
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(fontSize: 15, color: AppTheme.softBlack),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadAlternatives,
+              child: const Text('Tentar novamente'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_alternatives.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Text(
+          'Nenhuma alternativa encontrada para esta categoria.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.manrope(
+            fontSize: 15,
+            color: AppTheme.softBlack.withValues(alpha: 0.6),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final poi in _alternatives) _AlternativeCard(
+          poi: poi,
+          isSubstituting: _substitutingPoiId == poi.id,
+          disabled: _substitutingPoiId != null,
+          onTap: () => _selectAlternative(poi),
+        ),
+      ],
+    );
+  }
+}
+
+class _AlternativeCard extends StatelessWidget {
+  final PoiDetailModel poi;
+  final bool isSubstituting;
+  final bool disabled;
+  final VoidCallback onTap;
+
+  static const _categoryLabels = {
+    'MUSEUM': 'Museu',
+    'RESTAURANT': 'Restaurante',
+    'HOTEL': 'Hotel',
+    'BEACH': 'Praia',
+    'PARK': 'Parque',
+    'SHOPPING': 'Shopping',
+    'NIGHTLIFE': 'Vida Noturna',
+  };
+
+  const _AlternativeCard({
+    required this.poi,
+    required this.isSubstituting,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryLabel = _categoryLabels[poi.category] ?? poi.category;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: AppTheme.softBlack.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: disabled ? null : onTap,
+          child: Opacity(
+            opacity: disabled && !isSubstituting ? 0.5 : 1,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: poi.images.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: poi.images.first,
+                            width: 56,
+                            height: 56,
+                            fit: BoxFit.cover,
+                            placeholder: (_, _) => ColoredBox(
+                              color: AppTheme.shimmerBase,
+                              child: const SizedBox(width: 56, height: 56),
+                            ),
+                            errorWidget: (_, _, _) => ColoredBox(
+                              color: AppTheme.shimmerBase,
+                              child: SizedBox(
+                                width: 56,
+                                height: 56,
+                                child: Icon(
+                                  Icons.image_outlined,
+                                  color:
+                                      AppTheme.softBlack.withValues(alpha: 0.3),
+                                ),
+                              ),
+                            ),
+                          )
+                        : ColoredBox(
+                            color: AppTheme.shimmerBase,
+                            child: SizedBox(
+                              width: 56,
+                              height: 56,
+                              child: Icon(
+                                Icons.image_outlined,
+                                color:
+                                    AppTheme.softBlack.withValues(alpha: 0.3),
+                              ),
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          poi.title,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.softBlack,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          categoryLabel,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppTheme.softBlack.withValues(alpha: 0.5),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isSubstituting)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
