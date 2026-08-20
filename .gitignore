@@ -9,6 +9,8 @@ target/
 
 # Env
 .env
+.env.*
+!.env.example
 
 # VSCode
 .vscode/
