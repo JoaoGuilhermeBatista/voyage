@@ -169,6 +169,7 @@ public class ItineraryEngineService {
         }
         score += groupBonus(poi.getCategory(), group);
         score += vibeBonus(poi.getCategory(), vibe);
+        if (poi.isMustSee()) score += 20;
         return score;
     }
 

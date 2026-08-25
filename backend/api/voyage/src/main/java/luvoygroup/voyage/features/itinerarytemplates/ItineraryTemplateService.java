@@ -231,8 +231,8 @@ public class ItineraryTemplateService {
 
     private String buildGenerationPrompt(Destination destination, int durationDays, BudgetTier budgetTier, List<Poi> pois) {
         String poiCatalog = pois.stream()
-            .map(p -> "- id: %s | title: %s | category: %s | budgetTier: %s"
-                .formatted(p.getId(), p.getTitle(), p.getCategory(), p.getBudgetTier()))
+            .map(p -> "- id: %s | title: %s | category: %s | budgetTier: %s | mustSee: %s"
+                .formatted(p.getId(), p.getTitle(), p.getCategory(), p.getBudgetTier(), p.isMustSee()))
             .collect(Collectors.joining("\n"));
 
         return """
@@ -242,6 +242,13 @@ public class ItineraryTemplateService {
 
             POIs disponíveis:
             %s
+
+            Priorize os POIs com mustSee: true — eles são os pontos imperdíveis do destino e devem ser
+            alocados primeiro, cada um no dia e período (MORNING, AFTERNOON ou EVENING) mais lógico dentro
+            do roteiro, antes de preencher os horários restantes com os demais POIs. Monte a sequência de
+            cada dia como um roteiro real e conhecido daquela cidade montaria — respeitando proximidade e
+            fluxo geográfico, agrupando por categoria quando fizer sentido (ex: museus próximos na mesma
+            janela, vida noturna à noite) — e não como uma escolha aleatória de POIs.
 
             Cada dia deve ter atividades distribuídas nos períodos MORNING, AFTERNOON e EVENING.
             Responda SOMENTE com JSON válido, sem markdown, sem explicações.

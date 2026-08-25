@@ -124,7 +124,8 @@ class ItineraryControllerTest {
             new BigDecimal("-46.63"),
             List.of("https://example.com/foto.jpg"),
             BudgetTier.MODERATE,
-            90
+            90,
+            false
         );
     }
 

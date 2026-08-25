@@ -12,6 +12,7 @@ import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
 import luvoygroup.voyage.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 
 import java.time.LocalDate;
@@ -218,5 +219,68 @@ class ItineraryTemplateServiceTest {
         assertNotNull(result);
         assertEquals(destinationId, result.destinationId());
         assertEquals(BudgetTier.MODERATE, result.budgetTier());
+    }
+
+    // ─── (e) generateForDestination — o prompt deve destacar POIs mustSee ────
+    //
+    // Contrato assumido (RED por design — a implementar por um próximo
+    // agente em ItineraryTemplateService#buildGenerationPrompt): hoje cada
+    // linha do catálogo de POIs no prompt segue o formato fixo
+    // "- id: %s | title: %s | category: %s | budgetTier: %s" (ver
+    // buildGenerationPrompt). Não é uma marcação "à escolha do agente" —
+    // deve ser exatamente esse mesmo formato estendido com mais um campo
+    // pipe-separado, "mustSee: %s" (true/false), pelo mesmo padrão dos
+    // campos já existentes na linha. Este teste exige literalmente
+    // "mustSee: true" na linha do POI imperdível e "mustSee: false" na
+    // linha do POI comum — não aceita variações textuais.
+    @Test
+    @SuppressWarnings("unchecked")
+    void generateForDestination_shouldHighlightMustSeePois_differentlyFromOthers_inPrompt() {
+        Destination destination = Destination.builder().id(destinationId).slug("copenhague").name("Copenhague").build();
+        when(destinationRepo.findBySlug("copenhague")).thenReturn(Optional.of(destination));
+
+        Poi mustSeePoi = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("A Pequena Sereia").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.ECONOMY)
+            .mustSee(true).build();
+        Poi regularPoi = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("Museu Nacional da Dinamarca").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .mustSee(false).build();
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(destinationId)).thenReturn(List.of(mustSeePoi, regularPoi));
+
+        GeneratedTemplateContent llmResponse = new GeneratedTemplateContent(
+            "Copenhague Essencial", "1 dia pelos imperdíveis de Copenhague", List.of()
+        );
+
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(promptCaptor.capture())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(GeneratedTemplateContent.class)).thenReturn(llmResponse);
+
+        service.generateForDestination("copenhague", 1, BudgetTier.MODERATE);
+
+        String prompt = promptCaptor.getValue();
+
+        String mustSeeLine = extractLineFor(prompt, "A Pequena Sereia");
+        String regularLine = extractLineFor(prompt, "Museu Nacional da Dinamarca");
+
+        assertNotNull(mustSeeLine, "O POI mustSee=true deve aparecer no catálogo do prompt");
+        assertNotNull(regularLine, "O POI mustSee=false deve aparecer no catálogo do prompt");
+
+        assertTrue(mustSeeLine.contains("mustSee: true"),
+            "A linha do catálogo do POI imperdível deve conter exatamente \"mustSee: true\", " +
+            "seguindo o mesmo formato pipe-separado dos outros campos (id/title/category/budgetTier)");
+        assertTrue(regularLine.contains("mustSee: false"),
+            "A linha do catálogo do POI comum deve conter exatamente \"mustSee: false\"");
+    }
+
+    private String extractLineFor(String prompt, String poiTitle) {
+        return prompt.lines()
+            .filter(line -> line.contains(poiTitle))
+            .findFirst()
+            .orElse(null);
     }
 }

@@ -121,6 +121,7 @@ public class AdminService {
                 .closingTime(parseTime(gp.closingTime()))
                 .tags(gp.tags() != null ? gp.tags() : List.of())
                 .active(true)
+                .mustSee(Boolean.TRUE.equals(gp.mustSee()))
                 .build();
         } catch (Exception e) {
             log.warn("POI ignorado (dados inválidos): {} — {}", gp.title(), e.getMessage());

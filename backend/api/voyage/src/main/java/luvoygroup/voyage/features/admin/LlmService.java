@@ -49,7 +49,7 @@ public class LlmService {
             Você é um especialista em turismo europeu. Gere 20 pontos de interesse reais e populares para %s, %s.
             Responda SOMENTE com JSON válido, sem markdown, sem explicações.
 
-            Categorias disponíveis (use exatamente): MUSEUM, RESTAURANT, PARK, SHOPPING, NIGHTLIFE, BEACH
+            Categorias disponíveis (use exatamente): MUSEUM, RESTAURANT, PARK, SHOPPING, NIGHTLIFE, BEACH, LANDMARK
 
             Orçamentos disponíveis (use exatamente): ECONOMY, MODERATE, LUXURY
 
@@ -67,17 +67,21 @@ public class LlmService {
                   "averageDurationMinutes": 90,
                   "openingTime": "09:00",
                   "closingTime": "18:00",
-                  "tags": ["cultura", "historia"]
+                  "tags": ["cultura", "historia"],
+                  "mustSee": false
                 }
               ]
             }
 
             Regras:
-            - Inclua pontos variados: museus, restaurantes, parques, bares, lojas icônicas
+            - Inclua pontos variados: museus, restaurantes, parques, bares, lojas icônicas, marcos históricos
             - Distribua os orçamentos: pelo menos 5 ECONOMY, 8 MODERATE e 5 LUXURY
             - As coordenadas devem ser as mais precisas possíveis para cada local
             - openingTime e closingTime no formato HH:mm (null se funcionar 24h ou sem horário fixo)
             - Tags devem refletir o perfil do POI (ex: "cultura", "gastronomia", "arte", "natureza", "compras")
+            - mustSee: marque true para os 3 a 5 pontos mais icônicos/imperdíveis da cidade (aqueles que
+              qualquer roteiro turístico de verdade incluiria, ex: monumentos símbolo, marcos históricos
+              mundialmente conhecidos), false para os demais
             """.formatted(city, country);
 
         return chatClient.prompt()

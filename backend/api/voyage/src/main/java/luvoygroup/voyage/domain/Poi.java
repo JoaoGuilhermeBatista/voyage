@@ -73,6 +73,10 @@ public class Poi {
     @Builder.Default
     private boolean active = true;
 
+    @Column(name = "must_see", nullable = false)
+    @Builder.Default
+    private boolean mustSee = false;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

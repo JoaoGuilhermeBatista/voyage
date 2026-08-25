@@ -284,9 +284,53 @@ class ItineraryEngineServiceTest {
                 "Nenhum dia deve ter mais de 4 atividades"));
     }
 
+    // ─── Regra de negócio nova: bônus de pontuação para POIs mustSee ─────────
+    //
+    // Contrato assumido (RED por design — a implementar por um próximo
+    // agente em ItineraryEngineService#scoreFor): POIs marcados com
+    // mustSee=true devem receber um bônus de pontuação que os coloque à
+    // frente de concorrentes idênticos em tudo mais (mesma categoria, sem
+    // tags que dariam bônus de interesse, mesmo grupo/vibe bonus). Hoje
+    // scoreFor não considera mustSee, então com todos os candidatos
+    // empatados em pontuação (score=0), a ordenação (stream.sorted, que é
+    // estável) preserva a ordem de entrada da lista retornada pelo
+    // repositório — por isso colocamos o POI mustSee=true DELIBERADAMENTE
+    // no meio da lista de candidatos, para que o teste falhe hoje (ele
+    // seria escolhido apenas se calhar de vir primeiro na lista de entrada)
+    // e passe a verde quando o bônus de mustSee existir.
+    @Test
+    void testeMustSee_shouldBePickedBeforeIdenticalNonMustSeeCandidates() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        List<Poi> candidates = new ArrayList<>();
+        for (int i = 0; i < 3; i++) candidates.add(makePoi(BudgetTier.MODERATE, false));
+        Poi mustSeePoi = makePoi(BudgetTier.MODERATE, true);
+        candidates.add(mustSeePoi); // deliberadamente não é o primeiro da lista
+        for (int i = 0; i < 4; i++) candidates.add(makePoi(BudgetTier.MODERATE, false));
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate day = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(destinationId, day, day, null, null, null, null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        UUID firstPickedPoiId = result.days().get(0).activities().get(0).poi().id();
+
+        assertEquals(mustSeePoi.getId(), firstPickedPoiId,
+            "O POI mustSee=true deve ser escolhido antes dos demais candidatos idênticos, " +
+            "por causa do bônus de pontuação em scoreFor (ainda não implementado)");
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Poi makePoi(BudgetTier tier) {
+        return makePoi(tier, false);
+    }
+
+    private Poi makePoi(BudgetTier tier, boolean mustSee) {
         return Poi.builder()
             .id(UUID.randomUUID())
             .destination(destination)
@@ -295,6 +339,7 @@ class ItineraryEngineServiceTest {
             .budgetTier(tier)
             .tags(List.of("cultura"))
             .active(true)
+            .mustSee(mustSee)
             .latitude(BigDecimal.valueOf(48.8 + Math.random() * 0.1))
             .longitude(BigDecimal.valueOf(2.3 + Math.random() * 0.1))
             .averageDurationMinutes(90)

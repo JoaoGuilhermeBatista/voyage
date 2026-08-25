@@ -18,7 +18,8 @@ public record PoiDetailDTO(
     BigDecimal longitude,
     List<String> images,
     BudgetTier budgetTier,
-    Integer averageDurationMinutes
+    Integer averageDurationMinutes,
+    boolean mustSee
 ) {
     public static PoiDetailDTO from(Poi p) {
         return new PoiDetailDTO(
@@ -31,7 +32,8 @@ public record PoiDetailDTO(
             p.getLongitude(),
             p.getImages(),
             p.getBudgetTier(),
-            p.getAverageDurationMinutes()
+            p.getAverageDurationMinutes(),
+            p.isMustSee()
         );
     }
 }

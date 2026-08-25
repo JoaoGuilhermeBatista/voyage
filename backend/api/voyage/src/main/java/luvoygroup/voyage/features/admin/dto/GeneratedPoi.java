@@ -13,5 +13,6 @@ public record GeneratedPoi(
     Integer averageDurationMinutes,
     String openingTime,
     String closingTime,
-    List<String> tags
+    List<String> tags,
+    Boolean mustSee
 ) {}

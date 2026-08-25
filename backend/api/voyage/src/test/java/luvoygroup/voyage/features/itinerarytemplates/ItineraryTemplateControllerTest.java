@@ -107,7 +107,7 @@ class ItineraryTemplateControllerTest {
     void teste54_shouldReturnTemplateDetail_whenTemplateExists() throws Exception {
         PoiDetailDTO poi = new PoiDetailDTO(
             UUID.randomUUID(), "Torre de Belém", PoiCategory.MUSEUM, "Monumento histórico à beira-rio", "Av. Brasília, Lisboa",
-            BigDecimal.valueOf(38.6916), BigDecimal.valueOf(-9.2160), List.of(), BudgetTier.MODERATE, 90
+            BigDecimal.valueOf(38.6916), BigDecimal.valueOf(-9.2160), List.of(), BudgetTier.MODERATE, 90, false
         );
         ItineraryTemplateDetailDTO detail = new ItineraryTemplateDetailDTO(
             templateId, "Lisboa Clássica", "3 dias de cultura e gastronomia", 3, BudgetTier.MODERATE,
