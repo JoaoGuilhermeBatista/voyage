@@ -6,6 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../favorites/presentation/providers/favorite_provider.dart';
 import '../../../itinerary/presentation/widgets/generate_itinerary_sheet.dart';
+import '../../../itinerarytemplates/data/itinerary_template_models.dart';
+import '../../../itinerarytemplates/presentation/providers/itinerary_template_provider.dart';
+import '../../../itinerarytemplates/presentation/screens/template_preview_screen.dart';
 import '../../data/destination_detail_model.dart';
 import '../providers/destination_provider.dart';
 
@@ -132,6 +135,7 @@ class _DestinationBody extends StatelessWidget {
         if (destination.description != null &&
             destination.description!.isNotEmpty)
           _DescriptionSliver(description: destination.description!),
+        _CuratedTemplatesSliver(slug: destination.slug),
         for (final section in sections) _SectionSliver(section: section),
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
@@ -369,6 +373,211 @@ class _DescriptionSliver extends StatelessWidget {
             ),
             const SizedBox(height: 24),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Curated itinerary templates — item 1 do backlog
+// ---------------------------------------------------------------------------
+//
+// Wrapper (_CuratedTemplatesSliver) implementado de verdade: o fallback
+// gracioso em loading/error/lista-vazia é o MESMO padrão trivial já usado em
+// _CurrencyRatesBar (itinerary_screen.dart) / RouteInfoBar (maps), então não
+// há motivo para stub aqui — e, mais importante, DestinationScreen é uma
+// tela já em uso; um stub que sempre lança em build() quebraria a navegação
+// para QUALQUER destino, mesmo sem templates configurados. Deixar esse
+// wrapper real limita o "raio de explosão" do estágio somente-testes: hoje
+// nenhum destino tem templates publicados, então o branch `data` com lista
+// não-vazia (onde mora o stub _CuratedTemplatesSection, que lança
+// UnimplementedError de propósito) nunca é exercitado em uso real.
+
+class _CuratedTemplatesSliver extends ConsumerWidget {
+  final String slug;
+  const _CuratedTemplatesSliver({required this.slug});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncTemplates = ref.watch(templatesForDestinationProvider(slug));
+
+    return asyncTemplates.when(
+      loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+      error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+      data: (templates) {
+        if (templates.isEmpty) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+        return SliverToBoxAdapter(
+          child: _CuratedTemplatesSection(slug: slug, templates: templates),
+        );
+      },
+    );
+  }
+}
+
+/// Renderiza os cards de templates curados (título, "N dias", chip de
+/// budget tier) em uma lista horizontal; tocar em um card navega para
+/// /destinos/:slug/roteiros/:templateId (TemplatePreviewScreen).
+///
+/// Navegação: usa `context.push` (go_router) quando há GoRouter disponível
+/// no contexto (uso real, já que DestinationScreen sempre é montada sob o
+/// GoRouter do app), com fallback para `Navigator.push` direto quando não
+/// há — necessário porque os testes de widget desta seção montam
+/// `MaterialApp(home: DestinationScreen(...))` sem GoRouter (ver
+/// test/features/itinerarytemplates/itinerary_template_test.dart).
+class _CuratedTemplatesSection extends StatelessWidget {
+  final String slug;
+  final List<ItineraryTemplateSummaryModel> templates;
+  const _CuratedTemplatesSection({
+    required this.slug,
+    required this.templates,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(thickness: 1, color: Color(0xFFE8E4DC)),
+          const SizedBox(height: 20),
+          Text(
+            'ROTEIROS PRONTOS',
+            style: GoogleFonts.manrope(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
+              color: AppTheme.goldenOrange,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 176,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
+              itemCount: templates.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) => _CuratedTemplateCard(
+                slug: slug,
+                template: templates[index],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _CuratedTemplateCard extends StatelessWidget {
+  final String slug;
+  final ItineraryTemplateSummaryModel template;
+  const _CuratedTemplateCard({required this.slug, required this.template});
+
+  static const _budgetLabels = {
+    'ECONOMY': '€',
+    'MODERATE': '€€',
+    'LUXURY': '€€€',
+  };
+
+  void _openPreview(BuildContext context) {
+    final route = '/destinos/$slug/roteiros/${template.id}';
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      context.push(route);
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TemplatePreviewScreen(
+            slug: slug,
+            templateId: template.id,
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final budgetLabel =
+        _budgetLabels[template.budgetTier] ?? template.budgetTier;
+
+    return SizedBox(
+      width: 220,
+      child: Material(
+        color: AppTheme.softWhite,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _openPreview(context),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppTheme.softBlack.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  template.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.cormorantGaramond(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.softBlack,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 12,
+                      color: AppTheme.softBlack.withValues(alpha: 0.4),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${template.durationDays} dias',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        color: AppTheme.softBlack.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.goldenOrange.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        budgetLabel,
+                        style: GoogleFonts.manrope(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.goldenOrange,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

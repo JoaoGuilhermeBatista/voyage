@@ -11,6 +11,7 @@ import '../../features/recommendations/presentation/screens/recommendations_scre
 import '../../features/itinerary/presentation/screens/itineraries_screen.dart';
 import '../../features/itinerary/presentation/screens/itinerary_screen.dart';
 import '../../features/destinations/presentation/screens/destination_screen.dart';
+import '../../features/itinerarytemplates/presentation/screens/template_preview_screen.dart';
 import '../../features/favorites/presentation/screens/favorites_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/edit_preferences_screen.dart';
@@ -112,6 +113,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/roteiro/:id',
         builder: (context, state) => ItineraryScreen(
           id: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/destinos/:slug/roteiros/:templateId',
+        builder: (context, state) => TemplatePreviewScreen(
+          slug: state.pathParameters['slug']!,
+          templateId: state.pathParameters['templateId']!,
         ),
       ),
       GoRoute(
