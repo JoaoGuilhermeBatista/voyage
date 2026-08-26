@@ -248,7 +248,9 @@ public class ItineraryTemplateService {
             do roteiro, antes de preencher os horários restantes com os demais POIs. Monte a sequência de
             cada dia como um roteiro real e conhecido daquela cidade montaria — respeitando proximidade e
             fluxo geográfico, agrupando por categoria quando fizer sentido (ex: museus próximos na mesma
-            janela, vida noturna à noite) — e não como uma escolha aleatória de POIs.
+            janela, vida noturna à noite) — e não como uma escolha aleatória de POIs. Baseie-se em guias de viagem reais e publicados
+            sobre %s para definir uma sequência de visitas coerente com o que um roteiro turístico de
+            verdade sobre esse lugar teria.
 
             Cada dia deve ter atividades distribuídas nos períodos MORNING, AFTERNOON e EVENING.
             Responda SOMENTE com JSON válido, sem markdown, sem explicações.
@@ -266,7 +268,7 @@ public class ItineraryTemplateService {
                 }
               ]
             }
-            """.formatted(durationDays, destination.getName(), budgetTier, poiCatalog);
+            """.formatted(durationDays, destination.getName(), budgetTier, poiCatalog, destination.getName());
     }
 
     private ValidatedActivity validateGeneratedActivity(GeneratedTemplateActivity ga, Map<UUID, Poi> poiById) {

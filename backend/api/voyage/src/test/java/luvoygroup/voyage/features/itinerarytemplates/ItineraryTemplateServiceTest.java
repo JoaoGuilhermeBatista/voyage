@@ -283,4 +283,58 @@ class ItineraryTemplateServiceTest {
             .findFirst()
             .orElse(null);
     }
+
+    // ─── (f) generateForDestination — o prompt deve mandar o LLM se basear em
+    // roteiros/guias de viagem REAIS e publicados para o destino específico,
+    // não apenas "agir como se" um roteiro real fosse montado de forma
+    // abstrata/genérica ─────────────────────────────────────────────────────
+    //
+    // Contrato assumido (RED por design — a implementar por um próximo agente
+    // em ItineraryTemplateService#buildGenerationPrompt): o prompt atual já
+    // instrui o LLM a montar a sequência do dia "como um roteiro real e
+    // conhecido daquela cidade", mas isso é uma instrução abstrata — não
+    // referencia explicitamente guias/roteiros de viagem REAIS e PUBLICADOS
+    // sobre o destino nomeado. A frase exata exigida por este teste é
+    // "guias de viagem reais e publicados" (a implementação deve conter essa
+    // string literal, em algum lugar do prompt, parametrizada pelo destino —
+    // não é uma marcação "à escolha do agente", já que um agente futuro
+    // precisa casar exatamente com essa string). Além disso o teste confirma
+    // que o prompt não é boilerplate genérico: o nome do destino
+    // (destination.getName()) deve aparecer interpolado no texto do prompt.
+    @Test
+    @SuppressWarnings("unchecked")
+    void generateForDestination_shouldInstructLlmToBaseItineraryOnRealPublishedTravelGuides_forTheNamedDestination() {
+        Destination destination = Destination.builder().id(destinationId).slug("kyoto").name("Kyoto").build();
+        when(destinationRepo.findBySlug("kyoto")).thenReturn(Optional.of(destination));
+
+        Poi poi = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("Fushimi Inari Taisha").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.ECONOMY)
+            .mustSee(true).build();
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(destinationId)).thenReturn(List.of(poi));
+
+        GeneratedTemplateContent llmResponse = new GeneratedTemplateContent(
+            "Kyoto Essencial", "1 dia pelos imperdíveis de Kyoto", List.of()
+        );
+
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(promptCaptor.capture())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(GeneratedTemplateContent.class)).thenReturn(llmResponse);
+
+        service.generateForDestination("kyoto", 1, BudgetTier.MODERATE);
+
+        String prompt = promptCaptor.getValue();
+
+        assertTrue(prompt.contains("guias de viagem reais e publicados"),
+            "O prompt deve instruir explicitamente o LLM a se basear em guias de viagem reais e " +
+            "publicados sobre o destino (frase exata exigida: \"guias de viagem reais e publicados\"), " +
+            "e não apenas dizer para \"agir como se\" fosse um roteiro real de forma abstrata");
+        assertTrue(prompt.contains(destination.getName()),
+            "O prompt deve interpolar o nome real do destino (destination.getName()), provando que a " +
+            "instrução é parametrizada por destino e não um boilerplate genérico");
+    }
 }
