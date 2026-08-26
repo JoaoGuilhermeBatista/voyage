@@ -15,7 +15,8 @@ public record UserProfileDTO(
     String budget,
     String rhythm,
     String groupType,
-    List<String> interests
+    List<String> interests,
+    String religion
 ) {
     public static UserProfileDTO from(User user) {
         return new UserProfileDTO(
@@ -24,6 +25,7 @@ public record UserProfileDTO(
             user.getAvatarUrl(),
             user.isOnboardingCompleted(),
             user.isPremium(),
+            null,
             null,
             null,
             null,
@@ -41,7 +43,8 @@ public record UserProfileDTO(
             prefs != null && prefs.getBudget() != null ? prefs.getBudget().name() : null,
             prefs != null && prefs.getRhythm() != null ? prefs.getRhythm().name() : null,
             prefs != null && prefs.getGroupType() != null ? prefs.getGroupType().name() : null,
-            prefs != null ? prefs.getInterests() : null
+            prefs != null ? prefs.getInterests() : null,
+            prefs != null && prefs.getReligion() != null ? prefs.getReligion().name() : null
         );
     }
 }

@@ -1,11 +1,14 @@
 package luvoygroup.voyage.features.admin;
 
+import luvoygroup.voyage.features.admin.dto.CatholicChurchClassification;
 import luvoygroup.voyage.features.admin.dto.GeneratedContent;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @Slf4j
@@ -68,7 +71,8 @@ public class LlmService {
                   "openingTime": "09:00",
                   "closingTime": "18:00",
                   "tags": ["cultura", "historia"],
-                  "mustSee": false
+                  "mustSee": false,
+                  "catholicChurch": false
                 }
               ]
             }
@@ -82,11 +86,67 @@ public class LlmService {
             - mustSee: marque true para os 3 a 5 pontos mais icônicos/imperdíveis da cidade (aqueles que
               qualquer roteiro turístico de verdade incluiria, ex: monumentos símbolo, marcos históricos
               mundialmente conhecidos), false para os demais
+            - catholicChurch: marque true SOMENTE para igrejas, basílicas, catedrais ou santuários da
+              Igreja Católica (cristianismo católico romano) — ex: uma catedral católica, uma basílica
+              católica, um santuário de peregrinação católico. Marque false para TODOS os demais locais,
+              incluindo templos, igrejas, sinagogas, mesquitas ou locais de culto de outras religiões ou
+              denominações cristãs não-católicas (ex: protestante, evangélica, ortodoxa), e também para
+              marcos históricos/culturais em geral que não sejam especificamente um templo católico
             """.formatted(city, country);
 
         return chatClient.prompt()
             .user(prompt)
             .call()
             .entity(PoisWrapper.class);
+    }
+
+    /**
+     * Contrato: dado um destino (city, country) e a lista de títulos de POI
+     * JÁ CADASTRADOS e ativos desse destino, pergunta ao LLM quais desses
+     * títulos — e SOMENTE esses, verbatim, sem inventar — são igrejas,
+     * basílicas, catedrais ou santuários da Igreja Católica (não templos de
+     * outras religiões/denominações, nem marcos históricos em geral). Usada
+     * por AdminService#enrichExistingPoisWithCatholicChurchFlag para
+     * classificar retroativamente POIs que já existem no banco (criados
+     * antes do campo Poi#catholicChurch existir), sem recriá-los.
+     */
+    public CatholicChurchClassification classifyCatholicChurches(String city, String country, List<String> poiTitles) {
+        log.info("Classificando igrejas católicas via LLM para {}, {}", city, country);
+
+        String titlesList = poiTitles.stream()
+            .map(title -> "- " + title)
+            .collect(java.util.stream.Collectors.joining("\n"));
+
+        String prompt = """
+            Você é um especialista em turismo europeu e em arquitetura religiosa. Abaixo está a lista
+            EXATA de pontos de interesse já cadastrados para %s, %s. Sua tarefa é identificar quais
+            desses títulos são igrejas, basílicas, catedrais ou santuários da Igreja Católica.
+
+            Lista de títulos (um por linha):
+            %s
+
+            Regras OBRIGATÓRIAS:
+            - Responda SOMENTE com um subconjunto EXATO (verbatim) dos títulos fornecidos acima.
+            - NUNCA invente títulos novos, NUNCA altere a grafia, capitalização ou acentuação dos
+              títulos fornecidos — copie-os exatamente como aparecem na lista.
+            - Se nenhum título da lista for uma igreja católica, retorne uma lista vazia.
+            - Critério de classificação: marque um título como igreja católica SOMENTE se for
+              igreja, basílica, catedral ou santuário da Igreja Católica (cristianismo católico
+              romano) — ex: uma catedral católica, uma basílica católica, um santuário de
+              peregrinação católico. NÃO marque templos, igrejas, sinagogas, mesquitas ou locais de
+              culto de outras religiões ou denominações cristãs não-católicas (ex: protestante,
+              evangélica, ortodoxa), e também NÃO marque marcos históricos/culturais em geral que
+              não sejam especificamente um templo católico.
+
+            Responda SOMENTE com JSON válido, sem markdown, sem explicações, no formato exato:
+            {
+              "catholicChurchTitles": ["Título Exato 1", "Título Exato 2"]
+            }
+            """.formatted(city, country, titlesList);
+
+        return chatClient.prompt()
+            .user(prompt)
+            .call()
+            .entity(CatholicChurchClassification.class);
     }
 }

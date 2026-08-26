@@ -324,10 +324,86 @@ class ItineraryEngineServiceTest {
             "por causa do bônus de pontuação em scoreFor (ainda não implementado)");
     }
 
+    // ─── Regra de negócio nova: bônus de pontuação para o vibe SILENCE ───────
+    //
+    // Contrato assumido (RED por design — a implementar por um próximo agente
+    // em ItineraryEngineService#vibeBonus): com tripVibe=SILENCE, POIs de
+    // categoria PARK e MUSEUM devem receber um bônus de pontuação positivo
+    // (roteiros de silêncio/tranquilidade priorizam natureza e cultura de
+    // baixo fluxo), enquanto NIGHTLIFE e SHOPPING não recebem bônus algum
+    // (score 0) — mesmo padrão de "outras categorias -> 0" já usado por
+    // CULTURE (que só bonifica MUSEUM) e WELLNESS (PARK/BEACH) hoje.
+    //
+    // Hoje `case SILENCE -> 0;` foi adicionado ao switch de vibeBonus só para
+    // manter o módulo compilando com o novo valor do enum TripVibe — todas as
+    // categorias, incluindo PARK e MUSEUM, ainda pontuam 0 sob SILENCE. Por
+    // isso, com todos os 8 candidatos empatados em score, a ordenação
+    // estável preserva a ordem de entrada da lista (SHOPPING, NIGHTLIFE
+    // primeiro), e os dois POIs de PARK/MUSEUM (propositalmente nas posições
+    // 3 e 4 da lista de entrada) só seriam escolhidos primeiro quando o
+    // bônus de SILENCE existir de verdade.
+    @Test
+    void testeSilence_shouldPreferParkAndMuseum_overNightlifeAndShopping() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs)); // prefs = COUPLE, MODERATE
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        // COUPLE só recebe groupBonus para RESTAURANT/BEACH/HOTEL (ver
+        // ItineraryEngineService#groupBonus), então PARK/MUSEUM/NIGHTLIFE/
+        // SHOPPING ficam neutros (0) nesse eixo, isolando o efeito do
+        // vibeBonus. Tags vazias evitam o bônus de interesse (+10 por tag
+        // batendo com prefs.interests).
+        List<Poi> candidates = new ArrayList<>(List.of(
+            makePoiWithCategory(PoiCategory.SHOPPING),
+            makePoiWithCategory(PoiCategory.NIGHTLIFE),
+            makePoiWithCategory(PoiCategory.PARK),    // deliberadamente não é o primeiro da lista
+            makePoiWithCategory(PoiCategory.MUSEUM),  // deliberadamente não é o segundo da lista
+            makePoiWithCategory(PoiCategory.SHOPPING),
+            makePoiWithCategory(PoiCategory.NIGHTLIFE),
+            makePoiWithCategory(PoiCategory.SHOPPING),
+            makePoiWithCategory(PoiCategory.NIGHTLIFE)
+        ));
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate day = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, day, day, null, TripVibe.SILENCE, null, null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        List<PoiCategory> pickedCategories = result.days().get(0).activities().stream()
+            .map(a -> a.poi().category())
+            .toList();
+
+        assertEquals(PoiCategory.PARK, pickedCategories.get(0),
+            "Com tripVibe=SILENCE, o primeiro POI escolhido deve ser de categoria PARK " +
+            "(bônus de vibe ainda não implementado em vibeBonus)");
+        assertEquals(PoiCategory.MUSEUM, pickedCategories.get(1),
+            "Com tripVibe=SILENCE, o segundo POI escolhido deve ser de categoria MUSEUM " +
+            "(bônus de vibe ainda não implementado em vibeBonus)");
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Poi makePoi(BudgetTier tier) {
         return makePoi(tier, false);
+    }
+
+    private Poi makePoiWithCategory(PoiCategory category) {
+        return Poi.builder()
+            .id(UUID.randomUUID())
+            .destination(destination)
+            .title("POI-" + UUID.randomUUID().toString().substring(0, 6))
+            .category(category)
+            .budgetTier(BudgetTier.MODERATE)
+            .tags(List.of())
+            .active(true)
+            .mustSee(false)
+            .latitude(BigDecimal.valueOf(48.8 + Math.random() * 0.1))
+            .longitude(BigDecimal.valueOf(2.3 + Math.random() * 0.1))
+            .averageDurationMinutes(90)
+            .build();
     }
 
     private Poi makePoi(BudgetTier tier, boolean mustSee) {

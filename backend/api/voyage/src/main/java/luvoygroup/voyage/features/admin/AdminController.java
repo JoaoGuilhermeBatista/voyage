@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import luvoygroup.voyage.features.admin.dto.BatchGenerationReport;
 import luvoygroup.voyage.features.admin.dto.GenerateDestinationRequest;
+import luvoygroup.voyage.features.admin.dto.PoiEnrichmentReport;
 import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
 import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
@@ -62,5 +63,17 @@ public class AdminController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(adminService.generateItineraryTemplate(slug, request));
+    }
+
+    @PostMapping("/pois/enrich-catholic-church-flags")
+    @Operation(summary = "Classifica retroativamente, via GPT-4o, quais POIs já cadastrados são igrejas " +
+        "católicas, atualizando catholicChurch IN PLACE (nunca cria ou deleta POIs)")
+    public ResponseEntity<PoiEnrichmentReport> enrichCatholicChurchFlags(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.ok(adminService.enrichExistingPoisWithCatholicChurchFlag());
     }
 }

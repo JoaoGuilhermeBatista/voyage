@@ -80,4 +80,43 @@ class LlmServiceTest {
             "dentro do objeto de cada POI — é o nome do campo em GeneratedPoi que o ChatClient " +
             "usa para deserializar a resposta do LLM.");
     }
+
+    // ─── generatePois deve pedir a chave JSON exata "catholicChurch" por POI ─
+    //
+    // Mesmo raciocínio do teste de "mustSee" acima: GeneratedPoi (ver
+    // features/admin/dto/GeneratedPoi.java) tem o campo `Boolean
+    // catholicChurch`, e o ChatClient casa a resposta do LLM pelo nome da
+    // propriedade JSON — então o formato de exemplo do prompt precisa
+    // declarar a chave "catholicChurch" com esse nome exato.
+    @Test
+    void generatePois_shouldInstructLlm_toFlagCatholicChurchPois() {
+        String prompt = capturePrompt();
+
+        assertTrue(prompt.contains("\"catholicChurch\""),
+            "O formato JSON de exemplo no prompt deve declarar a chave \"catholicChurch\" (nome " +
+            "exato) dentro do objeto de cada POI — é o nome do campo em GeneratedPoi que o " +
+            "ChatClient usa para deserializar a resposta do LLM.");
+    }
+
+    // ─── O prompt deve deixar claro que catholicChurch é EXCLUSIVO de templos católicos ─
+    //
+    // Contexto de produto: a nova pergunta de religião no onboarding
+    // distingue usuários Evangélicos, e o motor de roteiro precisa
+    // deprioritzar/excluir especificamente igrejas CATÓLICAS (não marcos
+    // históricos em geral, nem templos de outras religiões/denominações).
+    // Por isso o prompt precisa instruir o LLM a marcar catholicChurch=false
+    // para templos não-católicos, não só listar quando marcar true.
+    @Test
+    void generatePois_shouldInstructLlm_toExcludeNonCatholicReligiousSites_fromCatholicChurchFlag() {
+        String prompt = capturePrompt();
+
+        assertTrue(prompt.toLowerCase().contains("católica") || prompt.toLowerCase().contains("catolica"),
+            "O prompt deve mencionar explicitamente 'católica' ao instruir sobre catholicChurch, " +
+            "deixando claro que a marcação é exclusiva da Igreja Católica.");
+        assertTrue(prompt.toLowerCase().contains("outras religiões") || prompt.toLowerCase().contains("não-católic")
+                || prompt.toLowerCase().contains("nao-catolic") || prompt.toLowerCase().contains("não católic"),
+            "O prompt deve instruir explicitamente que templos de outras religiões/denominações " +
+            "NÃO devem ser marcados como catholicChurch=true, para não confundir 'religioso em geral' " +
+            "com 'católico especificamente'.");
+    }
 }

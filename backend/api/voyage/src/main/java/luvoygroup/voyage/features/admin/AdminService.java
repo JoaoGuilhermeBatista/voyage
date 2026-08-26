@@ -122,6 +122,7 @@ public class AdminService {
                 .tags(gp.tags() != null ? gp.tags() : List.of())
                 .active(true)
                 .mustSee(Boolean.TRUE.equals(gp.mustSee()))
+                .catholicChurch(Boolean.TRUE.equals(gp.catholicChurch()))
                 .build();
         } catch (Exception e) {
             log.warn("POI ignorado (dados inválidos): {} — {}", gp.title(), e.getMessage());
@@ -131,6 +132,67 @@ public class AdminService {
 
     public ItineraryTemplateDTO generateItineraryTemplate(String slug, GenerateTemplateRequest request) {
         return itineraryTemplateService.generateForDestination(slug, request.durationDays(), request.budgetTier());
+    }
+
+    /**
+     * Classifica retroativamente, IN PLACE (mesmo id, sem deletar/recriar —
+     * POIs são referenciados por FK em atividades de itinerário, templates e
+     * favoritos), quais POIs já existentes são igrejas católicas. Erro em um
+     * destino não interrompe os demais (cada destino é independente,
+     * diferente de generatePoisBatch, que para no primeiro erro).
+     */
+    public PoiEnrichmentReport enrichExistingPoisWithCatholicChurchFlag() {
+        List<Destination> destinations = destinationRepo.findAllByActiveTrue();
+        log.info("Destinos ativos a verificar para enriquecimento de igreja católica: {}", destinations.size());
+
+        List<String> processed = new ArrayList<>();
+        int totalEnriched = 0;
+        int skipped = 0;
+
+        for (Destination destination : destinations) {
+            List<Poi> pois = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId());
+            if (pois.isEmpty()) {
+                skipped++;
+                continue;
+            }
+
+            try {
+                List<String> titles = pois.stream().map(Poi::getTitle).toList();
+                CatholicChurchClassification classification =
+                    llmService.classifyCatholicChurches(destination.getCity(), destination.getCountry(), titles);
+
+                int enrichedForDestination = 0;
+                if (classification != null && classification.catholicChurchTitles() != null) {
+                    for (String returnedTitle : classification.catholicChurchTitles()) {
+                        Poi matched = pois.stream()
+                            .filter(p -> p.getTitle().equals(returnedTitle))
+                            .findFirst()
+                            .orElse(null);
+
+                        if (matched == null) {
+                            log.warn("Título alucinado pelo LLM ignorado (não pertence ao catálogo do destino {}): {}",
+                                destination.getSlug(), returnedTitle);
+                            continue;
+                        }
+
+                        matched.setCatholicChurch(true);
+                        poiRepo.save(matched);
+                        enrichedForDestination++;
+                    }
+                }
+
+                processed.add(destination.getSlug());
+                totalEnriched += enrichedForDestination;
+                log.info("✓ {} — {} POIs marcados como igreja católica", destination.getSlug(), enrichedForDestination);
+            } catch (Exception e) {
+                log.error("✗ Erro em {} — pulando destino: {}", destination.getSlug(), e.getMessage());
+                skipped++;
+            }
+        }
+
+        return new PoiEnrichmentReport(
+            processed.size(), skipped, totalEnriched, processed, null, null
+        );
     }
 
     private LocalTime parseTime(String time) {

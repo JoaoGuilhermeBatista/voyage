@@ -3,6 +3,7 @@ package luvoygroup.voyage.features.users;
 import luvoygroup.voyage.TestJwtFactory;
 import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.domain.enums.GroupType;
+import luvoygroup.voyage.domain.enums.Religion;
 import luvoygroup.voyage.domain.enums.TravelRhythm;
 import luvoygroup.voyage.features.users.dto.UpdatePreferencesRequest;
 import luvoygroup.voyage.features.users.dto.UserProfileDTO;
@@ -177,7 +178,8 @@ class UserControllerTest {
             "MODERATE",
             "RELAXED",
             "COUPLE",
-            List.of("praia", "gastronomia")
+            List.of("praia", "gastronomia"),
+            "CATHOLIC"
         );
         when(userService.upsertAndGetProfile(eq(userId), eq(TestJwtFactory.TEST_EMAIL)))
             .thenReturn(profile);
@@ -191,6 +193,114 @@ class UserControllerTest {
             .andExpect(jsonPath("$.rhythm").value("RELAXED"))
             .andExpect(jsonPath("$.groupType").value("COUPLE"))
             .andExpect(jsonPath("$.interests[0]").value("praia"))
-            .andExpect(jsonPath("$.interests[1]").value("gastronomia"));
+            .andExpect(jsonPath("$.interests[1]").value("gastronomia"))
+            .andExpect(jsonPath("$.religion").value("CATHOLIC"));
+    }
+
+    // ─── Teste 28: PATCH /users/preferences com religion → persiste e faz round-trip no perfil ─
+    //
+    // "Religion" é a nova pergunta de onboarding (Católica / Evangélica / Outra
+    // ou sem religião / Prefiro não informar). Diferente de budget/rhythm/
+    // groupType/interests, o campo é OPCIONAL (sem @NotNull em
+    // UpdatePreferencesRequest, sem @Column(nullable=false) em
+    // OnboardingPreferences) porque os 1.819 registros de preferências já
+    // existentes não têm valor algum para essa pergunta.
+    @Test
+    void teste28_shouldPersistReligion_andRoundTripThroughProfile_whenReligionIsProvided() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/preferences")
+                .header("Authorization", validToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "budget": "MODERATE",
+                      "rhythm": "RELAXED",
+                      "groupType": "COUPLE",
+                      "interests": ["praia", "gastronomia"],
+                      "religion": "EVANGELICAL"
+                    }
+                """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Preferences updated"));
+
+        ArgumentCaptor<UpdatePreferencesRequest> captor = ArgumentCaptor.forClass(UpdatePreferencesRequest.class);
+        verify(userService).updatePreferences(eq(TestJwtFactory.TEST_USER_ID), captor.capture());
+
+        UpdatePreferencesRequest sent = captor.getValue();
+        org.junit.jupiter.api.Assertions.assertEquals(Religion.EVANGELICAL, sent.religion());
+
+        // Round-trip: o profile devolvido por GET /users/me reflete a religião salva.
+        UserProfileDTO profileWithReligion = new UserProfileDTO(
+            TestJwtFactory.TEST_USER_ID,
+            TestJwtFactory.TEST_EMAIL,
+            null,
+            true,
+            false,
+            "MODERATE",
+            "RELAXED",
+            "COUPLE",
+            List.of("praia", "gastronomia"),
+            "EVANGELICAL"
+        );
+        when(userService.upsertAndGetProfile(eq(TestJwtFactory.TEST_USER_ID), eq(TestJwtFactory.TEST_EMAIL)))
+            .thenReturn(profileWithReligion);
+
+        mockMvc.perform(get("/api/v1/users/me")
+                .header("Authorization", validToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.religion").value("EVANGELICAL"));
+    }
+
+    // ─── Teste 29: PATCH /users/preferences sem religion → 200 (campo opcional) ─
+    //
+    // Ao contrário de budget/rhythm/groupType/interests (todos @NotNull ou
+    // @NotEmpty), religion pode vir ausente/null no payload sem quebrar a
+    // validação — isso é o que garante compatibilidade retroativa com os
+    // registros de OnboardingPreferences já existentes sem essa coluna
+    // preenchida.
+    @Test
+    void teste29_shouldReturn200_whenReligionIsAbsent() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/preferences")
+                .header("Authorization", validToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "budget": "MODERATE",
+                      "rhythm": "RELAXED",
+                      "groupType": "COUPLE",
+                      "interests": ["praia"]
+                    }
+                """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Preferences updated"));
+
+        ArgumentCaptor<UpdatePreferencesRequest> captor = ArgumentCaptor.forClass(UpdatePreferencesRequest.class);
+        verify(userService).updatePreferences(eq(TestJwtFactory.TEST_USER_ID), captor.capture());
+
+        org.junit.jupiter.api.Assertions.assertNull(captor.getValue().religion());
+    }
+
+    // ─── Teste 30: PATCH /users/preferences com religion explicitamente null → 200 ─
+
+    @Test
+    void teste30_shouldReturn200_whenReligionIsExplicitlyNull() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/preferences")
+                .header("Authorization", validToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "budget": "MODERATE",
+                      "rhythm": "RELAXED",
+                      "groupType": "COUPLE",
+                      "interests": ["praia"],
+                      "religion": null
+                    }
+                """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Preferences updated"));
+
+        ArgumentCaptor<UpdatePreferencesRequest> captor = ArgumentCaptor.forClass(UpdatePreferencesRequest.class);
+        verify(userService).updatePreferences(eq(TestJwtFactory.TEST_USER_ID), captor.capture());
+
+        org.junit.jupiter.api.Assertions.assertNull(captor.getValue().religion());
     }
 }

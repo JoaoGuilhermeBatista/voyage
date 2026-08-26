@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.domain.enums.GroupType;
+import luvoygroup.voyage.domain.enums.Religion;
 import luvoygroup.voyage.domain.enums.TravelRhythm;
 
 import java.time.LocalDateTime;
@@ -39,6 +40,9 @@ public class OnboardingPreferences {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private GroupType groupType;
+
+    @Enumerated(EnumType.STRING)
+    private Religion religion;
 
     @ElementCollection
     @CollectionTable(name = "preferences_interests", joinColumns = @JoinColumn(name = "preferences_id"))

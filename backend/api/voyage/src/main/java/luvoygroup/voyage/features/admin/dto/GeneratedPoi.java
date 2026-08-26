@@ -14,5 +14,6 @@ public record GeneratedPoi(
     String openingTime,
     String closingTime,
     List<String> tags,
-    Boolean mustSee
+    Boolean mustSee,
+    Boolean catholicChurch
 ) {}

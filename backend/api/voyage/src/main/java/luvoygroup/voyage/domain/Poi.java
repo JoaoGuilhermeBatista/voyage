@@ -77,6 +77,10 @@ public class Poi {
     @Builder.Default
     private boolean mustSee = false;
 
+    @Column(name = "catholic_church", nullable = false)
+    @Builder.Default
+    private boolean catholicChurch = false;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

@@ -1,6 +1,7 @@
 package luvoygroup.voyage.features.admin;
 
 import luvoygroup.voyage.domain.enums.BudgetTier;
+import luvoygroup.voyage.features.admin.dto.PoiEnrichmentReport;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
 import luvoygroup.voyage.security.JwtService;
 import luvoygroup.voyage.security.SecurityConfig;
@@ -13,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -108,5 +110,45 @@ class AdminControllerTest {
                 .content("{\"durationDays\":0,\"budgetTier\":\"MODERATE\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
+    }
+
+    // ─── POST /admin/pois/enrich-catholic-church-flags ─────────────────────────
+    //
+    // AdminService é mockado, então a lógica real (ainda um stub RED em
+    // AdminService/LlmService) não é exercitada aqui — só roteamento e a
+    // checagem de X-Admin-Token, exatamente igual ao endpoint de geração de
+    // template acima (mesmo @RequestHeader(required=false) para que token
+    // ausente caia no 403 explícito do controller, não em uma
+    // MissingRequestHeaderException não mapeada).
+
+    // ─── Teste 52: token válido → 200 ──────────────────────────────────────────
+
+    @Test
+    void teste52_shouldEnrichCatholicChurchFlags_whenAdminTokenIsValid() throws Exception {
+        PoiEnrichmentReport report = new PoiEnrichmentReport(2, 0, 2, List.of("lisboa", "roma"), null, null);
+        when(adminService.enrichExistingPoisWithCatholicChurchFlag()).thenReturn(report);
+
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-catholic-church-flags")
+                .header("X-Admin-Token", VALID_ADMIN_TOKEN))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.destinationsProcessed").value(2))
+            .andExpect(jsonPath("$.totalPoisEnriched").value(2));
+    }
+
+    // ─── Teste 53: token errado → 403 ──────────────────────────────────────────
+
+    @Test
+    void teste53_shouldReturn403_whenAdminTokenIsWrong_forEnrichCatholicChurchFlags() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-catholic-church-flags")
+                .header("X-Admin-Token", "wrong-token"))
+            .andExpect(status().isForbidden());
+    }
+
+    // ─── Teste 54: token ausente → 403 ─────────────────────────────────────────
+
+    @Test
+    void teste54_shouldReturn403_whenAdminTokenIsMissing_forEnrichCatholicChurchFlags() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-catholic-church-flags"))
+            .andExpect(status().isForbidden());
     }
 }

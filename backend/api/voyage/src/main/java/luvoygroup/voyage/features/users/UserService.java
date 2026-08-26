@@ -45,6 +45,7 @@ public class UserService {
         prefs.setRhythm(request.rhythm());
         prefs.setGroupType(request.groupType());
         prefs.setInterests(request.interests());
+        prefs.setReligion(request.religion());
 
         prefsRepository.save(prefs);
 

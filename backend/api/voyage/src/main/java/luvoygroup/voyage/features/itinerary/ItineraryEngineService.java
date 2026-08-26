@@ -254,6 +254,9 @@ public class ItineraryEngineService {
             case BUSINESS -> switch (cat) {
                 case RESTAURANT -> 5; case SHOPPING -> 3; default -> 0;
             };
+            case SILENCE -> switch (cat) {
+                case PARK -> 8; case MUSEUM -> 8; default -> 0;
+            };
         };
     }
 

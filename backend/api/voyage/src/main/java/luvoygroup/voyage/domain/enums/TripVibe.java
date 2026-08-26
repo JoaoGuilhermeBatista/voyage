@@ -5,5 +5,6 @@ public enum TripVibe {
     ADVENTURE,
     CULTURE,
     WELLNESS,
-    BUSINESS
+    BUSINESS,
+    SILENCE
 }
