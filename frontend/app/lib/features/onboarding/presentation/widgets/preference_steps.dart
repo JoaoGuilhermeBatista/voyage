@@ -41,6 +41,8 @@ const interestOptions = [
   'vida-noturna',
   'vida-local',
   'musica',
+  'vinhos',
+  'neve',
 ];
 
 const interestLabels = {
@@ -52,6 +54,8 @@ const interestLabels = {
   'vida-noturna': 'Vida Noturna',
   'vida-local': 'Vida Local',
   'musica': 'Música & Shows',
+  'vinhos': 'Vinhos',
+  'neve': 'Neve',
 };
 
 const interestIcons = {
@@ -63,7 +67,23 @@ const interestIcons = {
   'vida-noturna': Icons.local_bar_outlined,
   'vida-local': Icons.storefront_outlined,
   'musica': Icons.music_note_outlined,
+  'vinhos': Icons.wine_bar_outlined,
+  'neve': Icons.ac_unit_outlined,
 };
+
+const religionOptions = [
+  Option(value: 'CATHOLIC', label: 'Católica', icon: Icons.church_outlined),
+  Option(
+      value: 'EVANGELICAL', label: 'Evangélica', icon: Icons.menu_book_outlined),
+  Option(
+      value: 'OTHER_OR_NONE',
+      label: 'Outra ou sem religião',
+      icon: Icons.public_outlined),
+  Option(
+      value: 'PREFER_NOT_TO_SAY',
+      label: 'Prefiro não informar',
+      icon: Icons.visibility_off_outlined),
+];
 
 // ---------------------------------------------------------------------------
 // Modelo auxiliar imutável para as opções
@@ -198,6 +218,46 @@ class GroupTypeStep extends StatelessWidget {
                   isSelected: selected == opt.value,
                   onTap: () => onSelected(opt.value),
                   isCompact: true,
+                ))
+            .toList(),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Etapa — Religião
+// ---------------------------------------------------------------------------
+
+class ReligionStep extends StatelessWidget {
+  final String? selected;
+  final ValueChanged<String> onSelected;
+  final bool showStepNumber;
+  final bool scrollable;
+
+  const ReligionStep({
+    super.key,
+    required this.selected,
+    required this.onSelected,
+    this.showStepNumber = true,
+    this.scrollable = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StepScaffold(
+      stepNumber: '05',
+      showStepNumber: showStepNumber,
+      scrollable: scrollable,
+      title: 'Sua fé importa\npra você?',
+      subtitle:
+          'Isso nos ajuda a personalizar sugestões de locais e experiências religiosas.',
+      child: Column(
+        children: religionOptions
+            .map((opt) => SelectionCard(
+                  option: opt,
+                  isSelected: selected == opt.value,
+                  onTap: () => onSelected(opt.value),
                 ))
             .toList(),
       ),

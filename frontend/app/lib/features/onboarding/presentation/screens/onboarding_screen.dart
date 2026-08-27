@@ -26,6 +26,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _rhythm;
   String? _groupType;
   final Set<String> _interests = {};
+  String? _religion;
 
   bool _isLoading = false;
 
@@ -54,6 +55,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         return _groupType != null;
       case 3:
         return _interests.isNotEmpty;
+      case 4:
+        return _religion != null;
       default:
         return false;
     }
@@ -73,6 +76,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         rhythm: _rhythm!,
         groupType: _groupType!,
         interests: _interests.toList(),
+        religion: _religion,
       );
 
       // Marca onboarding concluído no StateProvider do router
@@ -142,6 +146,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       }
                     }),
                   ),
+                  ReligionStep(
+                    selected: _religion,
+                    onSelected: (v) => setState(() => _religion = v),
+                  ),
                 ],
               ),
             ),
@@ -153,7 +161,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildProgressBar() {
-    const totalSteps = 4;
+    const totalSteps = 5;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Row(
@@ -177,7 +185,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildBottomButton() {
-    final isLastStep = _currentPage == 3;
+    final isLastStep = _currentPage == 4;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
       child: SizedBox(

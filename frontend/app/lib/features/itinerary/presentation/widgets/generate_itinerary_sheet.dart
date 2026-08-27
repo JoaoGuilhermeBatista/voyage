@@ -897,7 +897,8 @@ enum _TripVibe {
   adventure('Aventura', Icons.terrain_outlined, 'ADVENTURE'),
   culture('Cultura & Arte', Icons.museum_outlined, 'CULTURE'),
   wellness('Relaxar', Icons.spa_outlined, 'WELLNESS'),
-  business('Trabalho + lazer', Icons.work_outline_rounded, 'BUSINESS');
+  business('Trabalho + lazer', Icons.work_outline_rounded, 'BUSINESS'),
+  silence('Silêncio & Contemplação', Icons.self_improvement_outlined, 'SILENCE');
 
   final String label;
   final IconData icon;

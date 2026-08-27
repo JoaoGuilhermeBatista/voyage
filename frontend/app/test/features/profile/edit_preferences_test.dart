@@ -90,6 +90,51 @@ void main() {
     );
 
     test(
+      'teste4_incluiReligionNoBody_quandoFornecida',
+      () async {
+        when(
+          () => mockDio.patch(
+            any(),
+            data: any(named: 'data'),
+          ),
+        ).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/users/preferences'),
+            statusCode: 200,
+            data: {'message': 'Preferences updated'},
+          ),
+        );
+
+        await repository.updatePreferences(
+          budget: 'MODERATE',
+          rhythm: 'RELAXED',
+          groupType: 'COUPLE',
+          interests: ['praia', 'gastronomia'],
+          religion: 'CATHOLIC',
+        );
+
+        final captured = verify(
+          () => mockDio.patch(
+            captureAny(),
+            data: captureAny(named: 'data'),
+          ),
+        ).captured;
+
+        expect(captured[0], '/users/preferences');
+        expect(
+          captured[1],
+          equals({
+            'budget': 'MODERATE',
+            'rhythm': 'RELAXED',
+            'groupType': 'COUPLE',
+            'interests': ['praia', 'gastronomia'],
+            'religion': 'CATHOLIC',
+          }),
+        );
+      },
+    );
+
+    test(
       'teste2_propagaExcecao_quandoApiRetornaErro400',
       () async {
         final requestOptions = RequestOptions(path: '/users/preferences');
@@ -164,6 +209,41 @@ void main() {
     );
   });
 
+  group('UserModel.fromJson', () {
+    test(
+      'teste5_populaReligion_apartirDeJson',
+      () {
+        final user = UserModel.fromJson({
+          'id': 'user-123',
+          'email': 'teste@luvoy.com',
+          'onboardingCompleted': true,
+          'isPremium': false,
+          'budget': 'MODERATE',
+          'rhythm': 'RELAXED',
+          'groupType': 'COUPLE',
+          'interests': ['praia', 'gastronomia'],
+          'religion': 'EVANGELICAL',
+        });
+
+        expect(user.religion, 'EVANGELICAL');
+      },
+    );
+
+    test(
+      'teste6_religionNula_quandoAusenteNoJson',
+      () {
+        final user = UserModel.fromJson({
+          'id': 'user-123',
+          'email': 'teste@luvoy.com',
+          'onboardingCompleted': true,
+          'isPremium': false,
+        });
+
+        expect(user.religion, isNull);
+      },
+    );
+  });
+
   // ───────────────────────────────────────────────────────────────────────
   // Comportamento da EditPreferencesScreen.
   //
@@ -184,6 +264,7 @@ void main() {
       rhythm: 'RELAXED',
       groupType: 'COUPLE',
       interests: ['gastronomia', 'natureza'],
+      religion: 'CATHOLIC',
     );
 
     late MockUserRepository mockRepo;
@@ -238,11 +319,14 @@ void main() {
             tester.widget<GroupTypeStep>(find.byType(GroupTypeStep));
         final interestsStep =
             tester.widget<InterestsStep>(find.byType(InterestsStep));
+        final religionStep =
+            tester.widget<ReligionStep>(find.byType(ReligionStep));
 
         expect(budgetStep.selected, 'MODERATE');
         expect(rhythmStep.selected, 'RELAXED');
         expect(groupTypeStep.selected, 'COUPLE');
         expect(interestsStep.selected, {'gastronomia', 'natureza'});
+        expect(religionStep.selected, 'CATHOLIC');
       },
     );
 
@@ -265,6 +349,27 @@ void main() {
     );
 
     testWidgets(
+      'botão Salvar habilita ao mudar apenas a religião em relação ao valor '
+      'carregado originalmente',
+      (tester) async {
+        await openEditScreen(tester);
+
+        ElevatedButton saveButton() =>
+            tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+
+        expect(saveButton().onPressed, isNull);
+
+        final religionFinder = find.text('Evangélica');
+        await tester.ensureVisible(religionFinder);
+        await tester.pumpAndSettle();
+        await tester.tap(religionFinder);
+        await tester.pumpAndSettle();
+
+        expect(saveButton().onPressed, isNotNull);
+      },
+    );
+
+    testWidgets(
       'ao salvar com sucesso, mostra feedback (snackbar/toast de sucesso) '
       'e navega de volta para a tela de Perfil',
       (tester) async {
@@ -274,6 +379,7 @@ void main() {
             rhythm: any(named: 'rhythm'),
             groupType: any(named: 'groupType'),
             interests: any(named: 'interests'),
+            religion: any(named: 'religion'),
           ),
         ).thenAnswer((_) async {});
 
@@ -295,6 +401,44 @@ void main() {
             rhythm: 'RELAXED',
             groupType: 'COUPLE',
             interests: ['gastronomia', 'natureza'],
+            religion: 'CATHOLIC',
+          ),
+        ).called(1);
+      },
+    );
+
+    testWidgets(
+      'ao mudar a religião e salvar com sucesso, envia o novo valor de '
+      'religion para o repositório',
+      (tester) async {
+        when(
+          () => mockRepo.updatePreferences(
+            budget: any(named: 'budget'),
+            rhythm: any(named: 'rhythm'),
+            groupType: any(named: 'groupType'),
+            interests: any(named: 'interests'),
+            religion: any(named: 'religion'),
+          ),
+        ).thenAnswer((_) async {});
+
+        await openEditScreen(tester);
+
+        final religionFinder = find.text('Evangélica');
+        await tester.ensureVisible(religionFinder);
+        await tester.pumpAndSettle();
+        await tester.tap(religionFinder);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(ElevatedButton));
+        await tester.pumpAndSettle();
+
+        verify(
+          () => mockRepo.updatePreferences(
+            budget: 'MODERATE',
+            rhythm: 'RELAXED',
+            groupType: 'COUPLE',
+            interests: ['gastronomia', 'natureza'],
+            religion: 'EVANGELICAL',
           ),
         ).called(1);
       },
@@ -312,6 +456,7 @@ void main() {
             rhythm: any(named: 'rhythm'),
             groupType: any(named: 'groupType'),
             interests: any(named: 'interests'),
+            religion: any(named: 'religion'),
           ),
         ).thenThrow(
           DioException(
@@ -361,6 +506,7 @@ void main() {
             rhythm: any(named: 'rhythm'),
             groupType: any(named: 'groupType'),
             interests: any(named: 'interests'),
+            religion: any(named: 'religion'),
           ),
         ).thenAnswer((_) => completer.future);
 

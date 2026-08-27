@@ -8,6 +8,7 @@ class UserModel {
   final String? rhythm;
   final String? groupType;
   final List<String> interests;
+  final String? religion;
 
   const UserModel({
     required this.id,
@@ -19,6 +20,7 @@ class UserModel {
     this.rhythm,
     this.groupType,
     this.interests = const [],
+    this.religion,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class UserModel {
       rhythm: json['rhythm'] as String?,
       groupType: json['groupType'] as String?,
       interests: (json['interests'] as List<dynamic>?)?.cast<String>() ?? [],
+      religion: json['religion'] as String?,
     );
   }
 }

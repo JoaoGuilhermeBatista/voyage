@@ -27,11 +27,13 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
   String? _initialRhythm;
   String? _initialGroupType;
   Set<String> _initialInterests = const {};
+  String? _initialReligion;
 
   String? _budget;
   String? _rhythm;
   String? _groupType;
   final Set<String> _interests = {};
+  String? _religion;
 
   bool _isSaving = false;
 
@@ -40,6 +42,7 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
     _initialRhythm = user.rhythm;
     _initialGroupType = user.groupType;
     _initialInterests = user.interests.toSet();
+    _initialReligion = user.religion;
 
     _budget = user.budget;
     _rhythm = user.rhythm;
@@ -47,6 +50,7 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
     _interests
       ..clear()
       ..addAll(user.interests);
+    _religion = user.religion;
 
     _initialized = true;
   }
@@ -56,9 +60,14 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
     return _budget != _initialBudget ||
         _rhythm != _initialRhythm ||
         _groupType != _initialGroupType ||
-        !setEquals(_interests, _initialInterests);
+        !setEquals(_interests, _initialInterests) ||
+        _religion != _initialReligion;
   }
 
+  // Religião fica de fora daqui de propósito: diferente do onboarding (onde
+  // é obrigatória), aqui ela é opcional — usuários que já completaram o
+  // onboarding antes dessa pergunta existir (religion == null) não devem
+  // ficar bloqueados de salvar outras mudanças de preferência.
   bool get _isFormValid =>
       _budget != null &&
       _rhythm != null &&
@@ -76,6 +85,7 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
             rhythm: _rhythm!,
             groupType: _groupType!,
             interests: _interests.toList(),
+            religion: _religion,
           );
 
       ref.invalidate(userProvider);
@@ -178,6 +188,12 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
                               _interests.add(v);
                             }
                           }),
+                          showStepNumber: false,
+                          scrollable: false,
+                        ),
+                        ReligionStep(
+                          selected: _religion,
+                          onSelected: (v) => setState(() => _religion = v),
                           showStepNumber: false,
                           scrollable: false,
                         ),

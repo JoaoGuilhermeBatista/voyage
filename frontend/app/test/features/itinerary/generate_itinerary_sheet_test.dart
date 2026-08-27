@@ -536,4 +536,51 @@ void main() {
       expect(find.text('Qual é o clima da viagem?'), findsOneWidget);
     },
   );
+
+  // ── (l) Nova vibe: Silêncio & Contemplação ──────────────────────────────
+
+  testWidgets(
+    'etapa de Vibe mostra a opção "Silêncio & Contemplação"',
+    (tester) async {
+      await pumpSheet(tester, destinationId: 'x', destinationName: 'Paris');
+
+      await fillDatesStep(tester);
+      await tapContinuar(tester); // Datas -> Área
+      await tapContinuar(tester); // Área -> Vibe
+
+      expect(find.text('Silêncio & Contemplação'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'selecionar "Silêncio & Contemplação" e completar o wizard envia '
+    'tripVibe: SILENCE para generate()',
+    (tester) async {
+      await pumpSheetWithRouter(tester, destinations: mockDestinations);
+
+      final parisFinder = find.text('Paris');
+      if (parisFinder.evaluate().isNotEmpty) {
+        await tester.tap(parisFinder.first);
+        await tester.pumpAndSettle();
+      }
+
+      await completeWizardUntilGenerate(
+        tester,
+        vibeLabel: 'Silêncio & Contemplação',
+      );
+      await tapGerarRoteiro(tester);
+
+      verify(
+        () => mockRepo.generate(
+          destinationId: any(named: 'destinationId'),
+          startDate: any(named: 'startDate'),
+          endDate: any(named: 'endDate'),
+          stayArea: any(named: 'stayArea'),
+          tripVibe: 'SILENCE',
+          companions: any(named: 'companions'),
+          tripBudget: any(named: 'tripBudget'),
+        ),
+      ).called(1);
+    },
+  );
 }

@@ -16,6 +16,7 @@ class UserRepository {
     required String rhythm,
     required String groupType,
     required List<String> interests,
+    String? religion,
   }) async {
     await _apiClient.dio.patch(
       '/users/preferences',
@@ -24,6 +25,7 @@ class UserRepository {
         'rhythm': rhythm,
         'groupType': groupType,
         'interests': interests,
+        if (religion != null) 'religion': religion,
       },
     );
   }
