@@ -86,7 +86,7 @@ class ItineraryEngineServiceTest {
         when(prefsRepo.findByUserId(userId)).thenReturn(Optional.empty());
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null, null, null);
 
         assertThrows(OnboardingNotCompletedException.class,
             () -> engineService.generate(userId, request));
@@ -102,7 +102,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(List.of(makePoi(BudgetTier.MODERATE), makePoi(BudgetTier.MODERATE)));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null, null, null);
 
         assertThrows(InsufficientContentException.class,
             () -> engineService.generate(userId, request));
@@ -115,7 +115,7 @@ class ItineraryEngineServiceTest {
         ItineraryRequest request = new ItineraryRequest(
             destinationId,
             LocalDate.of(2027, 8, 10),
-            LocalDate.of(2027, 8, 5), null, null, null, null);
+            LocalDate.of(2027, 8, 5), null, null, null, null, null, null);
 
         assertThrows(InvalidDateRangeException.class,
             () -> engineService.generate(userId, request));
@@ -128,7 +128,7 @@ class ItineraryEngineServiceTest {
         ItineraryRequest request = new ItineraryRequest(
             destinationId,
             LocalDate.now().minusDays(1),
-            LocalDate.now().plusDays(3), null, null, null, null);
+            LocalDate.now().plusDays(3), null, null, null, null, null, null);
 
         assertThrows(InvalidDateRangeException.class,
             () -> engineService.generate(userId, request));
@@ -144,7 +144,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(15, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -174,7 +174,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(economyOnly);
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(1), null, null, null, null);
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(1), null, null, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -194,7 +194,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(15, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -213,7 +213,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(15, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -233,7 +233,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(20, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -252,7 +252,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(10, BudgetTier.MODERATE));
 
         LocalDate today = LocalDate.now().plusDays(1);
-        ItineraryRequest request = new ItineraryRequest(destinationId, today, today, null, null, null, null);
+        ItineraryRequest request = new ItineraryRequest(destinationId, today, today, null, null, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -274,7 +274,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(makePoiList(9, BudgetTier.MODERATE));
 
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null);
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3), null, null, null, null, null, null);
 
         assertDoesNotThrow(() -> engineService.generate(userId, request));
 
@@ -313,7 +313,7 @@ class ItineraryEngineServiceTest {
             .thenReturn(candidates);
 
         LocalDate day = LocalDate.now().plusDays(1);
-        ItineraryRequest request = new ItineraryRequest(destinationId, day, day, null, null, null, null);
+        ItineraryRequest request = new ItineraryRequest(destinationId, day, day, null, null, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -368,7 +368,7 @@ class ItineraryEngineServiceTest {
 
         LocalDate day = LocalDate.now().plusDays(1);
         ItineraryRequest request = new ItineraryRequest(
-            destinationId, day, day, null, TripVibe.SILENCE, null, null);
+            destinationId, day, day, null, TripVibe.SILENCE, null, null, null, null);
 
         ItineraryResponseDTO result = engineService.generate(userId, request);
 
@@ -384,10 +384,173 @@ class ItineraryEngineServiceTest {
             "(bônus de vibe ainda não implementado em vibeBonus)");
     }
 
+    // ─── Item A — Regra nova: tripInterests do request sobrepõe onboarding ──
+    //
+    // Contrato assumido (RED por design — a implementar por um próximo agente
+    // em ItineraryEngineService#scoreFor): quando ItineraryRequest.tripInterests()
+    // vier não-nulo e não-vazio, ele deve ser usado no lugar de
+    // prefs.getInterests() para o bônus de +10 por tag batendo. Hoje scoreFor
+    // sempre usa prefs.getInterests(), então um POI cuja tag bate só com
+    // tripInterests (e não com os interesses do onboarding) não recebe bônus
+    // algum, e um POI com tag do onboarding (mas fora de tripInterests) vence
+    // indevidamente — por isso o teste falha até o override ser implementado.
+    @Test
+    void testeTripInterests_shouldOverrideOnboardingInterests_whenProvided() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs)); // prefs.interests = ["cultura", "gastronomia"]
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        Poi aventuraPoi = makePoiWithTags(List.of("aventura"));
+        List<Poi> candidates = new ArrayList<>();
+        for (int i = 0; i < 3; i++) candidates.add(makePoiWithTags(List.of("cultura")));
+        candidates.add(aventuraPoi); // deliberadamente não é o primeiro da lista
+        for (int i = 0; i < 4; i++) candidates.add(makePoiWithTags(List.of("cultura")));
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate day = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, day, day, null, null, null, null, List.of("aventura"), null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        UUID firstPickedPoiId = result.days().get(0).activities().get(0).poi().id();
+
+        assertEquals(aventuraPoi.getId(), firstPickedPoiId,
+            "Com tripInterests=[\"aventura\"] no request, o POI com tag \"aventura\" deve " +
+            "vencer no scoring, mesmo que os interesses do onboarding sejam [\"cultura\", " +
+            "\"gastronomia\"] (override de tripInterests ainda não implementado em scoreFor)");
+    }
+
+    // ─── Item A — Regra nova: tripInterests=null cai no fallback do onboarding ──
+
+    @Test
+    void testeTripInterests_shouldFallBackToOnboardingInterests_whenNull() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs)); // prefs.interests = ["cultura", "gastronomia"]
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        Poi culturaPoi = makePoiWithTags(List.of("cultura"));
+        List<Poi> candidates = new ArrayList<>();
+        for (int i = 0; i < 3; i++) candidates.add(makePoiWithTags(List.of("aventura")));
+        candidates.add(culturaPoi); // deliberadamente não é o primeiro da lista
+        for (int i = 0; i < 4; i++) candidates.add(makePoiWithTags(List.of("aventura")));
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate day = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, day, day, null, null, null, null, null, null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        UUID firstPickedPoiId = result.days().get(0).activities().get(0).poi().id();
+
+        assertEquals(culturaPoi.getId(), firstPickedPoiId,
+            "Com tripInterests=null no request, o scoring deve continuar usando os " +
+            "interesses do onboarding (\"cultura\"), como hoje");
+    }
+
+    // ─── Item A — Regra nova: tripInterests=[] (vazio) cai no fallback do onboarding ──
+
+    @Test
+    void testeTripInterests_shouldFallBackToOnboardingInterests_whenEmpty() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs)); // prefs.interests = ["cultura", "gastronomia"]
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        Poi culturaPoi = makePoiWithTags(List.of("cultura"));
+        List<Poi> candidates = new ArrayList<>();
+        for (int i = 0; i < 3; i++) candidates.add(makePoiWithTags(List.of("aventura")));
+        candidates.add(culturaPoi); // deliberadamente não é o primeiro da lista
+        for (int i = 0; i < 4; i++) candidates.add(makePoiWithTags(List.of("aventura")));
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate day = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, day, day, null, null, null, null, List.of(), null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        UUID firstPickedPoiId = result.days().get(0).activities().get(0).poi().id();
+
+        assertEquals(culturaPoi.getId(), firstPickedPoiId,
+            "Com tripInterests=[] (vazio) no request, o scoring deve continuar usando os " +
+            "interesses do onboarding (\"cultura\"), como hoje");
+    }
+
+    // ─── Item A — Regra nova: tripRhythm do request sobrepõe onboarding ─────
+    //
+    // Contrato assumido (RED por design — a implementar por um próximo agente
+    // em ItineraryEngineService#generate/slotSpecs): quando
+    // ItineraryRequest.tripRhythm() vier não-nulo, ele deve ser usado no lugar
+    // de prefs.getRhythm() na distribuição de slots. Hoje slotSpecs sempre
+    // recebe prefs.getRhythm(), então mesmo com tripRhythm=INTENSE no
+    // request, prefs=MODERATE ainda gera 3 atividades por dia (e não as 4
+    // esperadas de INTENSE) — por isso o teste falha até o override ser
+    // implementado.
+    @Test
+    void testeTripRhythm_shouldOverrideOnboardingRhythm_whenProvided() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs)); // prefs.rhythm = MODERATE
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(makePoiList(20, BudgetTier.MODERATE));
+
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3),
+            null, null, null, null, null, TravelRhythm.INTENSE);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        result.days().forEach(day ->
+            assertEquals(4, day.activities().size(),
+                "Com tripRhythm=INTENSE no request, cada dia deve ter 4 atividades, " +
+                "mesmo que prefs.rhythm seja MODERATE (override ainda não implementado)"));
+    }
+
+    // ─── Item A — Regra nova: tripRhythm=null cai no fallback do onboarding ──
+
+    @Test
+    void testeTripRhythm_shouldFallBackToOnboardingRhythm_whenNull() {
+        OnboardingPreferences intense = prefsWithRhythm(TravelRhythm.INTENSE);
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(intense));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(makePoiList(20, BudgetTier.MODERATE));
+
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3),
+            null, null, null, null, null, null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        result.days().forEach(day ->
+            assertEquals(4, day.activities().size(),
+                "Com tripRhythm=null no request, o número de atividades por dia deve " +
+                "continuar refletindo prefs.rhythm=INTENSE do onboarding, como hoje"));
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Poi makePoi(BudgetTier tier) {
         return makePoi(tier, false);
+    }
+
+    private Poi makePoiWithTags(List<String> tags) {
+        return Poi.builder()
+            .id(UUID.randomUUID())
+            .destination(destination)
+            .title("POI-" + UUID.randomUUID().toString().substring(0, 6))
+            .category(PoiCategory.MUSEUM)
+            .budgetTier(BudgetTier.MODERATE)
+            .tags(tags)
+            .active(true)
+            .mustSee(false)
+            .latitude(BigDecimal.valueOf(48.8 + Math.random() * 0.1))
+            .longitude(BigDecimal.valueOf(2.3 + Math.random() * 0.1))
+            .averageDurationMinutes(90)
+            .build();
     }
 
     private Poi makePoiWithCategory(PoiCategory category) {

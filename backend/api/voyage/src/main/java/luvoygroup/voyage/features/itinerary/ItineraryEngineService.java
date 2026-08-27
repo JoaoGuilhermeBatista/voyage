@@ -52,6 +52,9 @@ public class ItineraryEngineService {
         BudgetTier effectiveBudget = request.tripBudget() != null ? request.tripBudget() : prefs.getBudget();
         GroupType effectiveGroup  = request.companions()  != null ? request.companions()  : prefs.getGroupType();
         TripVibe  tripVibe        = request.tripVibe();
+        List<String> effectiveInterests = request.tripInterests() != null && !request.tripInterests().isEmpty()
+            ? request.tripInterests() : prefs.getInterests();
+        TravelRhythm effectiveRhythm = request.tripRhythm() != null ? request.tripRhythm() : prefs.getRhythm();
 
         // Step 3: Filter POIs by budget
         List<Poi> candidates = poiRepo.findActiveByDestinationAndBudget(
@@ -62,7 +65,7 @@ public class ItineraryEngineService {
 
         // Steps 4 & 5: Score and sort
         List<Poi> ranked = candidates.stream()
-            .sorted(Comparator.comparingInt((Poi p) -> scoreFor(p, prefs, effectiveGroup, tripVibe)).reversed())
+            .sorted(Comparator.comparingInt((Poi p) -> scoreFor(p, effectiveInterests, effectiveGroup, tripVibe)).reversed())
             .collect(Collectors.toCollection(ArrayList::new));
 
         log.info("Engine: {} POIs candidatos para {} dias em {} [budget={}, group={}, vibe={}]",
@@ -80,7 +83,7 @@ public class ItineraryEngineService {
             .title(title)
             .build());
 
-        List<SlotSpec> slotSpecs = slotSpecs(prefs.getRhythm(), tripVibe);
+        List<SlotSpec> slotSpecs = slotSpecs(effectiveRhythm, tripVibe);
         Set<UUID> usedIds = new LinkedHashSet<>(); // insertion order = reuse order for long trips
         List<DayDTO> dayDTOs = new ArrayList<>();
 
@@ -162,9 +165,9 @@ public class ItineraryEngineService {
         };
     }
 
-    private int scoreFor(Poi poi, OnboardingPreferences prefs, GroupType group, TripVibe vibe) {
+    private int scoreFor(Poi poi, List<String> interests, GroupType group, TripVibe vibe) {
         int score = 0;
-        for (String interest : prefs.getInterests()) {
+        for (String interest : interests) {
             if (poi.getTags().contains(interest)) score += 10;
         }
         score += groupBonus(poi.getCategory(), group);
