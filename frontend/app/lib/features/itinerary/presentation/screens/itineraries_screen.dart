@@ -8,16 +8,38 @@ import '../../../../shared/widgets/loading_shimmer.dart';
 import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
 import '../providers/itinerary_provider.dart';
+import '../widgets/generate_itinerary_sheet.dart';
 
 class ItinerariesScreen extends ConsumerWidget {
   const ItinerariesScreen({super.key});
 
+  void _openCreateSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const GenerateItinerarySheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final itinerariesAsync = ref.watch(itinerariesProvider);
+    // O estado vazio já tem seu próprio botão "Criar roteiro" em destaque —
+    // o FAB só aparece quando já existem roteiros (ou enquanto ainda não
+    // sabemos, isto é, carregando/erro), evitando duplicar o CTA na tela.
+    final itineraries = itinerariesAsync.valueOrNull;
+    final showFab = itineraries == null || itineraries.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
+      floatingActionButton: showFab
+          ? FloatingActionButton.extended(
+              onPressed: () => _openCreateSheet(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Criar roteiro'),
+            )
+          : null,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -203,8 +225,8 @@ class ItinerariesScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: () => context.go('/home'),
-              child: const Text('Explorar destinos'),
+              onPressed: () => _openCreateSheet(context),
+              child: const Text('Criar roteiro'),
             ),
           ],
         ),

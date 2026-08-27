@@ -3,19 +3,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../../core/themes/app_theme.dart';
+import '../../../destinations/data/destination_summary_model.dart';
+import '../../../destinations/presentation/providers/destination_provider.dart';
+import '../../../onboarding/presentation/widgets/preference_steps.dart';
+import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
 import '../providers/itinerary_provider.dart';
+
+// ── Logical step names (index shifts depending on the mode) ────────────────
+
+enum _StepName {
+  city,
+  dates,
+  area,
+  vibe,
+  interests,
+  rhythm,
+  companions,
+  budget,
+}
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
 class GenerateItinerarySheet extends ConsumerStatefulWidget {
-  final String destinationId;
-  final String destinationName;
+  final String? destinationId;
+  final String? destinationName;
 
   const GenerateItinerarySheet({
     super.key,
-    required this.destinationId,
-    required this.destinationName,
+    this.destinationId,
+    this.destinationName,
   });
 
   @override
@@ -29,35 +46,83 @@ class _GenerateItinerarySheetState
     extends ConsumerState<GenerateItinerarySheet> {
   int _step = 0;
 
-  // Step 0 — dates
+  // City step (only in "sem destino" mode)
+  final _cityController = TextEditingController();
+  String? _selectedDestinationId;
+  String? _selectedDestinationName;
+
+  // Step — dates
   DateTime? _startDate;
   DateTime? _endDate;
 
-  // Step 1 — stay area
+  // Step — stay area
   final _areaController = TextEditingController();
 
-  // Step 2 — trip vibe
+  // Step — trip vibe
   _TripVibe? _vibe;
 
-  // Step 3 — companions
+  // Step — interests
+  final Set<String> _interests = {};
+
+  // Step — rhythm
+  String? _rhythm;
+
+  // Step — companions
   _Companions? _companions;
 
-  // Step 4 — budget
+  // Step — budget
   _Budget? _budget;
 
   // Generation
   bool _loading = false;
   String? _error;
 
-  static const _totalSteps = 5;
-
   static const _months = [
     '', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
     'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
   ];
 
+  /// Ordem lógica das etapas — desloca conforme o modo (com ou sem
+  /// destino pré-definido).
+  List<_StepName> get _steps => widget.destinationId == null
+      ? const [
+          _StepName.city,
+          _StepName.dates,
+          _StepName.area,
+          _StepName.vibe,
+          _StepName.interests,
+          _StepName.rhythm,
+          _StepName.companions,
+          _StepName.budget,
+        ]
+      : const [
+          _StepName.dates,
+          _StepName.area,
+          _StepName.vibe,
+          _StepName.interests,
+          _StepName.rhythm,
+          _StepName.companions,
+          _StepName.budget,
+        ];
+
+  int get _totalSteps => _steps.length;
+
+  _StepName get _currentStepName => _steps[_step];
+
+  @override
+  void initState() {
+    super.initState();
+    _cityController.addListener(_onCityQueryChanged);
+  }
+
+  void _onCityQueryChanged() {
+    setState(() {});
+  }
+
   @override
   void dispose() {
+    _cityController.removeListener(_onCityQueryChanged);
+    _cityController.dispose();
     _areaController.dispose();
     super.dispose();
   }
@@ -65,18 +130,37 @@ class _GenerateItinerarySheetState
   // ── Navigation ───────────────────────────────────────────────────────────────
 
   bool get _canAdvance {
-    return switch (_step) {
-      0 => _startDate != null && _endDate != null,
-      1 => true, // area is optional
-      2 => _vibe != null,
-      3 => _companions != null,
-      4 => _budget != null,
-      _ => false,
+    return switch (_currentStepName) {
+      _StepName.city => _selectedDestinationId != null,
+      _StepName.dates => _startDate != null && _endDate != null,
+      _StepName.area => true, // area is optional
+      _StepName.vibe => _vibe != null,
+      _StepName.interests => true, // interests are optional
+      _StepName.rhythm => true, // rhythm is optional
+      _StepName.companions => _companions != null,
+      _StepName.budget => _budget != null,
     };
   }
 
   void _next() {
     if (_step < _totalSteps - 1) setState(() => _step++);
+  }
+
+  void _selectDestination(DestinationSummaryModel destination) {
+    setState(() {
+      _selectedDestinationId = destination.id;
+      _selectedDestinationName = destination.name;
+      if (_step < _totalSteps - 1) _step++;
+    });
+  }
+
+  void _selectVibe(_TripVibe vibe) {
+    setState(() {
+      _vibe = vibe;
+      if (vibe == _TripVibe.romantic && _companions == _Companions.solo) {
+        _companions = null;
+      }
+    });
   }
 
   void _back() {
@@ -125,23 +209,16 @@ class _GenerateItinerarySheetState
 
   Future<void> _generate() async {
     if (_startDate == null || _endDate == null) return;
+    final effectiveDestinationId = widget.destinationId ?? _selectedDestinationId;
+    if (effectiveDestinationId == null) return;
+
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final itinerary = await ref.read(itineraryRepositoryProvider).generate(
-            destinationId: widget.destinationId,
-            startDate: _startDate!,
-            endDate: _endDate!,
-            stayArea: _areaController.text.trim().isEmpty
-                ? null
-                : _areaController.text.trim(),
-            tripVibe: _vibe?.backendKey,
-            companions: _companions?.backendKey,
-            tripBudget: _budget?.backendKey,
-          );
+      final itinerary = await _callGenerate(effectiveDestinationId);
       ref.invalidate(itinerariesProvider);
 
       if (mounted) {
@@ -154,6 +231,42 @@ class _GenerateItinerarySheetState
         _error = 'Não foi possível gerar o roteiro. Tente novamente.';
       });
     }
+  }
+
+  /// Chama o repositório resolvendo tripInterests/tripRhythm — mantém a
+  /// chamada "enxuta" (sem esses dois parâmetros nomeados) quando nada foi
+  /// selecionado, preservando compatibilidade com o formato de chamada já
+  /// existente.
+  Future<ItineraryModel> _callGenerate(String destinationId) {
+    final repo = ref.read(itineraryRepositoryProvider);
+    final stayArea = _areaController.text.trim().isEmpty
+        ? null
+        : _areaController.text.trim();
+    final tripInterests = _interests.isEmpty ? null : _interests.toList();
+
+    if (tripInterests == null && _rhythm == null) {
+      return repo.generate(
+        destinationId: destinationId,
+        startDate: _startDate!,
+        endDate: _endDate!,
+        stayArea: stayArea,
+        tripVibe: _vibe?.backendKey,
+        companions: _companions?.backendKey,
+        tripBudget: _budget?.backendKey,
+      );
+    }
+
+    return repo.generate(
+      destinationId: destinationId,
+      startDate: _startDate!,
+      endDate: _endDate!,
+      stayArea: stayArea,
+      tripVibe: _vibe?.backendKey,
+      companions: _companions?.backendKey,
+      tripBudget: _budget?.backendKey,
+      tripInterests: tripInterests,
+      tripRhythm: _rhythm,
+    );
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -175,30 +288,46 @@ class _GenerateItinerarySheetState
           children: [
             _Handle(),
             const SizedBox(height: 16),
-            _ProgressDots(current: _step, total: _totalSteps),
-            const SizedBox(height: 20),
-            _Header(
-              step: _step,
-              destinationName: widget.destinationName,
-            ),
-            const SizedBox(height: 24),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: KeyedSubtree(
-                key: ValueKey(_step),
-                child: _buildStepContent(),
-              ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.red[400],
+            // O conteúdo cresceu (etapa de Cidade, Interesses, Ritmo) e pode
+            // não caber na altura disponível em telas menores — torna essa
+            // parte rolável para nunca estourar o layout, mantendo os
+            // botões de navegação sempre visíveis fora da rolagem.
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ProgressDots(current: _step, total: _totalSteps),
+                    const SizedBox(height: 20),
+                    _Header(
+                      stepName: _currentStepName,
+                      destinationName: widget.destinationName ??
+                          _selectedDestinationName ??
+                          '',
                     ),
-                textAlign: TextAlign.center,
+                    const SizedBox(height: 24),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: KeyedSubtree(
+                        key: ValueKey(_step),
+                        child: _buildStepContent(),
+                      ),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.red[400],
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ],
+            ),
             const SizedBox(height: 24),
             _NavRow(
               step: _step,
@@ -216,8 +345,13 @@ class _GenerateItinerarySheetState
   }
 
   Widget _buildStepContent() {
-    return switch (_step) {
-      0 => _StepDates(
+    return switch (_currentStepName) {
+      _StepName.city => _StepCity(
+          controller: _cityController,
+          selectedId: _selectedDestinationId,
+          onSelect: _selectDestination,
+        ),
+      _StepName.dates => _StepDates(
           startDate: _startDate,
           endDate: _endDate,
           nights: _nights,
@@ -225,20 +359,38 @@ class _GenerateItinerarySheetState
           onPickStart: _loading ? null : _pickStart,
           onPickEnd: _loading || _startDate == null ? null : _pickEnd,
         ),
-      1 => _StepArea(controller: _areaController),
-      2 => _StepVibe(
+      _StepName.area => _StepArea(controller: _areaController),
+      _StepName.vibe => _StepVibe(
           selected: _vibe,
-          onSelect: (v) => setState(() => _vibe = v),
+          onSelect: _selectVibe,
         ),
-      3 => _StepCompanions(
+      _StepName.interests => InterestsStep(
+          selected: _interests,
+          onToggle: (i) => setState(() {
+            if (_interests.contains(i)) {
+              _interests.remove(i);
+            } else {
+              _interests.add(i);
+            }
+          }),
+          showStepNumber: false,
+          scrollable: false,
+        ),
+      _StepName.rhythm => RhythmStep(
+          selected: _rhythm,
+          onSelected: (r) => setState(() => _rhythm = r),
+          showStepNumber: false,
+          scrollable: false,
+        ),
+      _StepName.companions => _StepCompanions(
           selected: _companions,
           onSelect: (c) => setState(() => _companions = c),
+          hideSolo: _vibe == _TripVibe.romantic,
         ),
-      4 => _StepBudget(
+      _StepName.budget => _StepBudget(
           selected: _budget,
           onSelect: (b) => setState(() => _budget = b),
         ),
-      _ => const SizedBox.shrink(),
     };
   }
 }
@@ -289,28 +441,36 @@ class _ProgressDots extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  final int step;
+  final _StepName stepName;
   final String destinationName;
-  const _Header({required this.step, required this.destinationName});
+  const _Header({required this.stepName, required this.destinationName});
 
-  static const _titles = [
-    'Quando vai viajar?',
-    'Onde vai se hospedar?',
-    'Qual é a vibe da viagem?',
-    'Com quem vai?',
-    'Qual o budget desta viagem?',
-  ];
+  // Interesses e Ritmo reaproveitam InterestsStep/RhythmStep do onboarding,
+  // que já trazem seu próprio título grande (via StepScaffold) — por isso
+  // ficam de fora deste mapa: mostrar um segundo título aqui duplicaria a
+  // pergunta com uma redação diferente, empilhando dois headers na tela.
+  static const _titles = {
+    _StepName.city: 'Para onde você vai?',
+    _StepName.dates: 'Quando vai viajar?',
+    _StepName.area: 'Onde vai se hospedar?',
+    _StepName.vibe: 'Qual é o clima da viagem?',
+    _StepName.companions: 'Com quem vai?',
+    _StepName.budget: 'Qual o budget desta viagem?',
+  };
 
-  static const _subtitles = [
-    null,
-    'Opcional — ajuda a priorizar locais próximos',
-    'Isso vai personalizar seu roteiro',
-    'Pode ser diferente do que você configurou no perfil',
-    'Pode ser diferente da sua preferência padrão',
-  ];
+  static const _subtitles = {
+    _StepName.city: 'Escolha o destino da sua próxima viagem',
+    _StepName.dates: null,
+    _StepName.area: 'Opcional — ajuda a priorizar locais próximos',
+    _StepName.vibe: 'Isso vai personalizar seu roteiro',
+    _StepName.companions: 'Pode ser diferente do que você configurou no perfil',
+    _StepName.budget: 'Pode ser diferente da sua preferência padrão',
+  };
 
   @override
   Widget build(BuildContext context) {
+    final title = _titles[stepName];
+    final subtitle = _subtitles[stepName];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -330,22 +490,24 @@ class _Header extends StatelessWidget {
                 color: AppTheme.softBlack.withValues(alpha: 0.45),
               ),
         ),
-        const SizedBox(height: 16),
-        Text(
-          _titles[step],
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppTheme.softBlack,
-              ),
-        ),
-        if (_subtitles[step] != null) ...[
-          const SizedBox(height: 2),
+        if (title != null) ...[
+          const SizedBox(height: 16),
           Text(
-            _subtitles[step]!,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.softBlack.withValues(alpha: 0.45),
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.softBlack,
                 ),
           ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.softBlack.withValues(alpha: 0.45),
+                  ),
+            ),
+          ],
         ],
       ],
     );
@@ -524,6 +686,173 @@ class _DateField extends StatelessWidget {
   }
 }
 
+// ── Step: City (modo "sem destino pré-definido") ────────────────────────────
+
+class _StepCity extends ConsumerWidget {
+  final TextEditingController controller;
+  final String? selectedId;
+  final ValueChanged<DestinationSummaryModel> onSelect;
+
+  const _StepCity({
+    required this.controller,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final query = controller.text.trim();
+    final asyncDestinations = query.isEmpty
+        ? ref.watch(destinationsProvider)
+        : ref.watch(destinationSearchProvider(query));
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Buscar cidade ou destino…',
+            prefixIcon: Icon(Icons.search_rounded,
+                color: AppTheme.softBlack.withValues(alpha: 0.4)),
+            filled: true,
+            fillColor: AppTheme.softBlack.withValues(alpha: 0.04),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  BorderSide(color: AppTheme.softBlack.withValues(alpha: 0.1)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  BorderSide(color: AppTheme.softBlack.withValues(alpha: 0.1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppTheme.primaryBlue),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 320),
+          child: asyncDestinations.when(
+            data: (destinations) {
+              if (destinations.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    'Nenhum destino encontrado',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.softBlack.withValues(alpha: 0.45),
+                        ),
+                  ),
+                );
+              }
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: destinations.length,
+                itemBuilder: (context, index) {
+                  final destination = destinations[index];
+                  return _DestinationTile(
+                    destination: destination,
+                    selected: destination.id == selectedId,
+                    onTap: () => onSelect(destination),
+                  );
+                },
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (_, _) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'Não foi possível carregar os destinos',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.softBlack.withValues(alpha: 0.45),
+                    ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DestinationTile extends StatelessWidget {
+  final DestinationSummaryModel destination;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DestinationTile({
+    required this.destination,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.primaryBlue.withValues(alpha: 0.08)
+              : AppTheme.softBlack.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? AppTheme.primaryBlue
+                : AppTheme.softBlack.withValues(alpha: 0.1),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.location_city_rounded,
+              size: 18,
+              color: selected
+                  ? AppTheme.primaryBlue
+                  : AppTheme.softBlack.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    destination.name,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? AppTheme.primaryBlue
+                              : AppTheme.softBlack,
+                        ),
+                  ),
+                  Text(
+                    destination.country,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.softBlack.withValues(alpha: 0.45),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Step 1: Stay area ─────────────────────────────────────────────────────────
 
 class _StepArea extends StatelessWidget {
@@ -615,14 +944,22 @@ enum _Companions {
 class _StepCompanions extends StatelessWidget {
   final _Companions? selected;
   final ValueChanged<_Companions> onSelect;
-  const _StepCompanions({required this.selected, required this.onSelect});
+  final bool hideSolo;
+  const _StepCompanions({
+    required this.selected,
+    required this.onSelect,
+    this.hideSolo = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final options = hideSolo
+        ? _Companions.values.where((c) => c != _Companions.solo)
+        : _Companions.values;
     return Wrap(
       spacing: 10,
       runSpacing: 10,
-      children: _Companions.values
+      children: options
           .map((c) => _OptionChip(
                 label: c.label,
                 icon: c.icon,

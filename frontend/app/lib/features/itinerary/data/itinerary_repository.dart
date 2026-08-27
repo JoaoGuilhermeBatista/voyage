@@ -28,6 +28,8 @@ class ItineraryRepository {
     String? tripVibe,
     String? companions,
     String? tripBudget,
+    List<String>? tripInterests,
+    String? tripRhythm,
   }) async {
     final body = <String, dynamic>{
       'destinationId': destinationId,
@@ -38,6 +40,10 @@ class ItineraryRepository {
     if (tripVibe != null) body['tripVibe'] = tripVibe;
     if (companions != null) body['companions'] = companions;
     if (tripBudget != null) body['tripBudget'] = tripBudget;
+    if (tripInterests != null && tripInterests.isNotEmpty) {
+      body['tripInterests'] = tripInterests;
+    }
+    if (tripRhythm != null) body['tripRhythm'] = tripRhythm;
 
     final response = await _dio.post('/itineraries', data: body);
     return ItineraryModel.fromJson(response.data as Map<String, dynamic>);
