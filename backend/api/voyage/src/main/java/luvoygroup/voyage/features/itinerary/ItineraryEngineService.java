@@ -59,6 +59,11 @@ public class ItineraryEngineService {
         // Step 3: Filter POIs by budget
         List<Poi> candidates = poiRepo.findActiveByDestinationAndBudget(
             request.destinationId(), budgetTiers(effectiveBudget));
+        if (prefs.getReligion() == Religion.EVANGELICAL) {
+            candidates = candidates.stream()
+                .filter(p -> !p.isCatholicChurch())
+                .collect(Collectors.toCollection(ArrayList::new));
+        }
         if (candidates.size() < 8)
             throw new InsufficientContentException(
                 "O destino ainda não tem POIs suficientes para gerar um roteiro. Mínimo: 8.");

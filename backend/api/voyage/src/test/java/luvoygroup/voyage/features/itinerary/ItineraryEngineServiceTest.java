@@ -531,6 +531,132 @@ class ItineraryEngineServiceTest {
                 "continuar refletindo prefs.rhythm=INTENSE do onboarding, como hoje"));
     }
 
+    // ─── Regra de negócio nova: usuário EVANGELICAL não recebe igrejas católicas ──
+    //
+    // Contrato assumido (RED por design — a implementar por um próximo agente
+    // em ItineraryEngineService#generate, filtrando `candidates` antes da
+    // checagem de InsufficientContentException): quando
+    // prefs.getReligion() == Religion.EVANGELICAL, POIs com
+    // isCatholicChurch()==true devem ser EXCLUÍDOS totalmente do pool de
+    // candidatos — nunca aparecem no roteiro gerado, igual a um POI fora do
+    // budget. Hoje o filtro não existe, então com 8 POIs não-católicos e 3
+    // POIs de igreja católica (11 no total) distribuídos em 3 dias de ritmo
+    // MODERATE (9 usos de slot ao todo, mais que os 8 POIs não-católicos
+    // disponíveis), o motor é forçado a reaproveitar/alcançar os POIs
+    // católicos no ranking (que vêm depois na lista de entrada, mas o pool
+    // não-católico se esgota antes do fim dos 9 slots) — por isso o teste
+    // falha hoje.
+    @Test
+    void testeEvangelical_shouldExcludeCatholicChurchPois_fromGeneratedItinerary() {
+        OnboardingPreferences evangelical = prefsWithReligion(Religion.EVANGELICAL);
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(evangelical));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        List<Poi> nonCatholic = new ArrayList<>();
+        for (int i = 0; i < 8; i++) nonCatholic.add(makePoi(BudgetTier.MODERATE, false, false));
+        List<Poi> catholicChurches = new ArrayList<>();
+        for (int i = 0; i < 3; i++) catholicChurches.add(makePoi(BudgetTier.MODERATE, false, true));
+        Set<UUID> catholicIds = catholicChurches.stream().map(Poi::getId).collect(java.util.stream.Collectors.toSet());
+
+        List<Poi> candidates = new ArrayList<>(nonCatholic);
+        candidates.addAll(catholicChurches);
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3),
+            null, null, null, null, null, null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        List<UUID> allPickedIds = result.days().stream()
+            .flatMap(d -> d.activities().stream())
+            .map(a -> a.poi().id())
+            .toList();
+
+        assertTrue(allPickedIds.stream().noneMatch(catholicIds::contains),
+            "Usuário EVANGELICAL não deve receber nenhum POI de igreja católica no roteiro " +
+            "(exclusão total ainda não implementada em ItineraryEngineService#generate)");
+    }
+
+    // ─── Regra de negócio nova: exclusão de igrejas católicas pode disparar
+    //     InsufficientContentException para usuário EVANGELICAL ──────────────
+    //
+    // Contrato assumido (RED por design): a exclusão de POIs católicos deve
+    // acontecer ANTES da checagem `candidates.size() < 8`. Aqui há 9
+    // candidatos no total (>= 8, então hoje NÃO dispara a exceção), mas
+    // apenas 5 deles não são igrejas católicas — depois da exclusão restam
+    // 5 < 8, então a exceção deveria disparar. Hoje isso não acontece porque
+    // o filtro de religião ainda não existe.
+    @Test
+    void testeEvangelical_shouldThrowInsufficientContent_whenFewerThan8AfterExcludingCatholicChurches() {
+        OnboardingPreferences evangelical = prefsWithReligion(Religion.EVANGELICAL);
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(evangelical));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        List<Poi> candidates = new ArrayList<>();
+        for (int i = 0; i < 5; i++) candidates.add(makePoi(BudgetTier.MODERATE, false, false));
+        for (int i = 0; i < 4; i++) candidates.add(makePoi(BudgetTier.MODERATE, false, true));
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3),
+            null, null, null, null, null, null);
+
+        assertThrows(InsufficientContentException.class,
+            () -> engineService.generate(userId, request),
+            "Com apenas 5 POIs elegíveis depois de excluir as igrejas católicas (de 9 " +
+            "candidatos totais), deve lançar InsufficientContentException para usuário " +
+            "EVANGELICAL (filtro de religião ainda não implementado)");
+    }
+
+    // ─── Regressão: usuário não-EVANGELICAL continua elegível para igrejas
+    //     católicas ────────────────────────────────────────────────────────
+    //
+    // Comportamento atual (sem filtro algum) já satisfaz este teste, e deve
+    // continuar satisfazendo depois que o filtro de EVANGELICAL for
+    // implementado, já que CATHOLIC não deve ser afetado pela nova regra.
+    @Test
+    void testeCatholic_shouldStillIncludeCatholicChurchPois_inGeneratedItinerary() {
+        OnboardingPreferences catholic = prefsWithReligion(Religion.CATHOLIC);
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(catholic));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        List<Poi> nonCatholic = new ArrayList<>();
+        for (int i = 0; i < 5; i++) nonCatholic.add(makePoi(BudgetTier.MODERATE, false, false));
+        List<Poi> catholicChurches = new ArrayList<>();
+        for (int i = 0; i < 3; i++) catholicChurches.add(makePoi(BudgetTier.MODERATE, false, true));
+        Set<UUID> catholicIds = catholicChurches.stream().map(Poi::getId).collect(java.util.stream.Collectors.toSet());
+
+        List<Poi> candidates = new ArrayList<>(nonCatholic);
+        candidates.addAll(catholicChurches);
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        // 3 dias de ritmo MODERATE (prefs padrão) = 9 usos de slot no total,
+        // mais que os 8 candidatos disponíveis, forçando reaproveitamento e
+        // garantindo que todos os 8 POIs (incluindo as 3 igrejas católicas)
+        // sejam usados em algum momento do roteiro.
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, LocalDate.now().plusDays(1), LocalDate.now().plusDays(3),
+            null, null, null, null, null, null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        List<UUID> allPickedIds = result.days().stream()
+            .flatMap(d -> d.activities().stream())
+            .map(a -> a.poi().id())
+            .toList();
+
+        assertTrue(allPickedIds.stream().anyMatch(catholicIds::contains),
+            "Usuário CATHOLIC deve continuar podendo receber POIs de igreja católica no " +
+            "roteiro (comportamento não deve mudar para religiões diferentes de EVANGELICAL)");
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Poi makePoi(BudgetTier tier) {
@@ -570,6 +696,10 @@ class ItineraryEngineServiceTest {
     }
 
     private Poi makePoi(BudgetTier tier, boolean mustSee) {
+        return makePoi(tier, mustSee, false);
+    }
+
+    private Poi makePoi(BudgetTier tier, boolean mustSee, boolean catholicChurch) {
         return Poi.builder()
             .id(UUID.randomUUID())
             .destination(destination)
@@ -579,6 +709,7 @@ class ItineraryEngineServiceTest {
             .tags(List.of("cultura"))
             .active(true)
             .mustSee(mustSee)
+            .catholicChurch(catholicChurch)
             .latitude(BigDecimal.valueOf(48.8 + Math.random() * 0.1))
             .longitude(BigDecimal.valueOf(2.3 + Math.random() * 0.1))
             .averageDurationMinutes(90)
@@ -596,6 +727,15 @@ class ItineraryEngineServiceTest {
             .id(UUID.randomUUID()).user(user)
             .budget(BudgetTier.MODERATE).rhythm(rhythm)
             .groupType(GroupType.COUPLE).interests(List.of("cultura"))
+            .build();
+    }
+
+    private OnboardingPreferences prefsWithReligion(Religion religion) {
+        return OnboardingPreferences.builder()
+            .id(UUID.randomUUID()).user(user)
+            .budget(BudgetTier.MODERATE).rhythm(TravelRhythm.MODERATE)
+            .groupType(GroupType.COUPLE).interests(List.of("cultura"))
+            .religion(religion)
             .build();
     }
 }
