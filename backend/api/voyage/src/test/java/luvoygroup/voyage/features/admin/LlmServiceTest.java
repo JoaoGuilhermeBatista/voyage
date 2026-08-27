@@ -1,10 +1,16 @@
 package luvoygroup.voyage.features.admin;
 
+import luvoygroup.voyage.domain.Poi;
+import luvoygroup.voyage.domain.enums.BudgetTier;
+import luvoygroup.voyage.domain.enums.PoiCategory;
+import luvoygroup.voyage.features.admin.dto.PoiEnrichmentClassification;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -118,5 +124,116 @@ class LlmServiceTest {
             "O prompt deve instruir explicitamente que templos de outras religiões/denominações " +
             "NÃO devem ser marcados como catholicChurch=true, para não confundir 'religioso em geral' " +
             "com 'católico especificamente'.");
+    }
+
+    // ─── classifyMustSeeAndLandmarks — construção do prompt ──────────────────
+    //
+    // Mesmo padrão de classifyCatholicChurches: só testamos a MONTAGEM da
+    // chamada ao ChatClient (o prompt de verdade enviado), não a resposta do
+    // LLM em si — o método não tem lógica de negócio além de montar o prompt
+    // e delegar ao ChatClient.
+
+    private String capturePromptForMustSeeAndLandmarks(List<Poi> pois) {
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(promptCaptor.capture())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(PoiEnrichmentClassification.class))
+            .thenReturn(new PoiEnrichmentClassification(List.of(), List.of()));
+
+        service.classifyMustSeeAndLandmarks("Roma", "Itália", pois);
+
+        return promptCaptor.getValue();
+    }
+
+    private Poi poiWith(String title, PoiCategory category) {
+        return Poi.builder()
+            .title(title)
+            .category(category)
+            .budgetTier(BudgetTier.MODERATE)
+            .active(true)
+            .build();
+    }
+
+    @Test
+    void classifyMustSeeAndLandmarks_shouldIncludeCityAndCountry_inPrompt() {
+        String prompt = capturePromptForMustSeeAndLandmarks(
+            List.of(poiWith("Coliseu", PoiCategory.MUSEUM))
+        );
+
+        assertTrue(prompt.contains("Roma"));
+        assertTrue(prompt.contains("Itália"));
+    }
+
+    @Test
+    void classifyMustSeeAndLandmarks_shouldIncludeEachPoiTitle_withCurrentCategory_inPrompt() {
+        String prompt = capturePromptForMustSeeAndLandmarks(List.of(
+            poiWith("Coliseu", PoiCategory.MUSEUM),
+            poiWith("Fontana di Trevi", PoiCategory.PARK)
+        ));
+
+        assertTrue(prompt.contains("Coliseu"));
+        assertTrue(prompt.contains("MUSEUM"));
+        assertTrue(prompt.contains("Fontana di Trevi"));
+        assertTrue(prompt.contains("PARK"));
+    }
+
+    // ─── o prompt deve pedir as duas chaves JSON exatas ──────────────────────
+    //
+    // PoiEnrichmentClassification tem os campos `mustSeeTitles` e
+    // `landmarkTitles` — o ChatClient deserializa a resposta do LLM casando
+    // pelo nome da propriedade JSON, então o formato de exemplo no prompt
+    // precisa declarar essas chaves com o nome exato.
+
+    @Test
+    void classifyMustSeeAndLandmarks_shouldRequestMustSeeTitlesKey_inPrompt() {
+        String prompt = capturePromptForMustSeeAndLandmarks(
+            List.of(poiWith("Coliseu", PoiCategory.MUSEUM))
+        );
+
+        assertTrue(prompt.contains("\"mustSeeTitles\""));
+    }
+
+    @Test
+    void classifyMustSeeAndLandmarks_shouldRequestLandmarkTitlesKey_inPrompt() {
+        String prompt = capturePromptForMustSeeAndLandmarks(
+            List.of(poiWith("Coliseu", PoiCategory.MUSEUM))
+        );
+
+        assertTrue(prompt.contains("\"landmarkTitles\""));
+    }
+
+    // ─── o prompt deve instruir o LLM a não inventar títulos / permitir listas vazias ─
+
+    @Test
+    void classifyMustSeeAndLandmarks_shouldInstructLlm_toNeverInventTitles() {
+        String prompt = capturePromptForMustSeeAndLandmarks(
+            List.of(poiWith("Coliseu", PoiCategory.MUSEUM))
+        );
+
+        assertTrue(prompt.toLowerCase().contains("nunca invente") || prompt.toLowerCase().contains("não invente"),
+            "O prompt deve instruir explicitamente que o LLM não deve inventar títulos novos.");
+    }
+
+    @Test
+    void classifyMustSeeAndLandmarks_shouldCallChatClient_withPoiEnrichmentClassificationEntity() {
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        PoiEnrichmentClassification expected =
+            new PoiEnrichmentClassification(List.of("Coliseu"), List.of("Fontana di Trevi"));
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(PoiEnrichmentClassification.class)).thenReturn(expected);
+
+        PoiEnrichmentClassification actual = service.classifyMustSeeAndLandmarks(
+            "Roma", "Itália", List.of(poiWith("Coliseu", PoiCategory.MUSEUM))
+        );
+
+        assertEquals(expected, actual);
     }
 }

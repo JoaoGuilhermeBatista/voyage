@@ -1,7 +1,9 @@
 package luvoygroup.voyage.features.admin;
 
+import luvoygroup.voyage.domain.Poi;
 import luvoygroup.voyage.features.admin.dto.CatholicChurchClassification;
 import luvoygroup.voyage.features.admin.dto.GeneratedContent;
+import luvoygroup.voyage.features.admin.dto.PoiEnrichmentClassification;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -148,5 +150,64 @@ public class LlmService {
             .user(prompt)
             .call()
             .entity(CatholicChurchClassification.class);
+    }
+
+    /**
+     * Contrato: dado um destino (city, country) e a lista de POIs JÁ
+     * CADASTRADOS e ativos desse destino (título + categoria atual),
+     * pergunta ao LLM: (1) quais desses títulos — e SOMENTE esses, verbatim,
+     * sem inventar — são os 3 a 5 pontos mais icônicos/imperdíveis do
+     * destino (mesmo critério de mustSee usado em generatePois); e (2)
+     * quais desses títulos deveriam ser recategorizados como LANDMARK por
+     * terem sido catalogados incorretamente em outra categoria (ex: um
+     * monumento hoje como MUSEUM, uma praça/fonte hoje como PARK) — sem
+     * incluir museus ou parques de verdade, que devem permanecer como
+     * estão. Usada por AdminService#enrichExistingPoisWithMustSeeAndLandmark
+     * para classificar retroativamente POIs que já existem no banco (sem
+     * recriá-los), corrigindo destinos "clássicos" que não têm nenhum POI
+     * mustSee nem LANDMARK cadastrado.
+     */
+    public PoiEnrichmentClassification classifyMustSeeAndLandmarks(String city, String country, List<Poi> pois) {
+        log.info("Classificando mustSee e LANDMARK via LLM para {}, {}", city, country);
+
+        String poisList = pois.stream()
+            .map(poi -> "- %s (categoria atual: %s)".formatted(poi.getTitle(), poi.getCategory()))
+            .collect(java.util.stream.Collectors.joining("\n"));
+
+        String prompt = """
+            Você é um especialista em turismo europeu. Abaixo está a lista EXATA de pontos de
+            interesse já cadastrados para %s, %s, com a categoria atual de cada um. Sua tarefa é
+            identificar dois subconjuntos dessa lista.
+
+            Lista de títulos com categoria atual (um por linha):
+            %s
+
+            1. mustSeeTitles: os 3 a 5 títulos mais icônicos/imperdíveis do destino — aqueles que
+               qualquer roteiro turístico de verdade incluiria (ex: monumentos símbolo, marcos
+               históricos mundialmente conhecidos).
+            2. landmarkTitles: títulos que deveriam ser recategorizados como LANDMARK — monumentos,
+               marcos históricos, praças/fontes/pontos emblemáticos que estão catalogados
+               incorretamente em outra categoria (ex: um monumento catalogado como MUSEUM, uma
+               praça ou fonte catalogada como PARK). NÃO inclua museus de verdade (que devem
+               continuar MUSEUM) nem parques de verdade (que devem continuar PARK).
+
+            Regras OBRIGATÓRIAS:
+            - Responda SOMENTE com subconjuntos EXATOS (verbatim) dos títulos fornecidos acima.
+            - NUNCA invente títulos novos, NUNCA altere a grafia, capitalização ou acentuação dos
+              títulos fornecidos — copie-os exatamente como aparecem na lista.
+            - Se nenhum título da lista se encaixar em um dos critérios, retorne uma lista vazia
+              para esse critério.
+
+            Responda SOMENTE com JSON válido, sem markdown, sem explicações, no formato exato:
+            {
+              "mustSeeTitles": ["Título Exato 1", "Título Exato 2"],
+              "landmarkTitles": ["Título Exato 3", "Título Exato 4"]
+            }
+            """.formatted(city, country, poisList);
+
+        return chatClient.prompt()
+            .user(prompt)
+            .call()
+            .entity(PoiEnrichmentClassification.class);
     }
 }

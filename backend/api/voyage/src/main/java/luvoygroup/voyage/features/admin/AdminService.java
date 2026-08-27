@@ -195,6 +195,85 @@ public class AdminService {
         );
     }
 
+    /**
+     * Classifica retroativamente, IN PLACE (mesmo id, sem deletar/recriar —
+     * POIs são referenciados por FK em atividades de itinerário, templates e
+     * favoritos), quais POIs já existentes são "imperdíveis" (mustSee) e/ou
+     * deveriam ser recategorizados como LANDMARK. Destinos que já possuem
+     * algum POI ativo com mustSee=true são pulados (operação idempotente),
+     * assim como destinos sem POIs ativos. Erro em um destino não interrompe
+     * os demais (mesmo padrão de enrichExistingPoisWithCatholicChurchFlag).
+     */
+    public PoiEnrichmentReport enrichExistingPoisWithMustSeeAndLandmark() {
+        List<Destination> destinations = destinationRepo.findAllByActiveTrue();
+        log.info("Destinos ativos a verificar para enriquecimento de mustSee/LANDMARK: {}", destinations.size());
+
+        List<String> processed = new ArrayList<>();
+        int totalEnriched = 0;
+        int skipped = 0;
+
+        for (Destination destination : destinations) {
+            List<Poi> pois = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId());
+            if (pois.isEmpty() || pois.stream().anyMatch(Poi::isMustSee)) {
+                skipped++;
+                continue;
+            }
+
+            try {
+                PoiEnrichmentClassification classification =
+                    llmService.classifyMustSeeAndLandmarks(destination.getCity(), destination.getCountry(), pois);
+
+                List<String> mustSeeTitles = classification != null && classification.mustSeeTitles() != null
+                    ? classification.mustSeeTitles() : List.of();
+                List<String> landmarkTitles = classification != null && classification.landmarkTitles() != null
+                    ? classification.landmarkTitles() : List.of();
+
+                for (String hallucinated : mustSeeTitles) {
+                    if (pois.stream().noneMatch(p -> p.getTitle().equals(hallucinated))) {
+                        log.warn("Título alucinado pelo LLM ignorado (mustSee, não pertence ao catálogo do destino {}): {}",
+                            destination.getSlug(), hallucinated);
+                    }
+                }
+                for (String hallucinated : landmarkTitles) {
+                    if (pois.stream().noneMatch(p -> p.getTitle().equals(hallucinated))) {
+                        log.warn("Título alucinado pelo LLM ignorado (landmark, não pertence ao catálogo do destino {}): {}",
+                            destination.getSlug(), hallucinated);
+                    }
+                }
+
+                int enrichedForDestination = 0;
+                for (Poi poi : pois) {
+                    boolean changed = false;
+
+                    if (mustSeeTitles.contains(poi.getTitle())) {
+                        poi.setMustSee(true);
+                        changed = true;
+                    }
+                    if (landmarkTitles.contains(poi.getTitle())) {
+                        poi.setCategory(PoiCategory.LANDMARK);
+                        changed = true;
+                    }
+
+                    if (changed) {
+                        poiRepo.save(poi);
+                        enrichedForDestination++;
+                    }
+                }
+
+                processed.add(destination.getSlug());
+                totalEnriched += enrichedForDestination;
+                log.info("✓ {} — {} POIs marcados como mustSee/LANDMARK", destination.getSlug(), enrichedForDestination);
+            } catch (Exception e) {
+                log.error("✗ Erro em {} — pulando destino: {}", destination.getSlug(), e.getMessage());
+                skipped++;
+            }
+        }
+
+        return new PoiEnrichmentReport(
+            processed.size(), skipped, totalEnriched, processed, null, null
+        );
+    }
+
     private LocalTime parseTime(String time) {
         if (time == null || time.isBlank() || time.equalsIgnoreCase("null")) return null;
         try {

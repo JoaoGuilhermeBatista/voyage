@@ -76,4 +76,17 @@ public class AdminController {
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithCatholicChurchFlag());
     }
+
+    @PostMapping("/pois/enrich-mustsee-landmark")
+    @Operation(summary = "Classifica retroativamente, via GPT-4o, quais POIs já cadastrados são imperdíveis " +
+        "(mustSee) e quais deveriam ser recategorizados como LANDMARK, atualizando IN PLACE (nunca cria ou " +
+        "deleta POIs). Pula destinos que já têm ao menos 1 POI mustSee.")
+    public ResponseEntity<PoiEnrichmentReport> enrichMustSeeAndLandmark(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.ok(adminService.enrichExistingPoisWithMustSeeAndLandmark());
+    }
 }

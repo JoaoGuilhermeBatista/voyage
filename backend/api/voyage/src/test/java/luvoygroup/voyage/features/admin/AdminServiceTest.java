@@ -6,6 +6,7 @@ import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.domain.enums.PoiCategory;
 import luvoygroup.voyage.features.admin.dto.CatholicChurchClassification;
 import luvoygroup.voyage.features.admin.dto.GeneratedPoi;
+import luvoygroup.voyage.features.admin.dto.PoiEnrichmentClassification;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentReport;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
@@ -248,5 +249,149 @@ class AdminServiceTest {
         assertEquals(2, report.destinationsProcessed());
         assertEquals(2, report.totalPoisEnriched());
         assertTrue(report.processedSlugs().containsAll(List.of("lisboa", "roma")));
+    }
+
+    // ─── enrichExistingPoisWithMustSeeAndLandmark — contrato completo (STUB, RED) ─
+    //
+    // AdminService#enrichExistingPoisWithMustSeeAndLandmark é hoje um STUB que
+    // lança UnsupportedOperationException (ver javadoc do método para o
+    // contrato completo que um próximo agente vai implementar, após aprovação
+    // humana). Os testes abaixo documentam o comportamento ESPERADO desse
+    // contrato e, por isso, devem FALHAR agora (RED) com
+    // UnsupportedOperationException em vez das asserções de negócio — não é
+    // erro de compilação, é o RED intencional do TDD.
+
+    @Test
+    void enrichExistingPoisWithMustSeeAndLandmark_shouldClassifyAndApplyInPlace_forDestinationWithNoMustSeePoi() {
+        Destination roma = Destination.builder()
+            .id(UUID.randomUUID()).slug("roma").name("Roma").city("Roma").country("Itália")
+            .active(true).build();
+
+        Poi coliseu = Poi.builder().id(UUID.randomUUID()).destination(roma)
+            .title("Coliseu").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .active(true).mustSee(false).build();
+        Poi fontanaDiTrevi = Poi.builder().id(UUID.randomUUID()).destination(roma)
+            .title("Fontana di Trevi").category(PoiCategory.PARK).budgetTier(BudgetTier.ECONOMY)
+            .active(true).mustSee(false).build();
+        Poi restaurante = Poi.builder().id(UUID.randomUUID()).destination(roma)
+            .title("Trattoria da Enzo").category(PoiCategory.RESTAURANT).budgetTier(BudgetTier.MODERATE)
+            .active(true).mustSee(false).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(roma));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(roma.getId()))
+            .thenReturn(List.of(coliseu, fontanaDiTrevi, restaurante));
+        when(llmService.classifyMustSeeAndLandmarks(eq("Roma"), eq("Itália"), anyList()))
+            .thenReturn(new PoiEnrichmentClassification(
+                List.of("Coliseu", "Fontana di Trevi"),
+                List.of("Coliseu", "Fontana di Trevi")
+            ));
+        when(poiRepo.save(any(Poi.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Hoje lança UnsupportedOperationException — RED esperado.
+        PoiEnrichmentReport report = service.enrichExistingPoisWithMustSeeAndLandmark();
+
+        verify(poiRepo).save(argThat(p -> p.getId().equals(coliseu.getId())
+            && p.isMustSee() && p.getCategory() == PoiCategory.LANDMARK));
+        verify(poiRepo).save(argThat(p -> p.getId().equals(fontanaDiTrevi.getId())
+            && p.isMustSee() && p.getCategory() == PoiCategory.LANDMARK));
+        verify(poiRepo, never()).save(argThat(p -> p != null && p.getId().equals(restaurante.getId())));
+
+        assertEquals(1, report.destinationsProcessed());
+        assertEquals(0, report.destinationsSkipped());
+        assertEquals(2, report.totalPoisEnriched());
+        assertTrue(report.processedSlugs().contains("roma"));
+    }
+
+    @Test
+    void enrichExistingPoisWithMustSeeAndLandmark_shouldSkipDestination_thatAlreadyHasAMustSeePoi() {
+        Destination paris = Destination.builder()
+            .id(UUID.randomUUID()).slug("paris").name("Paris").city("Paris").country("França")
+            .active(true).build();
+
+        Poi torreEiffel = Poi.builder().id(UUID.randomUUID()).destination(paris)
+            .title("Torre Eiffel").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .active(true).mustSee(true).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(paris));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(paris.getId()))
+            .thenReturn(List.of(torreEiffel));
+
+        // Hoje lança UnsupportedOperationException — RED esperado.
+        PoiEnrichmentReport report = service.enrichExistingPoisWithMustSeeAndLandmark();
+
+        verify(llmService, never()).classifyMustSeeAndLandmarks(anyString(), anyString(), anyList());
+        verify(poiRepo, never()).save(any(Poi.class));
+
+        assertEquals(0, report.destinationsProcessed());
+        assertEquals(1, report.destinationsSkipped());
+        assertFalse(report.processedSlugs().contains("paris"));
+    }
+
+    @Test
+    void enrichExistingPoisWithMustSeeAndLandmark_shouldIgnoreHallucinatedTitle_withoutModifyingAnyPoi() {
+        Destination madrid = Destination.builder()
+            .id(UUID.randomUUID()).slug("madrid").name("Madrid").city("Madrid").country("Espanha")
+            .active(true).build();
+
+        Poi museuDoPrado = Poi.builder().id(UUID.randomUUID()).destination(madrid)
+            .title("Museu do Prado").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .active(true).mustSee(false).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(madrid));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(madrid.getId()))
+            .thenReturn(List.of(museuDoPrado));
+        when(llmService.classifyMustSeeAndLandmarks(eq("Madrid"), eq("Espanha"), anyList()))
+            .thenReturn(new PoiEnrichmentClassification(
+                List.of("Monumento Inventado Pelo LLM"),
+                List.of("Praça Que Não Existe")
+            ));
+
+        // Hoje lança UnsupportedOperationException — RED esperado.
+        PoiEnrichmentReport report = service.enrichExistingPoisWithMustSeeAndLandmark();
+
+        verify(poiRepo, never()).save(any(Poi.class));
+        assertFalse(museuDoPrado.isMustSee());
+        assertEquals(PoiCategory.MUSEUM, museuDoPrado.getCategory());
+        assertEquals(0, report.totalPoisEnriched());
+    }
+
+    @Test
+    void enrichExistingPoisWithMustSeeAndLandmark_shouldNotStop_whenOneDestinationFails() {
+        Destination lisboa = Destination.builder()
+            .id(UUID.randomUUID()).slug("lisboa").name("Lisboa").city("Lisboa").country("Portugal")
+            .active(true).build();
+        Destination madrid = Destination.builder()
+            .id(UUID.randomUUID()).slug("madrid").name("Madrid").city("Madrid").country("Espanha")
+            .active(true).build();
+
+        Poi torreDeBelem = Poi.builder().id(UUID.randomUUID()).destination(lisboa)
+            .title("Torre de Belém").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .active(true).mustSee(false).build();
+        Poi puertaDelSol = Poi.builder().id(UUID.randomUUID()).destination(madrid)
+            .title("Puerta del Sol").category(PoiCategory.PARK).budgetTier(BudgetTier.ECONOMY)
+            .active(true).mustSee(false).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(lisboa, madrid));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(lisboa.getId()))
+            .thenReturn(List.of(torreDeBelem));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(madrid.getId()))
+            .thenReturn(List.of(puertaDelSol));
+        when(llmService.classifyMustSeeAndLandmarks(eq("Lisboa"), eq("Portugal"), anyList()))
+            .thenThrow(new RuntimeException("Falha simulada do LLM"));
+        when(llmService.classifyMustSeeAndLandmarks(eq("Madrid"), eq("Espanha"), anyList()))
+            .thenReturn(new PoiEnrichmentClassification(List.of("Puerta del Sol"), List.of("Puerta del Sol")));
+        when(poiRepo.save(any(Poi.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Hoje lança UnsupportedOperationException — RED esperado.
+        PoiEnrichmentReport report = service.enrichExistingPoisWithMustSeeAndLandmark();
+
+        verify(poiRepo).save(argThat(p -> p.getId().equals(puertaDelSol.getId())
+            && p.isMustSee() && p.getCategory() == PoiCategory.LANDMARK));
+        verify(poiRepo, never()).save(argThat(p -> p != null && p.getId().equals(torreDeBelem.getId())));
+
+        assertEquals(1, report.destinationsProcessed());
+        assertEquals(1, report.destinationsSkipped());
+        assertTrue(report.processedSlugs().contains("madrid"));
+        assertFalse(report.processedSlugs().contains("lisboa"));
     }
 }

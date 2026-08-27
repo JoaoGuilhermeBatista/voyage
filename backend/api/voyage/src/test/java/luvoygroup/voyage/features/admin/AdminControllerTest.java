@@ -151,4 +151,38 @@ class AdminControllerTest {
         mockMvc.perform(post("/api/v1/admin/pois/enrich-catholic-church-flags"))
             .andExpect(status().isForbidden());
     }
+
+    // ─── POST /admin/pois/enrich-mustsee-landmark ──────────────────────────────
+    //
+    // AdminService é mockado, então a lógica real (STUB RED em AdminService,
+    // que lança UnsupportedOperationException) não é exercitada aqui — só
+    // roteamento e a checagem de X-Admin-Token, exatamente igual ao endpoint
+    // irmão de enrich-catholic-church-flags acima (mesmo
+    // @RequestHeader(required=false)).
+
+    @Test
+    void teste55_shouldEnrichMustSeeAndLandmark_whenAdminTokenIsValid() throws Exception {
+        PoiEnrichmentReport report = new PoiEnrichmentReport(1, 1, 2, List.of("roma"), null, null);
+        when(adminService.enrichExistingPoisWithMustSeeAndLandmark()).thenReturn(report);
+
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-mustsee-landmark")
+                .header("X-Admin-Token", VALID_ADMIN_TOKEN))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.destinationsProcessed").value(1))
+            .andExpect(jsonPath("$.destinationsSkipped").value(1))
+            .andExpect(jsonPath("$.totalPoisEnriched").value(2));
+    }
+
+    @Test
+    void teste56_shouldReturn403_whenAdminTokenIsWrong_forEnrichMustSeeAndLandmark() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-mustsee-landmark")
+                .header("X-Admin-Token", "wrong-token"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void teste57_shouldReturn403_whenAdminTokenIsMissing_forEnrichMustSeeAndLandmark() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-mustsee-landmark"))
+            .andExpect(status().isForbidden());
+    }
 }
