@@ -1,10 +1,13 @@
 package luvoygroup.voyage.features.admin;
 
 import luvoygroup.voyage.domain.Poi;
+import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.features.admin.dto.CatholicChurchClassification;
 import luvoygroup.voyage.features.admin.dto.GeneratedContent;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentClassification;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
+import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendation;
+import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -209,5 +212,109 @@ public class LlmService {
             .user(prompt)
             .call()
             .entity(PoiEnrichmentClassification.class);
+    }
+
+    /**
+     * STUB — a implementar por um próximo agente após revisão humana (esta
+     * é uma genuína decisão de prompt, mesmo tratamento dado a
+     * {@link #classifyMustSeeAndLandmarks(String, String, List)} quando foi
+     * criado).
+     *
+     * Contrato pretendido:
+     * <ul>
+     *   <li>Monta um prompt no MESMO padrão de
+     *       {@link #classifyMustSeeAndLandmarks(String, String, List)}: lista
+     *       EXATA de {@code candidateNeighborhoods} fornecida (um por
+     *       linha), pede pro LLM escolher um subconjunto de 3 a 6 bairros
+     *       dessa lista que melhor combinam com a faixa de budget informada.</li>
+     *   <li>Traduz {@code budgetTier} para termos em português no prompt:
+     *       {@code ECONOMY} → "econômico", {@code MODERATE} →
+     *       "custo-benefício"/"intermediário", {@code LUXURY} → "alto
+     *       padrão/luxo".</li>
+     *   <li>Pede, para cada bairro escolhido, uma frase curta (1 linha) em
+     *       português descrevendo a VANTAGEM de se hospedar ali para esse
+     *       perfil de budget.</li>
+     *   <li>Regra obrigatória no prompt: os nomes retornados devem ser
+     *       EXATAMENTE (verbatim) um subconjunto de
+     *       {@code candidateNeighborhoods} — nunca inventar nome de bairro
+     *       que não esteja na lista fornecida (mesmo espírito de
+     *       "guarda contra alucinação" de
+     *       {@link #classifyMustSeeAndLandmarks(String, String, List)}).</li>
+     *   <li>Chama
+     *       {@code chatClient.prompt().user(prompt).call().entity(NeighborhoodRecommendationList.class)}
+     *       e extrai {@code .recommendations()}.</li>
+     *   <li>Depois de receber a resposta do LLM: filtra fora qualquer
+     *       {@code NeighborhoodRecommendation} cujo {@code name()} não
+     *       esteja EXATAMENTE (verbatim, mesma grafia/acentuação) em
+     *       {@code candidateNeighborhoods} — guarda contra alucinação — e
+     *       loga um warning para cada recomendação filtrada dessa forma.</li>
+     * </ul>
+     *
+     * @param city                   cidade do destino
+     * @param country                país do destino
+     * @param candidateNeighborhoods lista EXATA de nomes de bairro reais
+     *                               descobertos via
+     *                               {@code PlacesService#discoverRealNeighborhoods}
+     *                               — o LLM só pode escolher entre eles
+     * @param budgetTier             faixa de budget para a qual as
+     *                               recomendações devem ser adequadas
+     */
+    public List<NeighborhoodRecommendation> recommendNeighborhoods(
+        String city, String country, List<String> candidateNeighborhoods, BudgetTier budgetTier
+    ) {
+        log.info("Recomendando bairros via LLM para {}, {} (budget: {})", city, country, budgetTier);
+
+        String neighborhoodsList = candidateNeighborhoods.stream()
+            .map(name -> "- " + name)
+            .collect(java.util.stream.Collectors.joining("\n"));
+
+        String budgetTermInPortuguese = switch (budgetTier) {
+            case ECONOMY -> "econômico";
+            case MODERATE -> "custo-benefício/intermediário";
+            case LUXURY -> "alto padrão/luxo";
+        };
+
+        String prompt = """
+            Você é um especialista em turismo e hospedagem. Abaixo está a lista EXATA de bairros
+            reais candidatos para hospedagem em %s, %s. Sua tarefa é escolher um subconjunto de 3
+            a 6 bairros dessa lista que melhor combinam com o perfil de budget "%s".
+
+            Lista de bairros candidatos (um por linha):
+            %s
+
+            Para cada bairro escolhido, escreva uma frase curta (1 linha) em português descrevendo
+            a vantagem de se hospedar ali para esse perfil de budget.
+
+            Regras OBRIGATÓRIAS:
+            - Responda SOMENTE com um subconjunto EXATO (verbatim) dos bairros fornecidos acima.
+            - NUNCA invente nome de bairro novo, NUNCA altere a grafia, capitalização ou acentuação
+              dos nomes fornecidos — copie-os exatamente como aparecem na lista.
+            - Escolha entre 3 e 6 bairros.
+
+            Responda SOMENTE com JSON válido, sem markdown, sem explicações, no formato exato:
+            {
+              "recommendations": [
+                { "name": "Nome Exato do Bairro", "advantage": "Frase curta descrevendo a vantagem." }
+              ]
+            }
+            """.formatted(city, country, budgetTermInPortuguese, neighborhoodsList);
+
+        NeighborhoodRecommendationList response = chatClient.prompt()
+            .user(prompt)
+            .call()
+            .entity(NeighborhoodRecommendationList.class);
+
+        List<NeighborhoodRecommendation> recommendations = response.recommendations();
+
+        return recommendations.stream()
+            .filter(recommendation -> {
+                boolean valid = candidateNeighborhoods.contains(recommendation.name());
+                if (!valid) {
+                    log.warn("LLM recomendou bairro '{}' que não está na lista de candidatos — descartando",
+                        recommendation.name());
+                }
+                return valid;
+            })
+            .toList();
     }
 }

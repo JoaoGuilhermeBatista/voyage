@@ -5,6 +5,7 @@ import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.domain.enums.PoiCategory;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentClassification;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
+import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -235,5 +236,80 @@ class LlmServiceTest {
         );
 
         assertEquals(expected, actual);
+    }
+
+    // ─── recommendNeighborhoods — RED, é um STUB (UnsupportedOperationException) ─
+    //
+    // Mesmo padrão de teste de contrato usado para classifyMustSeeAndLandmarks
+    // quando foi criado: chamamos o método real (sem assertThrows) e afirmamos
+    // o comportamento DESEJADO — por isso devem FALHAR agora (com
+    // UnsupportedOperationException) e passar a verde quando a implementação
+    // real existir.
+
+    @Test
+    void recommendNeighborhoods_shouldCallChatClient_withNeighborhoodRecommendationListEntity_andReturnItsRecommendations() {
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        List<NeighborhoodRecommendation> expected = List.of(
+            new NeighborhoodRecommendation("Bela Vista", "Perto de tudo e com ótimo custo-benefício.")
+        );
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList.class))
+            .thenReturn(new luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList(expected));
+
+        List<NeighborhoodRecommendation> actual = service.recommendNeighborhoods(
+            "São Paulo", "Brasil", List.of("Bela Vista", "Consolação", "Jardins"), BudgetTier.MODERATE
+        );
+
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void recommendNeighborhoods_shouldIncludeAllCandidateNeighborhoods_inPrompt() {
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(promptCaptor.capture())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList.class))
+            .thenReturn(new luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList(List.of()));
+
+        service.recommendNeighborhoods(
+            "São Paulo", "Brasil", List.of("Bela Vista", "Consolação", "Jardins"), BudgetTier.LUXURY
+        );
+
+        String prompt = promptCaptor.getValue();
+        assertTrue(prompt.contains("Bela Vista"));
+        assertTrue(prompt.contains("Consolação"));
+        assertTrue(prompt.contains("Jardins"));
+        assertTrue(prompt.contains("São Paulo"));
+        assertTrue(prompt.contains("Brasil"));
+    }
+
+    @Test
+    void recommendNeighborhoods_shouldFilterOutHallucinatedNames_notInCandidateList() {
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+
+        NeighborhoodRecommendation valid = new NeighborhoodRecommendation("Bela Vista", "Vantagem real.");
+        NeighborhoodRecommendation hallucinated = new NeighborhoodRecommendation("Bairro Inventado", "Vantagem inventada.");
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList.class))
+            .thenReturn(new luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList(
+                List.of(valid, hallucinated)));
+
+        List<NeighborhoodRecommendation> actual = service.recommendNeighborhoods(
+            "São Paulo", "Brasil", List.of("Bela Vista", "Consolação", "Jardins"), BudgetTier.ECONOMY
+        );
+
+        assertEquals(List.of(valid), actual);
     }
 }

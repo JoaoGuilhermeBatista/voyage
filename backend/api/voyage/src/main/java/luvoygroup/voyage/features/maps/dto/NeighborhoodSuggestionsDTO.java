@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * Resposta do proxy de sugestão de bairro para hospedagem (Google Places
- * Nearby Search).
+ * Nearby Search + geocodificação reversa + recomendação por LLM).
  *
  * Quando a chave do Google Maps não está configurada no backend,
  * {@code configured} vem {@code false} e {@code neighborhoods} vem vazia —
@@ -13,5 +13,5 @@ import java.util.List;
  */
 public record NeighborhoodSuggestionsDTO(
     boolean configured,
-    List<String> neighborhoods
+    List<NeighborhoodRecommendation> neighborhoods
 ) {}

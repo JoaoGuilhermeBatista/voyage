@@ -4,6 +4,7 @@ import luvoygroup.voyage.TestJwtFactory;
 import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.features.maps.dto.DirectionsResponseDTO;
 import luvoygroup.voyage.features.maps.dto.EmbedUrlResponseDTO;
+import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendation;
 import luvoygroup.voyage.features.maps.dto.NeighborhoodSuggestionsDTO;
 import luvoygroup.voyage.security.JwtService;
 import luvoygroup.voyage.security.SecurityConfig;
@@ -199,7 +200,10 @@ class MapsControllerTest {
     void teste48_shouldReturnNeighborhoodSuggestions_whenAuthenticated() throws Exception {
         UUID destinationId = UUID.randomUUID();
         when(placesService.suggestNeighborhoods(eq(destinationId), eq(BudgetTier.MODERATE)))
-            .thenReturn(new NeighborhoodSuggestionsDTO(true, List.of("Bela Vista", "Consolação")));
+            .thenReturn(new NeighborhoodSuggestionsDTO(true, List.of(
+                new NeighborhoodRecommendation("Bela Vista", "Perto de tudo e com ótimo custo-benefício."),
+                new NeighborhoodRecommendation("Consolação", "Bairro boêmio, ótima vida noturna.")
+            )));
 
         mockMvc.perform(get("/api/v1/maps/neighborhood-suggestions")
                 .header("Authorization", validToken)
@@ -207,8 +211,10 @@ class MapsControllerTest {
                 .param("budgetTier", "MODERATE"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.configured").value(true))
-            .andExpect(jsonPath("$.neighborhoods[0]").value("Bela Vista"))
-            .andExpect(jsonPath("$.neighborhoods[1]").value("Consolação"));
+            .andExpect(jsonPath("$.neighborhoods[0].name").value("Bela Vista"))
+            .andExpect(jsonPath("$.neighborhoods[0].advantage").value("Perto de tudo e com ótimo custo-benefício."))
+            .andExpect(jsonPath("$.neighborhoods[1].name").value("Consolação"))
+            .andExpect(jsonPath("$.neighborhoods[1].advantage").value("Bairro boêmio, ótima vida noturna."));
     }
 
     // ─── Teste 49: GET /maps/neighborhood-suggestions sem token → 401 ─────────
