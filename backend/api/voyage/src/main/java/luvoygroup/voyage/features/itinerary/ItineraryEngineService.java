@@ -4,6 +4,8 @@ import luvoygroup.voyage.domain.*;
 import luvoygroup.voyage.domain.enums.*;
 import luvoygroup.voyage.exception.*;
 import luvoygroup.voyage.features.itinerary.dto.*;
+import luvoygroup.voyage.features.maps.GeocodingService;
+import luvoygroup.voyage.features.maps.dto.LatLng;
 import luvoygroup.voyage.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,7 @@ public class ItineraryEngineService {
     private final ItineraryDayRepository itineraryDayRepo;
     private final ItineraryActivityRepository itineraryActivityRepo;
     private final UserRepository userRepo;
+    private final GeocodingService geocodingService;
 
     private record SlotSpec(ItinerarySlot slot, int count) {}
 
@@ -56,6 +59,12 @@ public class ItineraryEngineService {
             ? request.tripInterests() : prefs.getInterests();
         TravelRhythm effectiveRhythm = request.tripRhythm() != null ? request.tripRhythm() : prefs.getRhythm();
 
+        LatLng stayAreaLocation = null;
+        if (request.stayArea() != null && !request.stayArea().isBlank()) {
+            String query = request.stayArea() + ", " + destination.getCity() + ", " + destination.getCountry();
+            stayAreaLocation = geocodingService.geocode(query).orElse(null);
+        }
+
         // Step 3: Filter POIs by budget
         List<Poi> candidates = poiRepo.findActiveByDestinationAndBudget(
             request.destinationId(), budgetTiers(effectiveBudget));
@@ -69,8 +78,9 @@ public class ItineraryEngineService {
                 "O destino ainda não tem POIs suficientes para gerar um roteiro. Mínimo: 8.");
 
         // Steps 4 & 5: Score and sort
+        LatLng effectiveStayAreaLocation = stayAreaLocation;
         List<Poi> ranked = candidates.stream()
-            .sorted(Comparator.comparingInt((Poi p) -> scoreFor(p, effectiveInterests, effectiveGroup, tripVibe)).reversed())
+            .sorted(Comparator.comparingInt((Poi p) -> scoreFor(p, effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation)).reversed())
             .collect(Collectors.toCollection(ArrayList::new));
 
         log.info("Engine: {} POIs candidatos para {} dias em {} [budget={}, group={}, vibe={}]",
@@ -170,7 +180,7 @@ public class ItineraryEngineService {
         };
     }
 
-    private int scoreFor(Poi poi, List<String> interests, GroupType group, TripVibe vibe) {
+    private int scoreFor(Poi poi, List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation) {
         int score = 0;
         for (String interest : interests) {
             if (poi.getTags().contains(interest)) score += 10;
@@ -178,6 +188,15 @@ public class ItineraryEngineService {
         score += groupBonus(poi.getCategory(), group);
         score += vibeBonus(poi.getCategory(), vibe);
         if (poi.isMustSee()) score += 20;
+        if (stayAreaLocation != null && poi.getLatitude() != null && poi.getLongitude() != null) {
+            double distKm = haversineKm(
+                BigDecimal.valueOf(stayAreaLocation.lat()),
+                BigDecimal.valueOf(stayAreaLocation.lng()),
+                poi.getLatitude(), poi.getLongitude());
+            if (distKm <= 1) score += 6;
+            else if (distKm <= 3) score += 3;
+            else if (distKm <= 6) score += 1;
+        }
         return score;
     }
 

@@ -1,8 +1,10 @@
 package luvoygroup.voyage.features.maps;
 
 import luvoygroup.voyage.TestJwtFactory;
+import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.features.maps.dto.DirectionsResponseDTO;
 import luvoygroup.voyage.features.maps.dto.EmbedUrlResponseDTO;
+import luvoygroup.voyage.features.maps.dto.NeighborhoodSuggestionsDTO;
 import luvoygroup.voyage.security.JwtService;
 import luvoygroup.voyage.security.SecurityConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,8 +16,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
+import java.util.UUID;
+
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,6 +47,7 @@ class MapsControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockBean MapsService mapsService;
+    @MockBean PlacesService placesService;
     @MockBean JwtService jwtService;
 
     final String validToken = TestJwtFactory.bearer();
@@ -177,6 +184,40 @@ class MapsControllerTest {
         mockMvc.perform(get("/api/v1/maps/embed-url")
                 .param("lat", "-23.5505")
                 .param("lng", "-46.6333"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
+    }
+
+    // ─── Teste 48: GET /maps/neighborhood-suggestions autenticado, delega pro PlacesService ─
+    //
+    // Este teste cobre só o CONTRATO do controller (roteamento, propagação
+    // de query params, shape do DTO, exigência de auth) — PlacesService é
+    // mockado via @MockBean, então é irrelevante aqui se sua implementação
+    // real (fetchFromPlaces) ainda é um stub.
+
+    @Test
+    void teste48_shouldReturnNeighborhoodSuggestions_whenAuthenticated() throws Exception {
+        UUID destinationId = UUID.randomUUID();
+        when(placesService.suggestNeighborhoods(eq(destinationId), eq(BudgetTier.MODERATE)))
+            .thenReturn(new NeighborhoodSuggestionsDTO(true, List.of("Bela Vista", "Consolação")));
+
+        mockMvc.perform(get("/api/v1/maps/neighborhood-suggestions")
+                .header("Authorization", validToken)
+                .param("destinationId", destinationId.toString())
+                .param("budgetTier", "MODERATE"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.configured").value(true))
+            .andExpect(jsonPath("$.neighborhoods[0]").value("Bela Vista"))
+            .andExpect(jsonPath("$.neighborhoods[1]").value("Consolação"));
+    }
+
+    // ─── Teste 49: GET /maps/neighborhood-suggestions sem token → 401 ─────────
+
+    @Test
+    void teste49_shouldReturn401_whenNoTokenProvidedForNeighborhoodSuggestions() throws Exception {
+        mockMvc.perform(get("/api/v1/maps/neighborhood-suggestions")
+                .param("destinationId", UUID.randomUUID().toString())
+                .param("budgetTier", "MODERATE"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
     }

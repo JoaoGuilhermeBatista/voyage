@@ -2,13 +2,17 @@ package luvoygroup.voyage.features.maps;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.features.maps.dto.DirectionsResponseDTO;
 import luvoygroup.voyage.features.maps.dto.EmbedUrlResponseDTO;
+import luvoygroup.voyage.features.maps.dto.NeighborhoodSuggestionsDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 /**
  * Proxy autenticado para o Google Maps Platform (Directions + Embed).
@@ -30,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MapsController {
 
     private final MapsService mapsService;
+    private final PlacesService placesService;
 
     @GetMapping("/directions")
     @Operation(summary = "Rota entre dois pontos via Google Directions API")
@@ -55,6 +60,15 @@ public class MapsController {
         double parsedLat = parseCoord(lat, "lat");
         double parsedLng = parseCoord(lng, "lng");
         return mapsService.getEmbedUrl(parsedLat, parsedLng);
+    }
+
+    @GetMapping("/neighborhood-suggestions")
+    @Operation(summary = "Sugestão de bairros para hospedagem via Google Places Nearby Search")
+    public NeighborhoodSuggestionsDTO getNeighborhoodSuggestions(
+        @RequestParam UUID destinationId,
+        @RequestParam BudgetTier budgetTier
+    ) {
+        return placesService.suggestNeighborhoods(destinationId, budgetTier);
     }
 
     private double parseCoord(String value, String paramName) {

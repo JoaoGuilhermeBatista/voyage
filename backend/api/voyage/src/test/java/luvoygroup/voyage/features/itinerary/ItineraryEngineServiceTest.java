@@ -5,6 +5,8 @@ import luvoygroup.voyage.domain.enums.*;
 import luvoygroup.voyage.exception.*;
 import luvoygroup.voyage.features.itinerary.dto.ItineraryRequest;
 import luvoygroup.voyage.features.itinerary.dto.ItineraryResponseDTO;
+import luvoygroup.voyage.features.maps.GeocodingService;
+import luvoygroup.voyage.features.maps.dto.LatLng;
 import luvoygroup.voyage.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +42,7 @@ class ItineraryEngineServiceTest {
     @Mock ItineraryDayRepository itineraryDayRepo;
     @Mock ItineraryActivityRepository itineraryActivityRepo;
     @Mock UserRepository userRepo;
+    @Mock GeocodingService geocodingService;
 
     @InjectMocks ItineraryEngineService engineService;
 
@@ -77,6 +83,10 @@ class ItineraryEngineServiceTest {
             return a;
         });
         when(userRepo.getReferenceById(userId)).thenReturn(user);
+
+        // Default: sem geocoding real configurado nos testes que não focam em
+        // stayArea/proximidade — geocode() nunca resolve nada por padrão.
+        when(geocodingService.geocode(anyString())).thenReturn(Optional.empty());
     }
 
     // ─── Teste 1: Onboarding não concluído ───────────────────────────────────
@@ -657,6 +667,114 @@ class ItineraryEngineServiceTest {
             "roteiro (comportamento não deve mudar para religiões diferentes de EVANGELICAL)");
     }
 
+    // ─── Regra de negócio nova: priorização por proximidade ao stayArea ─────
+    //
+    // Contrato: quando ItineraryRequest.stayArea() vier null/blank, o
+    // motor NUNCA deve chamar geocodingService.geocode(...) (não há o que
+    // geocodificar).
+
+    @Test
+    void testeStayArea_shouldNeverCallGeocoding_whenStayAreaIsNullOrBlank() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(makePoiList(10, BudgetTier.MODERATE));
+
+        LocalDate day = LocalDate.now().plusDays(1);
+        ItineraryRequest requestNullStayArea = new ItineraryRequest(
+            destinationId, day, day, null, null, null, null, null, null);
+        engineService.generate(userId, requestNullStayArea);
+
+        ItineraryRequest requestBlankStayArea = new ItineraryRequest(
+            destinationId, day, day, "   ", null, null, null, null, null);
+        engineService.generate(userId, requestBlankStayArea);
+
+        verify(geocodingService, never()).geocode(anyString());
+    }
+
+    // ─── Regra de negócio nova: POI mais próximo do stayArea é priorizado ───
+    //
+    // Contrato: quando stayArea vier preenchido e o geocoding resolver uma
+    // localização, um POI a <=1km dessa localização recebe bônus de
+    // pontuação (+6) e deve ser priorizado sobre um POI idêntico em tudo
+    // mais, porém distante (>6km, sem bônus). Categoria MUSEUM não recebe
+    // groupBonus para COUPLE nem vibeBonus sem tripVibe, e tags vazias
+    // evitam o bônus de interesse — isolando o efeito do bônus de
+    // proximidade.
+    @Test
+    void testeStayArea_shouldPrioritizeNearestPoi_whenGeocodingResolvesLocation() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        LatLng stayAreaLatLng = new LatLng(48.8600, 2.3500);
+        when(geocodingService.geocode(anyString())).thenReturn(Optional.of(stayAreaLatLng));
+
+        Poi nearPoi = makePoiAt(BigDecimal.valueOf(48.8601), BigDecimal.valueOf(2.3501), false);
+        Poi farPoi = makePoiAt(BigDecimal.valueOf(49.9000), BigDecimal.valueOf(3.4000), false);
+
+        List<Poi> candidates = new ArrayList<>();
+        candidates.add(farPoi);
+        for (int i = 0; i < 6; i++) {
+            candidates.add(makePoiAt(BigDecimal.valueOf(49.9000 + i * 0.01), BigDecimal.valueOf(3.4000), false));
+        }
+        candidates.add(nearPoi); // deliberadamente não é o primeiro da lista
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate day = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, day, day, "Le Marais", null, null, null, null, null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        UUID firstPickedPoiId = result.days().get(0).activities().get(0).poi().id();
+
+        assertEquals(nearPoi.getId(), firstPickedPoiId,
+            "O POI mais próximo do stayArea geocodificado deve ser priorizado sobre " +
+            "candidatos idênticos, porém distantes (bônus de proximidade ainda não " +
+            "implementado em scoreFor)");
+    }
+
+    // ─── Regra de negócio nova: bônus de proximidade nunca supera mustSee ───
+    //
+    // Contrato: o bônus de proximidade (+6 no máximo) é PROPOSITALMENTE
+    // menor que o bônus de mustSee (+20) — um POI mustSee=true longe do
+    // stayArea ainda deve pontuar mais que um POI comum perto do stayArea.
+    @Test
+    void testeStayArea_mustSeeBonusShouldOutweighProximityBonus() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        LatLng stayAreaLatLng = new LatLng(48.8600, 2.3500);
+        when(geocodingService.geocode(anyString())).thenReturn(Optional.of(stayAreaLatLng));
+
+        Poi mustSeeFarPoi = makePoiAt(BigDecimal.valueOf(49.9000), BigDecimal.valueOf(3.4000), true);
+        Poi commonNearPoi = makePoiAt(BigDecimal.valueOf(48.8601), BigDecimal.valueOf(2.3501), false);
+
+        List<Poi> candidates = new ArrayList<>();
+        candidates.add(commonNearPoi);
+        for (int i = 0; i < 6; i++) {
+            candidates.add(makePoiAt(BigDecimal.valueOf(49.9000 + i * 0.01), BigDecimal.valueOf(3.4000), false));
+        }
+        candidates.add(mustSeeFarPoi); // deliberadamente não é o primeiro da lista
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate day = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, day, day, "Le Marais", null, null, null, null, null);
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        UUID firstPickedPoiId = result.days().get(0).activities().get(0).poi().id();
+
+        assertEquals(mustSeeFarPoi.getId(), firstPickedPoiId,
+            "O bônus de mustSee (+20) deve superar o bônus de proximidade (+6 no máximo), " +
+            "mesmo quando o POI mustSee está longe do stayArea e o POI comum está perto");
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Poi makePoi(BudgetTier tier) {
@@ -675,6 +793,22 @@ class ItineraryEngineServiceTest {
             .mustSee(false)
             .latitude(BigDecimal.valueOf(48.8 + Math.random() * 0.1))
             .longitude(BigDecimal.valueOf(2.3 + Math.random() * 0.1))
+            .averageDurationMinutes(90)
+            .build();
+    }
+
+    private Poi makePoiAt(BigDecimal latitude, BigDecimal longitude, boolean mustSee) {
+        return Poi.builder()
+            .id(UUID.randomUUID())
+            .destination(destination)
+            .title("POI-" + UUID.randomUUID().toString().substring(0, 6))
+            .category(PoiCategory.MUSEUM)
+            .budgetTier(BudgetTier.MODERATE)
+            .tags(List.of())
+            .active(true)
+            .mustSee(mustSee)
+            .latitude(latitude)
+            .longitude(longitude)
             .averageDurationMinutes(90)
             .build();
     }
