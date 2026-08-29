@@ -48,6 +48,25 @@ class EmbedUrlModel {
   }
 }
 
+/// Um bairro sugerido para hospedagem, com a frase de vantagem explicando
+/// por que vale a pena se hospedar ali para o budget escolhido.
+class NeighborhoodRecommendation {
+  final String name;
+  final String advantage;
+
+  const NeighborhoodRecommendation({
+    required this.name,
+    required this.advantage,
+  });
+
+  factory NeighborhoodRecommendation.fromJson(Map<String, dynamic> json) {
+    return NeighborhoodRecommendation(
+      name: json['name'] as String,
+      advantage: json['advantage'] as String,
+    );
+  }
+}
+
 /// Espelha NeighborhoodSuggestionsResponseDTO — sugestões de bairro para
 /// hospedagem conforme o destino e o budget da viagem. Mesmo espírito de
 /// `configured` gracioso de DirectionsModel/EmbedUrlModel: `configured ==
@@ -55,7 +74,7 @@ class EmbedUrlModel {
 /// ser tratados sem quebrar a UI.
 class NeighborhoodSuggestionsModel {
   final bool configured;
-  final List<String> neighborhoods;
+  final List<NeighborhoodRecommendation> neighborhoods;
 
   const NeighborhoodSuggestionsModel({
     required this.configured,
@@ -66,7 +85,8 @@ class NeighborhoodSuggestionsModel {
     return NeighborhoodSuggestionsModel(
       configured: json['configured'] as bool,
       neighborhoods: (json['neighborhoods'] as List<dynamic>?)
-              ?.map((e) => e as String)
+              ?.map((e) =>
+                  NeighborhoodRecommendation.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
     );

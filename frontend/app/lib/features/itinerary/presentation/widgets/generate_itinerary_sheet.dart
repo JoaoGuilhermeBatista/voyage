@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../../core/themes/app_theme.dart';
 import '../../../destinations/data/destination_summary_model.dart';
 import '../../../destinations/presentation/providers/destination_provider.dart';
+import '../../../maps/data/maps_models.dart';
 import '../../../maps/presentation/providers/maps_provider.dart';
 import '../../../onboarding/presentation/widgets/preference_steps.dart';
 import '../../data/itinerary_models.dart';
@@ -949,15 +950,16 @@ class _StepArea extends ConsumerWidget {
                     ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Column(
                 children: suggestions.neighborhoods
-                    .map((name) => _OptionChip(
-                          label: name,
-                          icon: Icons.location_on_outlined,
-                          selected: controller.text == name,
-                          onTap: () => onSuggestionSelected(name),
+                    .map((neighborhood) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _NeighborhoodSuggestionCard(
+                            neighborhood: neighborhood,
+                            selected: controller.text == neighborhood.name,
+                            onTap: () =>
+                                onSuggestionSelected(neighborhood.name),
+                          ),
                         ))
                     .toList(),
               ),
@@ -965,6 +967,84 @@ class _StepArea extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ── Shared: neighborhood suggestion card ────────────────────────────────────
+
+/// Card tocável com o nome do bairro sugerido e a frase de vantagem (por que
+/// vale a pena se hospedar ali, pro budget escolhido). Substitui o antigo
+/// `_OptionChip` nessa etapa porque precisa de espaço para duas linhas de
+/// texto — mesmo padrão de card inteiro tocável de `_DestinationTile`.
+class _NeighborhoodSuggestionCard extends StatelessWidget {
+  final NeighborhoodRecommendation neighborhood;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _NeighborhoodSuggestionCard({
+    required this.neighborhood,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.primaryBlue.withValues(alpha: 0.08)
+              : AppTheme.softBlack.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected
+                ? AppTheme.primaryBlue
+                : AppTheme.softBlack.withValues(alpha: 0.1),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.location_on_outlined,
+              size: 18,
+              color: selected
+                  ? AppTheme.primaryBlue
+                  : AppTheme.softBlack.withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    neighborhood.name,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: selected
+                              ? AppTheme.primaryBlue
+                              : AppTheme.softBlack,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    neighborhood.advantage,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.softBlack.withValues(alpha: 0.45),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

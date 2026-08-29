@@ -663,7 +663,7 @@ void main() {
   }
 
   testWidgets(
-    'etapa de Área mostra chips de sugestão quando '
+    'etapa de Área mostra cards de sugestão (nome + vantagem) quando '
     'neighborhoodSuggestionsProvider retorna configured=true com bairros',
     (tester) async {
       await pumpSheet(
@@ -672,7 +672,16 @@ void main() {
         destinationName: 'Paris',
         neighborhoodSuggestions: const NeighborhoodSuggestionsModel(
           configured: true,
-          neighborhoods: ['Le Marais', 'Montmartre'],
+          neighborhoods: [
+            NeighborhoodRecommendation(
+              name: 'Le Marais',
+              advantage: 'Localização central com diversas opções culturais.',
+            ),
+            NeighborhoodRecommendation(
+              name: 'Montmartre',
+              advantage: 'Bairro charmoso com boa relação custo-benefício.',
+            ),
+          ],
         ),
       );
 
@@ -680,12 +689,20 @@ void main() {
 
       expect(find.text('Sugestões:'), findsOneWidget);
       expect(find.text('Le Marais'), findsOneWidget);
+      expect(
+        find.text('Localização central com diversas opções culturais.'),
+        findsOneWidget,
+      );
       expect(find.text('Montmartre'), findsOneWidget);
+      expect(
+        find.text('Bairro charmoso com boa relação custo-benefício.'),
+        findsOneWidget,
+      );
     },
   );
 
   testWidgets(
-    'tocar num chip de sugestão preenche o campo de texto com o nome do bairro',
+    'tocar num card de sugestão preenche o campo de texto com o nome do bairro',
     (tester) async {
       await pumpSheet(
         tester,
@@ -693,7 +710,16 @@ void main() {
         destinationName: 'Paris',
         neighborhoodSuggestions: const NeighborhoodSuggestionsModel(
           configured: true,
-          neighborhoods: ['Le Marais', 'Montmartre'],
+          neighborhoods: [
+            NeighborhoodRecommendation(
+              name: 'Le Marais',
+              advantage: 'Localização central com diversas opções culturais.',
+            ),
+            NeighborhoodRecommendation(
+              name: 'Montmartre',
+              advantage: 'Bairro charmoso com boa relação custo-benefício.',
+            ),
+          ],
         ),
       );
 
