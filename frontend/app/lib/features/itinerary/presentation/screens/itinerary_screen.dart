@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../currency/presentation/providers/currency_provider.dart';
 import '../../../maps/presentation/widgets/open_in_maps_button.dart';
+import '../../../maps/presentation/widgets/route_info_bar.dart';
 import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
 import '../providers/itinerary_provider.dart';
@@ -410,11 +411,50 @@ class _SlotSection extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            ...activities.map(
-              (a) => _ActivityTile(itineraryId: itineraryId, activity: a),
-            ),
+            for (var i = 0; i < activities.length; i++) ...[
+              _ActivityTile(itineraryId: itineraryId, activity: activities[i]),
+              if (i < activities.length - 1)
+                _RouteBetweenActivities(
+                  from: activities[i].poi,
+                  to: activities[i + 1].poi,
+                ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Distância/duração de rota entre duas atividades consecutivas do mesmo
+// slot, via RouteInfoBar (lib/features/maps/...). Some graciosamente (sem
+// renderizar nada) quando falta lat/lng em algum dos dois POIs — mesmo
+// espírito de fallback do resto da tela (_CurrencyRatesBar, OpenInMapsButton).
+class _RouteBetweenActivities extends StatelessWidget {
+  final PoiDetailModel from;
+  final PoiDetailModel to;
+  const _RouteBetweenActivities({required this.from, required this.to});
+
+  @override
+  Widget build(BuildContext context) {
+    final originLat = from.latitude;
+    final originLng = from.longitude;
+    final destLat = to.latitude;
+    final destLng = to.longitude;
+    if (originLat == null ||
+        originLng == null ||
+        destLat == null ||
+        destLng == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 6, bottom: 14),
+      child: RouteInfoBar(
+        originLat: originLat,
+        originLng: originLng,
+        destLat: destLat,
+        destLng: destLng,
       ),
     );
   }
