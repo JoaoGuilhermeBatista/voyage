@@ -43,4 +43,19 @@ class MapsRepository {
     );
     return EmbedUrlModel.fromJson(response.data as Map<String, dynamic>);
   }
+
+  Future<NeighborhoodSuggestionsModel> getNeighborhoodSuggestions({
+    required String destinationId,
+    required String budgetTier,
+  }) async {
+    final response = await _apiClient.dio.get(
+      '/maps/neighborhood-suggestions',
+      queryParameters: {
+        'destinationId': destinationId,
+        'budgetTier': budgetTier,
+      },
+    );
+    return NeighborhoodSuggestionsModel.fromJson(
+        response.data as Map<String, dynamic>);
+  }
 }

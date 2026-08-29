@@ -33,3 +33,16 @@ final embedUrlProvider =
     return repository.getEmbedUrl(lat: coords.$1, lng: coords.$2);
   },
 );
+
+/// Sugestões de bairro pra hospedagem via GET /api/v1/maps/neighborhood-suggestions.
+/// Chave da family é (destinationId, budgetTier).
+final neighborhoodSuggestionsProvider = FutureProvider.family<
+    NeighborhoodSuggestionsModel, (String destinationId, String budgetTier)>(
+  (ref, params) async {
+    final repository = ref.watch(mapsRepositoryProvider);
+    return repository.getNeighborhoodSuggestions(
+      destinationId: params.$1,
+      budgetTier: params.$2,
+    );
+  },
+);

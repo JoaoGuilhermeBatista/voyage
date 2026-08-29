@@ -17,6 +17,8 @@ import 'package:app/features/destinations/presentation/providers/destination_pro
 import 'package:app/features/itinerary/data/itinerary_models.dart';
 import 'package:app/features/itinerary/data/itinerary_repository.dart';
 import 'package:app/features/itinerary/presentation/widgets/generate_itinerary_sheet.dart';
+import 'package:app/features/maps/data/maps_models.dart';
+import 'package:app/features/maps/presentation/providers/maps_provider.dart';
 import 'package:app/features/onboarding/presentation/widgets/preference_steps.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,8 +77,19 @@ void main() {
 
   final mockDestinations = [dest('id-mockado', 'Paris'), dest('id-2', 'Roma')];
 
+  /// Sugestões de bairro (Item 6): por padrão `configured: false` — sem
+  /// bairros — para preservar o comportamento de hoje (só o TextField, sem
+  /// chips) nos testes que não exercitam essa feature especificamente.
+  /// Também é usado pra tocar o backend real de `ApiClient`, que exige
+  /// Supabase inicializado (não disponível em teste de widget) — sem esse
+  /// override, qualquer navegação até a etapa de Área dispararia uma
+  /// chamada real e quebraria o teste.
   List<Override> providerOverrides({
     List<DestinationSummaryModel> destinations = const [],
+    NeighborhoodSuggestionsModel neighborhoodSuggestions =
+        const NeighborhoodSuggestionsModel(configured: false),
+    void Function(String destinationId, String budgetTier)?
+        onNeighborhoodSuggestionsRequested,
   }) =>
       [
         itineraryRepositoryProvider.overrideWithValue(mockRepo),
@@ -86,6 +99,10 @@ void main() {
               .where((d) => d.name.toLowerCase().contains(query.toLowerCase()))
               .toList(),
         ),
+        neighborhoodSuggestionsProvider.overrideWith((ref, params) async {
+          onNeighborhoodSuggestionsRequested?.call(params.$1, params.$2);
+          return neighborhoodSuggestions;
+        }),
       ];
 
   /// Pump simples (sem GoRouter) — suficiente para testes que não completam
@@ -95,10 +112,19 @@ void main() {
     String? destinationId,
     String? destinationName,
     List<DestinationSummaryModel> destinations = const [],
+    NeighborhoodSuggestionsModel neighborhoodSuggestions =
+        const NeighborhoodSuggestionsModel(configured: false),
+    void Function(String destinationId, String budgetTier)?
+        onNeighborhoodSuggestionsRequested,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: providerOverrides(destinations: destinations),
+        overrides: providerOverrides(
+          destinations: destinations,
+          neighborhoodSuggestions: neighborhoodSuggestions,
+          onNeighborhoodSuggestionsRequested:
+              onNeighborhoodSuggestionsRequested,
+        ),
         child: MaterialApp(
           home: Scaffold(
             body: GenerateItinerarySheet(
@@ -218,8 +244,8 @@ void main() {
     await tapContinuar(tester); // Ritmo -> Com quem
   }
 
-  /// Percorre as etapas do wizard (Datas -> Área -> Vibe -> Interesses ->
-  /// Ritmo -> Com quem -> Budget) selecionando uma opção em cada uma
+  /// Percorre as etapas do wizard (Datas -> Budget -> Área -> Vibe ->
+  /// Interesses -> Ritmo -> Com quem) selecionando uma opção em cada uma
   /// (Interesses/Ritmo só se [interestLabels]/[rhythmLabel] forem
   /// passados — ambas são opcionais no fluxo real), parando em "Gerar
   /// Roteiro" sem tocá-lo. [vibeLabel] permite escolher a vibe (por padrão
@@ -232,7 +258,12 @@ void main() {
     String companionLabel = 'Casal',
   }) async {
     await fillDatesStep(tester);
-    await tapContinuar(tester); // Datas -> Área
+    await tapContinuar(tester); // Datas -> Budget
+
+    await tester.tap(find.text('Moderado'));
+    await tester.pumpAndSettle();
+    await tapContinuar(tester); // Budget -> Área
+
     await tapContinuar(tester); // Área (opcional) -> Vibe
 
     await tester.tap(find.text(vibeLabel));
@@ -246,10 +277,6 @@ void main() {
     ); // Interesses -> Ritmo -> Com quem
 
     await tester.tap(find.text(companionLabel));
-    await tester.pumpAndSettle();
-    await tapContinuar(tester); // Com quem -> Budget
-
-    await tester.tap(find.text('Moderado'));
     await tester.pumpAndSettle();
   }
 
@@ -343,7 +370,12 @@ void main() {
       await pumpSheet(tester, destinationId: 'x', destinationName: 'Paris');
 
       await fillDatesStep(tester);
-      await tapContinuar(tester); // Datas -> Área
+      await tapContinuar(tester); // Datas -> Budget
+
+      await tester.tap(find.text('Moderado'));
+      await tester.pumpAndSettle();
+      await tapContinuar(tester); // Budget -> Área
+
       await tapContinuar(tester); // Área -> Vibe
 
       await tester.tap(find.text('Aventura'));
@@ -363,7 +395,12 @@ void main() {
       await pumpSheet(tester, destinationId: 'x', destinationName: 'Paris');
 
       await fillDatesStep(tester);
-      await tapContinuar(tester); // Datas -> Área
+      await tapContinuar(tester); // Datas -> Budget
+
+      await tester.tap(find.text('Moderado'));
+      await tester.pumpAndSettle();
+      await tapContinuar(tester); // Budget -> Área
+
       await tapContinuar(tester); // Área -> Vibe
 
       await tester.tap(find.text('Aventura'));
@@ -461,7 +498,12 @@ void main() {
       await pumpSheet(tester, destinationId: 'x', destinationName: 'Paris');
 
       await fillDatesStep(tester);
-      await tapContinuar(tester); // Datas -> Área
+      await tapContinuar(tester); // Datas -> Budget
+
+      await tester.tap(find.text('Moderado'));
+      await tester.pumpAndSettle();
+      await tapContinuar(tester); // Budget -> Área
+
       await tapContinuar(tester); // Área -> Vibe
 
       await tester.tap(find.text('Lua de mel'));
@@ -487,7 +529,12 @@ void main() {
       await pumpSheet(tester, destinationId: 'x', destinationName: 'Paris');
 
       await fillDatesStep(tester);
-      await tapContinuar(tester); // Datas -> Área
+      await tapContinuar(tester); // Datas -> Budget
+
+      await tester.tap(find.text('Moderado'));
+      await tester.pumpAndSettle();
+      await tapContinuar(tester); // Budget -> Área
+
       await tapContinuar(tester); // Área -> Vibe
 
       await tester.tap(find.text('Aventura'));
@@ -512,12 +559,15 @@ void main() {
 
       expect(find.text('Sozinho'), findsNothing);
 
-      final continuarButton =
+      // "Com quem vai?" agora é a última etapa do wizard (Budget passou a
+      // vir antes de Área) — o botão de avançar mostra "Gerar Roteiro" em
+      // vez de "Continuar" nesse ponto.
+      final gerarRoteiroButton =
           tester.widget<ElevatedButton>(find.widgetWithText(
         ElevatedButton,
-        'Continuar',
+        'Gerar Roteiro',
       ));
-      expect(continuarButton.onPressed, isNull);
+      expect(gerarRoteiroButton.onPressed, isNull);
     },
   );
 
@@ -530,7 +580,12 @@ void main() {
       await pumpSheet(tester, destinationId: 'x', destinationName: 'Paris');
 
       await fillDatesStep(tester);
-      await tapContinuar(tester); // Datas -> Área
+      await tapContinuar(tester); // Datas -> Budget
+
+      await tester.tap(find.text('Moderado'));
+      await tester.pumpAndSettle();
+      await tapContinuar(tester); // Budget -> Área
+
       await tapContinuar(tester); // Área -> Vibe
 
       expect(find.text('Qual é o clima da viagem?'), findsOneWidget);
@@ -545,7 +600,12 @@ void main() {
       await pumpSheet(tester, destinationId: 'x', destinationName: 'Paris');
 
       await fillDatesStep(tester);
-      await tapContinuar(tester); // Datas -> Área
+      await tapContinuar(tester); // Datas -> Budget
+
+      await tester.tap(find.text('Moderado'));
+      await tester.pumpAndSettle();
+      await tapContinuar(tester); // Budget -> Área
+
       await tapContinuar(tester); // Área -> Vibe
 
       expect(find.text('Silêncio & Contemplação'), findsOneWidget);
@@ -581,6 +641,160 @@ void main() {
           tripBudget: any(named: 'tripBudget'),
         ),
       ).called(1);
+    },
+  );
+
+  // ── (m) Item 6 — sugestão de bairro por budget na etapa de Área ────────
+  // Cobre: GET /api/v1/maps/neighborhood-suggestions via
+  // neighborhoodSuggestionsProvider, exposto como chips na etapa de Área.
+
+  /// Avança do início (modo com destino pré-definido) até a etapa de Área,
+  /// selecionando [budgetLabel] na etapa de Budget (agora logo após Datas).
+  Future<void> advanceToAreaStep(
+    WidgetTester tester, {
+    String budgetLabel = 'Moderado',
+  }) async {
+    await fillDatesStep(tester);
+    await tapContinuar(tester); // Datas -> Budget
+
+    await tester.tap(find.text(budgetLabel));
+    await tester.pumpAndSettle();
+    await tapContinuar(tester); // Budget -> Área
+  }
+
+  testWidgets(
+    'etapa de Área mostra chips de sugestão quando '
+    'neighborhoodSuggestionsProvider retorna configured=true com bairros',
+    (tester) async {
+      await pumpSheet(
+        tester,
+        destinationId: 'dest-1',
+        destinationName: 'Paris',
+        neighborhoodSuggestions: const NeighborhoodSuggestionsModel(
+          configured: true,
+          neighborhoods: ['Le Marais', 'Montmartre'],
+        ),
+      );
+
+      await advanceToAreaStep(tester);
+
+      expect(find.text('Sugestões:'), findsOneWidget);
+      expect(find.text('Le Marais'), findsOneWidget);
+      expect(find.text('Montmartre'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tocar num chip de sugestão preenche o campo de texto com o nome do bairro',
+    (tester) async {
+      await pumpSheet(
+        tester,
+        destinationId: 'dest-1',
+        destinationName: 'Paris',
+        neighborhoodSuggestions: const NeighborhoodSuggestionsModel(
+          configured: true,
+          neighborhoods: ['Le Marais', 'Montmartre'],
+        ),
+      );
+
+      await advanceToAreaStep(tester);
+
+      await tester.tap(find.text('Le Marais'));
+      await tester.pumpAndSettle();
+
+      final textField = tester.widget<TextField>(find.byType(TextField));
+      expect(textField.controller?.text, 'Le Marais');
+    },
+  );
+
+  testWidgets(
+    'etapa de Área não mostra chips quando configured=false (sem quebrar a '
+    'tela) — só o TextField de sempre',
+    (tester) async {
+      await pumpSheet(
+        tester,
+        destinationId: 'dest-1',
+        destinationName: 'Paris',
+        neighborhoodSuggestions:
+            const NeighborhoodSuggestionsModel(configured: false),
+      );
+
+      await advanceToAreaStep(tester);
+
+      expect(find.text('Sugestões:'), findsNothing);
+      expect(find.byType(TextField), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'etapa de Área não mostra chips quando configured=true mas a lista de '
+    'bairros vem vazia',
+    (tester) async {
+      await pumpSheet(
+        tester,
+        destinationId: 'dest-1',
+        destinationName: 'Paris',
+        neighborhoodSuggestions: const NeighborhoodSuggestionsModel(
+          configured: true,
+          neighborhoods: [],
+        ),
+      );
+
+      await advanceToAreaStep(tester);
+
+      expect(find.text('Sugestões:'), findsNothing);
+      expect(find.byType(TextField), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a etapa de Budget aparece antes da etapa de Área na nova ordem do '
+    'wizard (city -> dates -> budget -> area)',
+    (tester) async {
+      await pumpSheet(tester, destinations: mockDestinations);
+
+      // Cidade
+      await tester.tap(find.text('Paris'));
+      await tester.pumpAndSettle();
+
+      // Datas -> Budget
+      await fillDatesStep(tester);
+      await tapContinuar(tester);
+
+      expect(find.text('Qual o budget desta viagem?'), findsOneWidget);
+      expect(find.text('Onde vai se hospedar?'), findsNothing);
+
+      // Budget -> Área
+      await tester.tap(find.text('Moderado'));
+      await tester.pumpAndSettle();
+      await tapContinuar(tester);
+
+      expect(find.text('Onde vai se hospedar?'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'ao chegar na etapa de Área, neighborhoodSuggestionsProvider é '
+    'observado com a chave (destinationId, budgetTier) refletindo o '
+    'budget selecionado na etapa anterior',
+    (tester) async {
+      String? capturedDestinationId;
+      String? capturedBudgetTier;
+
+      await pumpSheet(
+        tester,
+        destinationId: 'dest-xyz',
+        destinationName: 'Paris',
+        onNeighborhoodSuggestionsRequested: (destinationId, budgetTier) {
+          capturedDestinationId = destinationId;
+          capturedBudgetTier = budgetTier;
+        },
+      );
+
+      await advanceToAreaStep(tester, budgetLabel: 'Luxo');
+
+      expect(capturedDestinationId, 'dest-xyz');
+      expect(capturedBudgetTier, 'LUXURY');
     },
   );
 }

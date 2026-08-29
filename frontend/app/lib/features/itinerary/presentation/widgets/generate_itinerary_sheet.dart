@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../../core/themes/app_theme.dart';
 import '../../../destinations/data/destination_summary_model.dart';
 import '../../../destinations/presentation/providers/destination_provider.dart';
+import '../../../maps/presentation/providers/maps_provider.dart';
 import '../../../onboarding/presentation/widgets/preference_steps.dart';
 import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
@@ -88,21 +89,21 @@ class _GenerateItinerarySheetState
       ? const [
           _StepName.city,
           _StepName.dates,
+          _StepName.budget,
           _StepName.area,
           _StepName.vibe,
           _StepName.interests,
           _StepName.rhythm,
           _StepName.companions,
-          _StepName.budget,
         ]
       : const [
           _StepName.dates,
+          _StepName.budget,
           _StepName.area,
           _StepName.vibe,
           _StepName.interests,
           _StepName.rhythm,
           _StepName.companions,
-          _StepName.budget,
         ];
 
   int get _totalSteps => _steps.length;
@@ -359,7 +360,13 @@ class _GenerateItinerarySheetState
           onPickStart: _loading ? null : _pickStart,
           onPickEnd: _loading || _startDate == null ? null : _pickEnd,
         ),
-      _StepName.area => _StepArea(controller: _areaController),
+      _StepName.area => _StepArea(
+          controller: _areaController,
+          destinationId: widget.destinationId ?? _selectedDestinationId,
+          budgetTier: _budget?.backendKey,
+          onSuggestionSelected: (name) =>
+              setState(() => _areaController.text = name),
+        ),
       _StepName.vibe => _StepVibe(
           selected: _vibe,
           onSelect: _selectVibe,
@@ -855,37 +862,109 @@ class _DestinationTile extends StatelessWidget {
 
 // ── Step 1: Stay area ─────────────────────────────────────────────────────────
 
-class _StepArea extends StatelessWidget {
+class _StepArea extends ConsumerWidget {
   final TextEditingController controller;
-  const _StepArea({required this.controller});
+  final String? destinationId;
+  final String? budgetTier;
+  final ValueChanged<String> onSuggestionSelected;
+
+  const _StepArea({
+    required this.controller,
+    required this.destinationId,
+    required this.budgetTier,
+    required this.onSuggestionSelected,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      autofocus: true,
-      textCapitalization: TextCapitalization.words,
-      decoration: InputDecoration(
-        hintText: 'Ex: Marais, Eixample, Centro…',
-        prefixIcon: Icon(Icons.location_on_outlined,
-            color: AppTheme.softBlack.withValues(alpha: 0.4)),
-        filled: true,
-        fillColor: AppTheme.softBlack.withValues(alpha: 0.04),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide:
-              BorderSide(color: AppTheme.softBlack.withValues(alpha: 0.1)),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSuggestions(context, ref),
+        TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            hintText: 'Ex: Marais, Eixample, Centro…',
+            prefixIcon: Icon(Icons.location_on_outlined,
+                color: AppTheme.softBlack.withValues(alpha: 0.4)),
+            filled: true,
+            fillColor: AppTheme.softBlack.withValues(alpha: 0.04),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: AppTheme.softBlack.withValues(alpha: 0.1)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: AppTheme.softBlack.withValues(alpha: 0.1)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppTheme.primaryBlue),
+            ),
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide:
-              BorderSide(color: AppTheme.softBlack.withValues(alpha: 0.1)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryBlue),
-        ),
-      ),
+      ],
+    );
+  }
+
+  /// Chips com sugestões de bairro (via
+  /// GET /api/v1/maps/neighborhood-suggestions), acima do campo de texto.
+  /// Mesmo espírito gracioso de RouteInfoBar/_CurrencyRatesBar: enquanto
+  /// carrega, em erro, sem `destinationId`/`budgetTier`, com
+  /// `configured == false` ou lista vazia — não mostra nada, só o campo de
+  /// texto de sempre.
+  Widget _buildSuggestions(BuildContext context, WidgetRef ref) {
+    final destinationId = this.destinationId;
+    final budgetTier = this.budgetTier;
+    if (destinationId == null || budgetTier == null) {
+      return const SizedBox.shrink();
+    }
+
+    final asyncSuggestions = ref.watch(
+      neighborhoodSuggestionsProvider((destinationId, budgetTier)),
+    );
+
+    return asyncSuggestions.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (suggestions) {
+        if (!suggestions.configured || suggestions.neighborhoods.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Sugestões:',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppTheme.softBlack.withValues(alpha: 0.45),
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: suggestions.neighborhoods
+                    .map((name) => _OptionChip(
+                          label: name,
+                          icon: Icons.location_on_outlined,
+                          selected: controller.text == name,
+                          onTap: () => onSuggestionSelected(name),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

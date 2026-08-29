@@ -47,3 +47,28 @@ class EmbedUrlModel {
     );
   }
 }
+
+/// Espelha NeighborhoodSuggestionsResponseDTO — sugestões de bairro para
+/// hospedagem conforme o destino e o budget da viagem. Mesmo espírito de
+/// `configured` gracioso de DirectionsModel/EmbedUrlModel: `configured ==
+/// false` (Maps não configurado no backend) ou `neighborhoods` vazio devem
+/// ser tratados sem quebrar a UI.
+class NeighborhoodSuggestionsModel {
+  final bool configured;
+  final List<String> neighborhoods;
+
+  const NeighborhoodSuggestionsModel({
+    required this.configured,
+    this.neighborhoods = const [],
+  });
+
+  factory NeighborhoodSuggestionsModel.fromJson(Map<String, dynamic> json) {
+    return NeighborhoodSuggestionsModel(
+      configured: json['configured'] as bool,
+      neighborhoods: (json['neighborhoods'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+    );
+  }
+}
