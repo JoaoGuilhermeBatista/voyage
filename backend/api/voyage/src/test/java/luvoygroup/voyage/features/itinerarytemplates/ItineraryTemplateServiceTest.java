@@ -24,6 +24,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -219,6 +220,93 @@ class ItineraryTemplateServiceTest {
         assertNotNull(result);
         assertEquals(destinationId, result.destinationId());
         assertEquals(BudgetTier.MODERATE, result.budgetTier());
+    }
+
+    // ─── (d.2) generateForDestination — poiId com o TÍTULO do POI em vez do UUID
+    // é recuperado por casamento de título, não descartado ─────────────────────
+    //
+    // Achado em validação manual ao vivo (LLM real, catálogo real): a LLM às
+    // vezes devolve o CAMPO ERRADO — o título do POI em vez do UUID pedido
+    // explicitamente no prompt (ex.: "9/11 Memorial & Museum" em vez do seu
+    // id). Antes desta correção, isso era tratado como um poiId
+    // alucinado/inválido e a atividade era descartada — deixando um período
+    // (MORNING/AFTERNOON/EVENING) vazio no roteiro pronto entregue ao
+    // usuário. Contrato desta correção: quando poiId não é um UUID
+    // sintaticamente válido, tenta casar o valor recebido contra o TÍTULO
+    // real de algum POI do catálogo do destino (comparação normalizada:
+    // trim + lower-case) antes de desistir e descartar a atividade.
+    @Test
+    @SuppressWarnings("unchecked")
+    void generateForDestination_shouldRecoverActivity_whenLlmReturnsPoiTitleInsteadOfUuid() {
+        Destination destination = Destination.builder().id(destinationId).slug("nova-york").name("Nova York").build();
+        when(destinationRepo.findBySlug("nova-york")).thenReturn(Optional.of(destination));
+
+        UUID realPoiId = UUID.randomUUID();
+        Poi realPoi = Poi.builder().id(realPoiId).destination(destination).title("9/11 Memorial & Museum")
+            .category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE).build();
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(destinationId)).thenReturn(List.of(realPoi));
+
+        GeneratedTemplateActivity activityWithTitleInsteadOfId =
+            new GeneratedTemplateActivity("9/11 Memorial & Museum", 1, "AFTERNOON", 0);
+        GeneratedTemplateContent llmResponse = new GeneratedTemplateContent(
+            "Nova York Clássica", "1 dia de história", List.of(activityWithTitleInsteadOfId)
+        );
+
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(GeneratedTemplateContent.class)).thenReturn(llmResponse);
+
+        ArgumentCaptor<ItineraryTemplate> templateCaptor = ArgumentCaptor.forClass(ItineraryTemplate.class);
+
+        service.generateForDestination("nova-york", 1, BudgetTier.MODERATE);
+
+        verify(templateRepo).save(templateCaptor.capture());
+        ItineraryTemplate saved = templateCaptor.getValue();
+
+        assertEquals(1, saved.getDays().size(),
+            "A atividade recuperada por título deveria ter sido persistida (1 dia com 1 atividade), não descartada");
+        assertEquals(1, saved.getDays().get(0).getActivities().size());
+        assertEquals(realPoiId, saved.getDays().get(0).getActivities().get(0).getPoi().getId());
+    }
+
+    // ─── (d.3) generateForDestination — o casamento por título é normalizado
+    // (trim + case-insensitive), não uma igualdade exata de string ──────────
+    @Test
+    @SuppressWarnings("unchecked")
+    void generateForDestination_shouldMatchPoiTitleCaseInsensitively_andIgnoringSurroundingWhitespace() {
+        Destination destination = Destination.builder().id(destinationId).slug("nova-york").name("Nova York").build();
+        when(destinationRepo.findBySlug("nova-york")).thenReturn(Optional.of(destination));
+
+        UUID realPoiId = UUID.randomUUID();
+        Poi realPoi = Poi.builder().id(realPoiId).destination(destination).title("Empire State Building")
+            .category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE).build();
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(destinationId)).thenReturn(List.of(realPoi));
+
+        GeneratedTemplateActivity activityWithDifferentCasingAndSpacing =
+            new GeneratedTemplateActivity("  empire state building  ", 1, "MORNING", 0);
+        GeneratedTemplateContent llmResponse = new GeneratedTemplateContent(
+            "Nova York Clássica", "1 dia de história", List.of(activityWithDifferentCasingAndSpacing)
+        );
+
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(GeneratedTemplateContent.class)).thenReturn(llmResponse);
+
+        ArgumentCaptor<ItineraryTemplate> templateCaptor = ArgumentCaptor.forClass(ItineraryTemplate.class);
+
+        service.generateForDestination("nova-york", 1, BudgetTier.MODERATE);
+
+        verify(templateRepo).save(templateCaptor.capture());
+        ItineraryTemplate saved = templateCaptor.getValue();
+
+        assertEquals(1, saved.getDays().size());
+        assertEquals(realPoiId, saved.getDays().get(0).getActivities().get(0).getPoi().getId());
     }
 
     // ─── (e) generateForDestination — o prompt deve destacar POIs mustSee ────

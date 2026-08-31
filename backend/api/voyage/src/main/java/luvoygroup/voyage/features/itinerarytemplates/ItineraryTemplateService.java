@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
@@ -58,6 +59,12 @@ public class ItineraryTemplateService {
 
         List<Poi> pois = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId());
         Map<UUID, Poi> poiById = pois.stream().collect(Collectors.toMap(Poi::getId, p -> p));
+        // Fallback para quando a LLM devolve o TÍTULO do POI em vez do UUID
+        // pedido no prompt (achado em validação manual ao vivo) — ver
+        // resolvePoi(). (a, b) -> a: em caso de títulos duplicados no mesmo
+        // destino, fica com o primeiro; não é um cenário esperado hoje.
+        Map<String, Poi> poiByNormalizedTitle = pois.stream()
+            .collect(Collectors.toMap(p -> normalizeTitle(p.getTitle()), p -> p, (a, b) -> a));
 
         String prompt = buildGenerationPrompt(destination, durationDays, budgetTier, pois);
 
@@ -68,7 +75,7 @@ public class ItineraryTemplateService {
 
         List<ValidatedActivity> validActivities = (content.activities() == null ? List.<GeneratedTemplateActivity>of() : content.activities())
             .stream()
-            .map(ga -> validateGeneratedActivity(ga, poiById))
+            .map(ga -> validateGeneratedActivity(ga, poiById, poiByNormalizedTitle))
             .filter(Objects::nonNull)
             .toList();
 
@@ -271,12 +278,13 @@ public class ItineraryTemplateService {
             """.formatted(durationDays, destination.getName(), budgetTier, poiCatalog, destination.getName());
     }
 
-    private ValidatedActivity validateGeneratedActivity(GeneratedTemplateActivity ga, Map<UUID, Poi> poiById) {
+    private ValidatedActivity validateGeneratedActivity(
+        GeneratedTemplateActivity ga, Map<UUID, Poi> poiById, Map<String, Poi> poiByNormalizedTitle
+    ) {
         try {
-            UUID poiId = UUID.fromString(ga.poiId());
-            Poi poi = poiById.get(poiId);
+            Poi poi = resolvePoi(ga.poiId(), poiById, poiByNormalizedTitle);
             if (poi == null) {
-                log.warn("poiId alucinado pelo LLM ignorado (não pertence ao catálogo do destino): {}", ga.poiId());
+                log.warn("poiId alucinado pelo LLM ignorado (não pertence ao catálogo do destino, nem por id nem por título): {}", ga.poiId());
                 return null;
             }
 
@@ -292,6 +300,37 @@ public class ItineraryTemplateService {
             log.warn("Atividade gerada ignorada (dados inválidos): {} — {}", ga, e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Resolve o poiId cru devolvido pela LLM contra o catálogo real do
+     * destino. Caminho normal: {@code poiIdRaw} é um UUID válido presente em
+     * {@code poiById}. Fallback (achado em validação manual ao vivo — ver
+     * teste {@code generateForDestination_shouldRecoverActivity_whenLlmReturnsPoiTitleInsteadOfUuid}):
+     * a LLM às vezes devolve o TÍTULO do POI em vez do UUID pedido
+     * explicitamente no prompt; nesse caso, antes de descartar a atividade
+     * (o que deixaria um período vazio no roteiro), tenta casar
+     * {@code poiIdRaw} contra os títulos reais do catálogo (normalizados:
+     * trim + lower-case). Nunca inventa/aceita um POI fora do catálogo —
+     * apenas recupera atividades que já apontavam para um POI real, só que
+     * pelo campo errado.
+     */
+    private Poi resolvePoi(String poiIdRaw, Map<UUID, Poi> poiById, Map<String, Poi> poiByNormalizedTitle) {
+        try {
+            UUID poiId = UUID.fromString(poiIdRaw);
+            Poi poi = poiById.get(poiId);
+            if (poi != null) {
+                return poi;
+            }
+        } catch (IllegalArgumentException notAUuid) {
+            // poiIdRaw não é um UUID sintaticamente válido — segue para o
+            // fallback por título abaixo em vez de propagar a exceção.
+        }
+        return poiByNormalizedTitle.get(normalizeTitle(poiIdRaw));
+    }
+
+    private static String normalizeTitle(String title) {
+        return title == null ? "" : title.trim().toLowerCase(Locale.ROOT);
     }
 
     private record ValidatedActivity(Poi poi, Integer dayNumber, ItinerarySlot slot, Integer orderInSlot) {}
