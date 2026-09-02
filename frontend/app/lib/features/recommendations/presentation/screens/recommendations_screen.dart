@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +22,20 @@ const _interestLabels = {
   'vida-local': 'Vida Local',
   'musica': 'Música & Shows',
 };
+
+/// Embaralha `items` de forma determinística a partir de `seed` — mesma
+/// seed sempre produz a mesma ordem (estável entre rebuilds), mas seeds
+/// diferentes produzem ordens diferentes (cada seção com sua própria
+/// sequência). Soma dos code units em vez de `String.hashCode` porque o
+/// hashCode de String não é garantido estável entre execuções da VM.
+List<DestinationSummaryModel> _stableShuffled(
+  List<DestinationSummaryModel> items,
+  String seed,
+) {
+  final seedValue = seed.codeUnits.fold(0, (a, b) => a + b);
+  final shuffled = [...items]..shuffle(Random(seedValue));
+  return shuffled;
+}
 
 class RecommendationsScreen extends ConsumerWidget {
   const RecommendationsScreen({super.key});
@@ -67,20 +83,22 @@ class RecommendationsScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('PARA VOCÊ', style: AppTheme.eyebrow()),
+          const SizedBox(height: 10),
           Text(
-            'Para Você',
+            'Selecionado para você',
             style: GoogleFonts.cormorantGaramond(
               fontSize: 36,
               fontWeight: FontWeight.w500,
-              color: AppTheme.softBlack,
+              color: AppTheme.foreground,
               height: 1.2,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.softBlack.withValues(alpha: 0.45),
+                  color: AppTheme.mutedForeground,
                 ),
           ),
         ],
@@ -151,33 +169,27 @@ class RecommendationsScreen extends ConsumerWidget {
     List<DestinationSummaryModel> destinations,
     UserModel user,
   ) {
-    final interests = user.interests.map((i) => i.toLowerCase()).toSet();
-
-    // Score every destination by how many of its tags match at least one interest
-    final scored = destinations.map((d) {
-      final score = d.tags
-          .where((t) => interests.any((i) => t.toLowerCase().contains(i)))
-          .length;
-      return (destination: d, score: score);
-    }).where((s) => s.score > 0).toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
-
-    // Limit to top 10 unique recommended destinations
-    final pool = scored.take(10).map((s) => s.destination).toList();
-
-    if (pool.isEmpty) return [_buildEmptyState(context)];
-
-    // Build one section per user interest; destinations can repeat across sections
+    // Uma seção por interesse do usuário, cada uma buscando na lista
+    // COMPLETA de destinos (não num top-10 combinado de todos os
+    // interesses) — corrige bug em que interesses menos "populares" (ex.:
+    // bem-estar, vida-local) sumiam inteiros quando não pontuavam alto o
+    // bastante frente aos outros interesses do mesmo perfil, mesmo havendo
+    // destinos reais com aquela tag.
     final sections = <({String label, List<DestinationSummaryModel> items})>[];
     for (final interest in user.interests) {
       final key = interest.toLowerCase();
-      final matching = pool
+      final matching = destinations
           .where((d) => d.tags.any((t) => t.toLowerCase().contains(key)))
           .toList();
       if (matching.isNotEmpty) {
         sections.add((
           label: _interestLabels[interest] ?? interest,
-          items: matching,
+          // Embaralho de forma ESTÁVEL (mesma semente = mesma ordem em
+          // todo rebuild) por seção, pra cada interesse não repetir a
+          // mesma sequência de destinos que as outras seções mostram —
+          // sem isso, todo carrossel via a lista na mesma ordem "natural"
+          // da API, parecendo repetitivo.
+          items: _stableShuffled(matching, key).take(10).toList(),
         ));
       }
     }
@@ -396,7 +408,7 @@ class _CarouselCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/destinos/${destination.slug}'),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(6),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -426,26 +438,12 @@ class _CarouselCard extends StatelessWidget {
             ),
 
             Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2), width: 0.5),
-                ),
-                child: Text(
-                  destination.country.toUpperCase(),
-                  style: GoogleFonts.manrope(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.0,
-                    color: Colors.white,
-                  ),
-                ),
+              top: 14,
+              left: 14,
+              child: Text(
+                destination.country.toUpperCase(),
+                style: AppTheme.eyebrow(color: AppTheme.goldSoft, letterSpacing: 1.6)
+                    .copyWith(fontSize: 9),
               ),
             ),
 
@@ -473,9 +471,11 @@ class _CarouselCard extends StatelessWidget {
                       destination.tagline,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.manrope(
-                        fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.75),
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white.withValues(alpha: 0.78),
                         height: 1.35,
                       ),
                     ),
@@ -501,18 +501,19 @@ class _InterestChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: AppTheme.primaryBlue.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
+        color: AppTheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
         border:
-            Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.25), width: 1),
+            Border.all(color: AppTheme.primary.withValues(alpha: 0.25), width: 1),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppTheme.primaryBlue,
-              letterSpacing: 0.4,
-              fontWeight: FontWeight.w600,
-            ),
+        style: GoogleFonts.jost(
+          fontSize: 11,
+          color: AppTheme.primary,
+          letterSpacing: 0.4,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
