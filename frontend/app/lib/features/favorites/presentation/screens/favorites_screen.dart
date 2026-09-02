@@ -3,11 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../../core/themes/app_theme.dart';
-import '../../../../shared/widgets/loading_shimmer.dart';
 import '../../data/favorite_model.dart';
 import '../providers/favorite_provider.dart';
 
+/// Tela "Favoritos" — spec LUVOY §7. Grid 2 col de destinos salvos
+/// (aspect-square), corpo mantém dados reais (nunca hardcoded). A seção
+/// "Pontos de interesse" do spec original foi deliberadamente omitida: o
+/// produto hoje só tem favoritar DESTINO, não POI — não existe esse dado
+/// pra mostrar (ver luvoy-pendencias.md).
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});
 
@@ -21,15 +26,16 @@ class FavoritesScreen extends ConsumerWidget {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(context, favoritesAsync)),
-            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
             favoritesAsync.when(
               loading: _buildShimmer,
               error: (_, _) => _buildError(context, ref),
               data: (favorites) {
-                final withDest =
-                    favorites.where((f) => f.destination != null).toList();
+                final withDest = favorites
+                    .where((f) => f.destination != null)
+                    .toList();
                 if (withDest.isEmpty) return _buildEmptyState(context);
-                return _buildList(context, ref, withDest);
+                return _buildGrid(context, ref, withDest);
               },
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -42,7 +48,9 @@ class FavoritesScreen extends ConsumerWidget {
   // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(
-      BuildContext context, AsyncValue<List<FavoriteModel>> favoritesAsync) {
+    BuildContext context,
+    AsyncValue<List<FavoriteModel>> favoritesAsync,
+  ) {
     final count = favoritesAsync.valueOrNull
         ?.where((f) => f.destination != null)
         .length;
@@ -61,44 +69,51 @@ class FavoritesScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('SUA COLEÇÃO', style: AppTheme.eyebrow()),
+          const SizedBox(height: 8),
           Text(
-            'Salvos',
+            'Favoritos',
             style: GoogleFonts.cormorantGaramond(
               fontSize: 36,
               fontWeight: FontWeight.w500,
-              color: AppTheme.softBlack,
+              color: AppTheme.foreground,
               height: 1.2,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.softBlack.withValues(alpha: 0.45),
-                ),
+            style: GoogleFonts.jost(
+              fontSize: 14,
+              fontWeight: FontWeight.w300,
+              color: AppTheme.mutedForeground,
+            ),
           ),
         ],
       ),
     );
   }
 
-  // ── List ───────────────────────────────────────────────────────────────────
+  // ── Grid ───────────────────────────────────────────────────────────────────
 
-  Widget _buildList(
+  Widget _buildGrid(
     BuildContext context,
     WidgetRef ref,
     List<FavoriteModel> favorites,
   ) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      sliver: SliverList(
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 1,
+        ),
         delegate: SliverChildBuilderDelegate(
-          (context, index) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _FavoriteCard(
-              favorite: favorites[index],
-              onRemove: () => _confirmRemove(context, ref, favorites[index]),
-            ),
+          (context, index) => _FavoriteCard(
+            favorite: favorites[index],
+            onRemove: () => _confirmRemove(context, ref, favorites[index]),
           ),
           childCount: favorites.length,
         ),
@@ -117,7 +132,8 @@ class FavoritesScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                '${favorite.destination?.name ?? 'Destino'} removido dos salvos'),
+              '${favorite.destination?.name ?? 'Destino'} removido dos favoritos',
+            ),
             action: SnackBarAction(
               label: 'Desfazer',
               onPressed: () async {
@@ -145,48 +161,44 @@ class FavoritesScreen extends ConsumerWidget {
   Widget _buildEmptyState(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 56, 40, 0),
-        child: Column(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppTheme.goldenOrange.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            children: [
+              Text(
+                'Nada salvo ainda',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 24,
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.foreground,
+                ),
+                textAlign: TextAlign.center,
               ),
-              child: const Icon(
-                Icons.favorite_border_rounded,
-                size: 34,
-                color: AppTheme.goldenOrange,
+              const SizedBox(height: 10),
+              Text(
+                'Guarde aqui os lugares que fazem seu olhar demorar.',
+                style: GoogleFonts.jost(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w300,
+                  color: AppTheme.mutedForeground,
+                  height: 1.6,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Nenhum destino salvo ainda',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 26,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.softBlack,
-                height: 1.25,
+              const SizedBox(height: 28),
+              ElevatedButton(
+                onPressed: () => context.go('/home'),
+                child: const Text('Explorar destinos'),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Explore destinos e salve os que deseja visitar. Eles aparecem aqui para você planejar com calma.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.5),
-                    height: 1.6,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => context.go('/home'),
-              child: const Text('Explorar destinos'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -197,12 +209,15 @@ class FavoritesScreen extends ConsumerWidget {
   Widget _buildShimmer() {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      sliver: SliverList(
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 1,
+        ),
         delegate: SliverChildBuilderDelegate(
-          (_, _) => const Padding(
-            padding: EdgeInsets.only(bottom: 16),
-            child: CardShimmer(),
-          ),
+          (_, _) => const _FavoriteCardShimmer(),
           childCount: 4,
         ),
       ),
@@ -217,14 +232,18 @@ class FavoritesScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
         child: Column(
           children: [
-            Icon(Icons.wifi_off_rounded,
-                size: 40, color: AppTheme.softBlack.withValues(alpha: 0.3)),
+            Icon(
+              Icons.wifi_off_rounded,
+              size: 40,
+              color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+            ),
             const SizedBox(height: 16),
             Text(
-              'Não foi possível carregar os salvos',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.5),
-                  ),
+              'Não foi possível carregar os favoritos',
+              style: GoogleFonts.jost(
+                fontSize: 14,
+                color: AppTheme.mutedForeground,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -233,6 +252,27 @@ class FavoritesScreen extends ConsumerWidget {
               child: const Text('Tentar novamente'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Shimmer (quadrado — o CardShimmer compartilhado tem altura fixa de
+// lista e não cabe numa célula de grid) ─────────────────────────────────────
+
+class _FavoriteCardShimmer extends StatelessWidget {
+  const _FavoriteCardShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppTheme.shimmerBase,
+      highlightColor: AppTheme.shimmerHigh,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppTheme.shimmerBase,
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );
@@ -266,126 +306,95 @@ class _FavoriteCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push('/destinos/${dest.slug}'),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: SizedBox(
-          height: 220,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Image or placeholder
-              if (hasImage)
-                CachedNetworkImage(
-                  imageUrl: dest.heroImageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (_, _) => Container(color: placeholder),
-                  errorWidget: (_, _, _) => Container(color: placeholder),
-                )
-              else
-                Container(color: placeholder),
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (hasImage)
+              CachedNetworkImage(
+                imageUrl: dest.heroImageUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, _) => Container(color: placeholder),
+                errorWidget: (_, _, _) => Container(color: placeholder),
+              )
+            else
+              Container(color: placeholder),
 
-              // Gradient overlay
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.2),
-                      Colors.black.withValues(alpha: 0.75),
-                    ],
-                    stops: const [0.3, 0.6, 1.0],
-                  ),
+            // Gradient overlay
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppTheme.overlay.withValues(alpha: 0.2),
+                    AppTheme.overlay.withValues(alpha: 0.78),
+                  ],
+                  stops: const [0.35, 0.6, 1.0],
                 ),
               ),
+            ),
 
-              // Country badge
-              Positioned(
-                top: 14,
-                left: 16,
+            // Remove heart button
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: onRemove,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  width: 30,
+                  height: 30,
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.2), width: 0.5),
+                    color: AppTheme.overlay.withValues(alpha: 0.35),
+                    shape: BoxShape.circle,
                   ),
-                  child: Text(
-                    dest.country.toUpperCase(),
-                    style: GoogleFonts.jost(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.0,
-                      color: Colors.white,
-                    ),
+                  child: const Icon(
+                    Icons.favorite_rounded,
+                    color: Color(0xFFE57373),
+                    size: 15,
                   ),
                 ),
               ),
+            ),
 
-              // Remove heart button
-              Positioned(
-                top: 10,
-                right: 12,
-                child: GestureDetector(
-                  onTap: onRemove,
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          width: 0.5),
+            // Destination info
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      dest.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        height: 1.1,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.favorite_rounded,
-                      color: Color(0xFFE57373),
-                      size: 18,
+                    const SizedBox(height: 2),
+                    Text(
+                      dest.country.toUpperCase(),
+                      style: GoogleFonts.jost(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.0,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-
-              // Destination info
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        dest.name,
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          height: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        dest.tagline,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.jost(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.8),
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

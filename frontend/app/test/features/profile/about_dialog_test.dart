@@ -60,9 +60,7 @@ Widget _buildAppWithNestedShell() {
   );
 
   return ProviderScope(
-    overrides: [
-      userProvider.overrideWith((ref) async => _fakeUser),
-    ],
+    overrides: [userProvider.overrideWith((ref) async => _fakeUser)],
     child: MaterialApp.router(routerConfig: router),
   );
 }
@@ -93,22 +91,21 @@ void main() {
       },
     );
 
-    testWidgets(
-      'teste2_perfilContinuaVisivel_apposFecharDialog',
-      (tester) async {
-        await tester.pumpWidget(_buildAppWithNestedShell());
-        await tester.pumpAndSettle();
+    testWidgets('teste2_perfilContinuaVisivel_apposFecharDialog', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildAppWithNestedShell());
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Sobre o LUVOY'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Sobre o LUVOY'));
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Fechar'));
-        await tester.pumpAndSettle();
-        tester.takeException(); // não deixa a exceção vazar para o próximo expect
+      await tester.tap(find.text('Fechar'));
+      await tester.pumpAndSettle();
+      tester.takeException(); // não deixa a exceção vazar para o próximo expect
 
-        expect(find.text('Sobre o LUVOY'), findsOneWidget);
-        expect(find.text('Sair da conta'), findsOneWidget);
-      },
-    );
+      expect(find.text('Sobre o LUVOY'), findsOneWidget);
+      expect(find.text('Sair'), findsOneWidget);
+    });
   });
 }

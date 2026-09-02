@@ -6,6 +6,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../providers/user_provider.dart';
 
+/// Tela "Perfil" — spec LUVOY §8. Card "Meu Plano" reflete o campo real
+/// `user.isPremium`: variante Free em tema claro, variante Premium como
+/// bloco Noir de verdade (fundo `ink`, dourado `goldNoir`), igual ao bloco
+/// Noite do roteiro. O CTA "Tornar-se Premium" do spec original foi
+/// deliberadamente omitido — não existe fluxo de assinatura/checkout real
+/// no app hoje, então o card fica informativo (mesmo critério usado para
+/// não construir Concierge/Checklists/paywall, ver luvoy-pendencias.md).
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -18,43 +25,29 @@ class ProfileScreen extends ConsumerWidget {
       body: SafeArea(
         child: userAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _err) => const Center(child: Text('Erro ao carregar perfil')),
+          error: (_, _) => const Center(child: Text('Erro ao carregar perfil')),
           data: (user) => ListView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             children: [
+              const SizedBox(height: 48),
+              _ProfileHeader(email: user?.email ?? ''),
               const SizedBox(height: 40),
-              _ProfileHeader(
-                email: user?.email ?? '',
-                isPremium: user?.isPremium ?? false,
-              ),
-              const SizedBox(height: 36),
-              _SectionLabel('Conta'),
-              _InfoTile(
-                icon: Icons.email_outlined,
-                label: 'E-mail',
-                value: user?.email ?? '',
-              ),
-              _InfoTile(
-                icon: Icons.workspace_premium_outlined,
-                label: 'Plano',
-                value: (user?.isPremium ?? false) ? 'Premium' : 'Gratuito',
-                valueColor: (user?.isPremium ?? false)
-                    ? AppTheme.goldenOrange
-                    : null,
-              ),
-              _ActionTile(
+              _ActionCard(
                 icon: Icons.tune_outlined,
-                label: 'Editar preferências',
+                title: 'Minhas Preferências',
+                subtitle: 'Estilos de viagem, gastronomia e clima',
                 onTap: () => context.push('/perfil/preferencias'),
               ),
-              const SizedBox(height: 24),
-              _SectionLabel('App'),
-              _ActionTile(
+              const SizedBox(height: 12),
+              _PlanCard(isPremium: user?.isPremium ?? false),
+              const SizedBox(height: 12),
+              _ActionCard(
                 icon: Icons.info_outline,
-                label: 'Sobre o LUVOY',
+                title: 'Sobre o LUVOY',
+                subtitle: 'Curadoria premium de experiências de viagem',
                 onTap: () => _showAbout(context),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 48),
               _LogoutButton(ref: ref),
               const SizedBox(height: 32),
             ],
@@ -68,19 +61,23 @@ class ProfileScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppTheme.softWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: AppTheme.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: Text(
           'LUVOY',
           style: GoogleFonts.cormorantGaramond(
             fontSize: 24,
             fontWeight: FontWeight.w600,
-            color: AppTheme.softBlack,
+            color: AppTheme.foreground,
           ),
         ),
         content: Text(
           'Curadoria premium de experiências e roteiros de viagem europeia.',
-          style: GoogleFonts.jost(fontSize: 14, color: const Color(0xFF555555)),
+          style: GoogleFonts.jost(
+            fontSize: 14,
+            fontWeight: FontWeight.w300,
+            color: AppTheme.mutedForeground,
+          ),
         ),
         actions: [
           TextButton(
@@ -88,7 +85,7 @@ class ProfileScreen extends ConsumerWidget {
             child: Text(
               'Fechar',
               style: GoogleFonts.jost(
-                color: AppTheme.goldenOrange,
+                color: AppTheme.primary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -99,11 +96,12 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
+// ── Header ─────────────────────────────────────────────────────────────────
+
 class _ProfileHeader extends StatelessWidget {
   final String email;
-  final bool isPremium;
 
-  const _ProfileHeader({required this.email, required this.isPremium});
+  const _ProfileHeader({required this.email});
 
   String get _initials {
     final prefix = email.split('@').first;
@@ -119,50 +117,41 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primaryBlue,
-              ),
-              child: Center(
-                child: Text(
-                  _initials,
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 34,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.softWhite,
-                  ),
-                ),
+        Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.secondary,
+            border: Border.all(color: AppTheme.primary, width: 1.5),
+          ),
+          child: Center(
+            child: Text(
+              _initials,
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 32,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.primary,
               ),
             ),
-            if (isPremium)
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.goldenOrange,
-                  border: Border.all(color: AppTheme.background, width: 2),
-                ),
-                child: const Icon(Icons.star, size: 14, color: Colors.white),
-              ),
-          ],
+          ),
         ),
         const SizedBox(height: 16),
         Text(
-          email.split('@').first.replaceAll('.', ' ').split(' ').map((w) {
-            if (w.isEmpty) return w;
-            return w[0].toUpperCase() + w.substring(1);
-          }).join(' '),
+          email
+              .split('@')
+              .first
+              .replaceAll('.', ' ')
+              .split(' ')
+              .map((w) {
+                if (w.isEmpty) return w;
+                return w[0].toUpperCase() + w.substring(1);
+              })
+              .join(' '),
           style: GoogleFonts.cormorantGaramond(
-            fontSize: 26,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.softBlack,
+            fontSize: 28,
+            fontWeight: FontWeight.w500,
+            color: AppTheme.foreground,
           ),
         ),
         const SizedBox(height: 4),
@@ -170,99 +159,170 @@ class _ProfileHeader extends StatelessWidget {
           email,
           style: GoogleFonts.jost(
             fontSize: 13,
-            color: const Color(0xFF888888),
+            fontWeight: FontWeight.w300,
+            color: AppTheme.mutedForeground,
           ),
         ),
-        if (isPremium) ...[
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppTheme.goldenOrange.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppTheme.goldenOrange.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Text(
-              'PREMIUM',
-              style: GoogleFonts.jost(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-                color: AppTheme.goldenOrange,
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+// ── Action card (Minhas Preferências / Sobre o LUVOY) ───────────────────────
+
+class _ActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text.toUpperCase(),
-        style: GoogleFonts.jost(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.4,
-          color: const Color(0xFF999999),
+    return Material(
+      color: AppTheme.card,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: AppTheme.mutedForeground),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.jost(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.jost(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                        color: AppTheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? valueColor;
+// ── Card "Meu Plano" ─────────────────────────────────────────────────────────
 
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
+class _PlanCard extends StatelessWidget {
+  final bool isPremium;
+  const _PlanCard({required this.isPremium});
 
   @override
   Widget build(BuildContext context) {
+    if (isPremium) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.ink,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.goldNoir.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.workspace_premium_outlined,
+              size: 22,
+              color: AppTheme.goldNoir,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _Badge(
+                    label: 'NOIR',
+                    background: AppTheme.goldNoir,
+                    foreground: AppTheme.ink,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Acesso completo à curadoria Noir',
+                    style: GoogleFonts.jost(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      color: AppTheme.ivory.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: AppTheme.softWhite,
-        borderRadius: BorderRadius.circular(14),
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: const Color(0xFFAAAAAA)),
-          const SizedBox(width: 14),
-          Text(
-            label,
-            style: GoogleFonts.jost(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.softBlack,
-            ),
+          Icon(
+            Icons.workspace_premium_outlined,
+            size: 22,
+            color: AppTheme.primary,
           ),
-          const Spacer(),
-          Text(
-            value,
-            style: GoogleFonts.jost(
-              fontSize: 14,
-              color: valueColor ?? const Color(0xFF888888),
-              fontWeight:
-                  valueColor != null ? FontWeight.w600 : FontWeight.normal,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _Badge(
+                  label: 'GRATUITO',
+                  background: AppTheme.goldSoft,
+                  foreground: AppTheme.foreground,
+                  border: AppTheme.primary,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Acesso às coleções essenciais',
+                  style: GoogleFonts.jost(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                    color: AppTheme.mutedForeground,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -271,48 +331,42 @@ class _InfoTile extends StatelessWidget {
   }
 }
 
-class _ActionTile extends StatelessWidget {
-  final IconData icon;
+class _Badge extends StatelessWidget {
   final String label;
-  final VoidCallback onTap;
+  final Color background;
+  final Color foreground;
+  final Color? border;
 
-  const _ActionTile({
-    required this.icon,
+  const _Badge({
     required this.label,
-    required this.onTap,
+    required this.background,
+    required this.foreground,
+    this.border,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppTheme.softWhite,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: const Color(0xFFAAAAAA)),
-            const SizedBox(width: 14),
-            Text(
-              label,
-              style: GoogleFonts.jost(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.softBlack,
-              ),
-            ),
-            const Spacer(),
-            const Icon(Icons.chevron_right, size: 18, color: Color(0xFFCCCCCC)),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: border != null ? Border.all(color: border!) : null,
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.jost(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
+          color: foreground,
         ),
       ),
     );
   }
 }
+
+// ── Logout ───────────────────────────────────────────────────────────────────
 
 class _LogoutButton extends StatefulWidget {
   final WidgetRef ref;
@@ -331,7 +385,7 @@ class _LogoutButtonState extends State<_LogoutButton> {
       await Supabase.instance.client.auth.signOut();
       widget.ref.invalidate(userProvider);
       widget.ref.read(onboardingCompletedProvider.notifier).state = false;
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Erro ao sair. Tente novamente.')),
@@ -344,34 +398,28 @@ class _LogoutButtonState extends State<_LogoutButton> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
+    return Center(
+      child: TextButton.icon(
         onPressed: _loading ? null : _logout,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.red.shade400,
-          side: BorderSide(color: Colors.red.shade200),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-        child: _loading
+        icon: _loading
             ? SizedBox(
-                width: 18,
-                height: 18,
+                width: 12,
+                height: 12,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.red.shade400,
+                  strokeWidth: 1.5,
+                  color: AppTheme.mutedForeground,
                 ),
               )
-            : Text(
-                'Sair da conta',
-                style: GoogleFonts.jost(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            : const Icon(Icons.logout, size: 14),
+        label: Text(
+          'Sair',
+          style: GoogleFonts.jost(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 2.2,
+          ),
+        ),
+        style: TextButton.styleFrom(foregroundColor: AppTheme.mutedForeground),
       ),
     );
   }
