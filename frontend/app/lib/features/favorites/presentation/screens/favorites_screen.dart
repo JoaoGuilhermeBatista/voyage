@@ -314,7 +314,7 @@ class _FavoriteCard extends StatelessWidget {
                   ),
                   child: Text(
                     dest.country.toUpperCase(),
-                    style: GoogleFonts.manrope(
+                    style: GoogleFonts.jost(
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.0,
@@ -374,7 +374,7 @@ class _FavoriteCard extends StatelessWidget {
                         dest.tagline,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.manrope(
+                        style: GoogleFonts.jost(
                           fontSize: 13,
                           color: Colors.white.withValues(alpha: 0.8),
                           height: 1.4,

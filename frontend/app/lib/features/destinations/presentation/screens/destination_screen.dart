@@ -89,7 +89,7 @@ class DestinationScreen extends ConsumerWidget {
                       Text(
                         'Não foi possível carregar o destino.',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
+                        style: GoogleFonts.jost(
                           fontSize: 15,
                           color: AppTheme.softBlack,
                         ),
@@ -280,16 +280,16 @@ class _DestinationHeader extends StatelessWidget {
           children: [
             // Country badge
             _CountryBadge(country: destination.country),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
             // Destination name
             Text(
               destination.name,
               style: GoogleFonts.cormorantGaramond(
-                fontSize: 42,
+                fontSize: 44,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.softBlack,
-                height: 1.1,
+                color: AppTheme.foreground,
+                height: 1.05,
               ),
             ),
             const SizedBox(height: 8),
@@ -297,9 +297,11 @@ class _DestinationHeader extends StatelessWidget {
             // Tagline
             Text(
               destination.tagline,
-              style: GoogleFonts.manrope(
-                fontSize: 15,
-                color: const Color(0xFF666666),
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 17,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w400,
+                color: AppTheme.mutedForeground,
                 height: 1.5,
               ),
             ),
@@ -308,14 +310,14 @@ class _DestinationHeader extends StatelessWidget {
             if (destination.signature != null &&
                 destination.signature!.isNotEmpty) ...[
               const SizedBox(height: 16),
-              const Divider(thickness: 1, color: Color(0xFFE8E4DC)),
+              const Divider(),
               const SizedBox(height: 12),
               Text(
                 destination.signature!,
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 14,
                   fontStyle: FontStyle.italic,
-                  color: const Color(0xFF666666),
+                  color: AppTheme.mutedForeground,
                   height: 1.5,
                 ),
               ),
@@ -361,14 +363,15 @@ class _DescriptionSliver extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Divider(thickness: 1, color: Color(0xFFE8E4DC)),
+            const Divider(),
             const SizedBox(height: 16),
             Text(
               description,
-              style: GoogleFonts.manrope(
+              style: GoogleFonts.jost(
                 fontSize: 15,
+                fontWeight: FontWeight.w300,
                 height: 1.6,
-                color: const Color(0xFF444444),
+                color: AppTheme.foreground.withValues(alpha: 0.75),
               ),
             ),
             const SizedBox(height: 24),
@@ -442,11 +445,11 @@ class _CuratedTemplatesSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Divider(thickness: 1, color: Color(0xFFE8E4DC)),
+          const Divider(),
           const SizedBox(height: 20),
           Text(
             'ROTEIROS PRONTOS',
-            style: GoogleFonts.manrope(
+            style: GoogleFonts.jost(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,
@@ -549,7 +552,7 @@ class _CuratedTemplateCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       '${template.durationDays} dias',
-                      style: GoogleFonts.manrope(
+                      style: GoogleFonts.jost(
                         fontSize: 12,
                         color: AppTheme.softBlack.withValues(alpha: 0.6),
                       ),
@@ -566,7 +569,7 @@ class _CuratedTemplateCard extends StatelessWidget {
                       ),
                       child: Text(
                         budgetLabel,
-                        style: GoogleFonts.manrope(
+                        style: GoogleFonts.jost(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.goldenOrange,
@@ -603,11 +606,11 @@ class _SectionSliver extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Divider(thickness: 1, color: Color(0xFFE8E4DC)),
+            const Divider(),
             const SizedBox(height: 20),
             Text(
               label.toUpperCase(),
-              style: GoogleFonts.manrope(
+              style: GoogleFonts.jost(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 1.5,
@@ -622,10 +625,7 @@ class _SectionSliver extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (index > 0)
-                    const Divider(
-                      thickness: 0.5,
-                      color: Color(0xFFE8E4DC),
-                    ),
+                    const Divider(thickness: 0.5),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Column(
@@ -633,7 +633,7 @@ class _SectionSliver extends StatelessWidget {
                       children: [
                         Text(
                           item.name,
-                          style: GoogleFonts.manrope(
+                          style: GoogleFonts.jost(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.softBlack,
@@ -644,9 +644,9 @@ class _SectionSliver extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             item.desc!,
-                            style: GoogleFonts.manrope(
+                            style: GoogleFonts.jost(
                               fontSize: 13,
-                              color: const Color(0xFF888888),
+                              color: AppTheme.mutedForeground,
                               height: 1.5,
                             ),
                           ),
@@ -675,26 +675,7 @@ class _CountryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.goldenOrange.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: AppTheme.goldenOrange.withValues(alpha: 0.4),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        country.toUpperCase(),
-        style: GoogleFonts.manrope(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.4,
-          color: AppTheme.goldenOrange,
-        ),
-      ),
-    );
+    return Text(country.toUpperCase(), style: AppTheme.eyebrow(color: AppTheme.gold));
   }
 }
 
@@ -744,13 +725,13 @@ class _WeatherItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: const Color(0xFF888888)),
+        Icon(icon, size: 14, color: AppTheme.mutedForeground),
         const SizedBox(width: 4),
         Text(
           text,
-          style: GoogleFonts.manrope(
+          style: GoogleFonts.jost(
             fontSize: 13,
-            color: const Color(0xFF666666),
+            color: AppTheme.mutedForeground,
           ),
         ),
       ],
@@ -765,20 +746,20 @@ class _TagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: AppTheme.goldenOrange.withValues(alpha: 0.5),
+          color: AppTheme.gold.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
       child: Text(
         label,
-        style: GoogleFonts.manrope(
+        style: GoogleFonts.jost(
           fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: const Color(0xFF666666),
+          fontWeight: FontWeight.w400,
+          color: AppTheme.mutedForeground,
         ),
       ),
     );

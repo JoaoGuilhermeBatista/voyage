@@ -80,14 +80,14 @@ class ProfileScreen extends ConsumerWidget {
         ),
         content: Text(
           'Curadoria premium de experiências e roteiros de viagem europeia.',
-          style: GoogleFonts.manrope(fontSize: 14, color: const Color(0xFF555555)),
+          style: GoogleFonts.jost(fontSize: 14, color: const Color(0xFF555555)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
               'Fechar',
-              style: GoogleFonts.manrope(
+              style: GoogleFonts.jost(
                 color: AppTheme.goldenOrange,
                 fontWeight: FontWeight.w600,
               ),
@@ -168,7 +168,7 @@ class _ProfileHeader extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           email,
-          style: GoogleFonts.manrope(
+          style: GoogleFonts.jost(
             fontSize: 13,
             color: const Color(0xFF888888),
           ),
@@ -186,7 +186,7 @@ class _ProfileHeader extends StatelessWidget {
             ),
             child: Text(
               'PREMIUM',
-              style: GoogleFonts.manrope(
+              style: GoogleFonts.jost(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.4,
@@ -210,7 +210,7 @@ class _SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text.toUpperCase(),
-        style: GoogleFonts.manrope(
+        style: GoogleFonts.jost(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.4,
@@ -249,7 +249,7 @@ class _InfoTile extends StatelessWidget {
           const SizedBox(width: 14),
           Text(
             label,
-            style: GoogleFonts.manrope(
+            style: GoogleFonts.jost(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: AppTheme.softBlack,
@@ -258,7 +258,7 @@ class _InfoTile extends StatelessWidget {
           const Spacer(),
           Text(
             value,
-            style: GoogleFonts.manrope(
+            style: GoogleFonts.jost(
               fontSize: 14,
               color: valueColor ?? const Color(0xFF888888),
               fontWeight:
@@ -299,7 +299,7 @@ class _ActionTile extends StatelessWidget {
             const SizedBox(width: 14),
             Text(
               label,
-              style: GoogleFonts.manrope(
+              style: GoogleFonts.jost(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.softBlack,
@@ -367,7 +367,7 @@ class _LogoutButtonState extends State<_LogoutButton> {
               )
             : Text(
                 'Sair da conta',
-                style: GoogleFonts.manrope(
+                style: GoogleFonts.jost(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),

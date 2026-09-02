@@ -367,7 +367,7 @@ class _ItinerarySummaryCard extends StatelessWidget {
                   ),
                   child: Text(
                     '${itinerary.dayCount} ${itinerary.dayCount == 1 ? 'dia' : 'dias'}',
-                    style: GoogleFonts.manrope(
+                    style: GoogleFonts.jost(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -399,7 +399,7 @@ class _ItinerarySummaryCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         _dateRange(),
-                        style: GoogleFonts.manrope(
+                        style: GoogleFonts.jost(
                           fontSize: 13,
                           color: Colors.white.withValues(alpha: 0.75),
                         ),

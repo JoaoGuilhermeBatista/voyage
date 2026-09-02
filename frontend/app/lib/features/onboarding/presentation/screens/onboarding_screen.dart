@@ -99,7 +99,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           SnackBar(
             content: Text(
               'Erro ao salvar suas preferências. Tente novamente.',
-              style: GoogleFonts.manrope(),
+              style: GoogleFonts.jost(),
             ),
             backgroundColor: Colors.red.shade700,
           ),
@@ -218,7 +218,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 )
               : Text(
                   isLastStep ? 'Começar minha jornada' : 'Continuar',
-                  style: GoogleFonts.manrope(
+                  style: GoogleFonts.jost(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: _currentStepValid

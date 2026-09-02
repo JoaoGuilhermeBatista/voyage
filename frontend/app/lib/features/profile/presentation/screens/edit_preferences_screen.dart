@@ -96,7 +96,7 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
         SnackBar(
           content: Text(
             'Preferências atualizadas com sucesso!',
-            style: GoogleFonts.manrope(),
+            style: GoogleFonts.jost(),
           ),
           backgroundColor: AppTheme.primaryBlue,
         ),
@@ -109,7 +109,7 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
         SnackBar(
           content: Text(
             'Erro ao salvar suas preferências. Tente novamente.',
-            style: GoogleFonts.manrope(),
+            style: GoogleFonts.jost(),
           ),
           backgroundColor: Colors.red.shade700,
         ),
@@ -240,7 +240,7 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
                 )
               : Text(
                   'Salvar',
-                  style: GoogleFonts.manrope(
+                  style: GoogleFonts.jost(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: enabled

@@ -320,7 +320,7 @@ class InterestsStep extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     interestLabels[interest] ?? interest,
-                    style: GoogleFonts.manrope(
+                    style: GoogleFonts.jost(
                       fontSize: 13,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected ? AppTheme.goldenOrange : AppTheme.softBlack,
@@ -375,7 +375,7 @@ class StepScaffold extends StatelessWidget {
         if (showStepNumber) ...[
           Text(
             stepNumber,
-            style: GoogleFonts.manrope(
+            style: GoogleFonts.jost(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               letterSpacing: 2,
@@ -396,7 +396,7 @@ class StepScaffold extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           subtitle,
-          style: GoogleFonts.manrope(
+          style: GoogleFonts.jost(
             fontSize: 14,
             color: const Color(0xFF666666),
             height: 1.5,
@@ -479,7 +479,7 @@ class SelectionCard extends StatelessWidget {
                   Text(
                     option.label,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.manrope(
+                    style: GoogleFonts.jost(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: isSelected
@@ -511,7 +511,7 @@ class SelectionCard extends StatelessWidget {
                   const SizedBox(width: 16),
                   Text(
                     option.label,
-                    style: GoogleFonts.manrope(
+                    style: GoogleFonts.jost(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: isSelected

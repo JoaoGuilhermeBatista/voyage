@@ -100,7 +100,7 @@ class _TemplatePreviewScreenState
                 Text(
                   'Não foi possível carregar este roteiro.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.manrope(
+                  style: GoogleFonts.jost(
                     fontSize: 15,
                     color: AppTheme.softBlack,
                   ),
@@ -188,7 +188,7 @@ class _TemplatePreviewBody extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               '${detail.durationDays} dias',
-              style: GoogleFonts.manrope(
+              style: GoogleFonts.jost(
                 fontSize: 13,
                 color: AppTheme.softBlack.withValues(alpha: 0.6),
               ),
@@ -203,7 +203,7 @@ class _TemplatePreviewBody extends StatelessWidget {
               ),
               child: Text(
                 budgetLabel,
-                style: GoogleFonts.manrope(
+                style: GoogleFonts.jost(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.goldenOrange,
@@ -215,7 +215,7 @@ class _TemplatePreviewBody extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           detail.description,
-          style: GoogleFonts.manrope(
+          style: GoogleFonts.jost(
             fontSize: 15,
             height: 1.6,
             color: const Color(0xFF444444),

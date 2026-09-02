@@ -43,7 +43,7 @@ class ItineraryScreen extends ConsumerWidget {
                       Text(
                         'Não foi possível carregar o roteiro.',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(
+                        style: GoogleFonts.jost(
                             fontSize: 15, color: AppTheme.softBlack),
                       ),
                       const SizedBox(height: 16),
@@ -346,15 +346,12 @@ class _DayHeader extends StatelessWidget {
             style: GoogleFonts.cormorantGaramond(
               fontSize: 24,
               fontWeight: FontWeight.w500,
-              color: AppTheme.softBlack,
+              color: AppTheme.foreground,
               height: 1.2,
             ),
           ),
           const SizedBox(height: 8),
-          Divider(
-            color: AppTheme.softBlack.withValues(alpha: 0.08),
-            height: 1,
-          ),
+          const Divider(),
         ],
       ),
     );
@@ -379,47 +376,81 @@ class _SlotSection extends StatelessWidget {
     'EVENING': 'Noite',
   };
 
-  static const _slotIcons = {
-    'MORNING': Icons.wb_sunny_outlined,
-    'AFTERNOON': Icons.wb_cloudy_outlined,
-    'EVENING': Icons.nights_stay_outlined,
+  // Glyphs tipográficos (spec §6) em vez de ícone Material — ☀︎ manhã, ◐
+  // tarde, ☾ noite.
+  static const _slotGlyphs = {
+    'MORNING': '☀︎',
+    'AFTERNOON': '◐',
+    'EVENING': '☾',
   };
 
   @override
   Widget build(BuildContext context) {
+    // A Noite ganha o tratamento "Noir" (fundo escuro, dourado de verdade)
+    // — mesmo padrão do spec de design (§6): os 3 períodos usam o mesmo
+    // "bloco com borda", só a Noite inverte pra bg-ink/gold-noir.
+    final isNoir = slot == 'EVENING';
+    final bg = isNoir ? AppTheme.ink : AppTheme.card;
+    final borderColor =
+        isNoir ? AppTheme.goldNoir.withValues(alpha: 0.25) : AppTheme.border;
+    final labelColor = isNoir ? AppTheme.goldNoir : AppTheme.mutedForeground;
+
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  _slotIcons[slot] ?? Icons.schedule_outlined,
-                  size: 16,
-                  color: AppTheme.softBlack.withValues(alpha: 0.4),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: borderColor)),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  _slotLabels[slot] ?? slot,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppTheme.softBlack.withValues(alpha: 0.4),
-                        letterSpacing: 1.1,
+                child: Row(
+                  children: [
+                    Text(
+                      _slotGlyphs[slot] ?? '•',
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 18,
+                        color: labelColor,
                       ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      (_slotLabels[slot] ?? slot).toUpperCase(),
+                      style: AppTheme.eyebrow(color: labelColor),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            for (var i = 0; i < activities.length; i++) ...[
-              _ActivityTile(itineraryId: itineraryId, activity: activities[i]),
-              if (i < activities.length - 1)
-                _RouteBetweenActivities(
-                  from: activities[i].poi,
-                  to: activities[i + 1].poi,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < activities.length; i++) ...[
+                      _ActivityTile(
+                        itineraryId: itineraryId,
+                        activity: activities[i],
+                        isNoir: isNoir,
+                      ),
+                      if (i < activities.length - 1)
+                        _RouteBetweenActivities(
+                          from: activities[i].poi,
+                          to: activities[i + 1].poi,
+                        ),
+                    ],
+                  ],
                 ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -465,7 +496,12 @@ class _RouteBetweenActivities extends StatelessWidget {
 class _ActivityTile extends ConsumerWidget {
   final String itineraryId;
   final ItineraryActivityModel activity;
-  const _ActivityTile({required this.itineraryId, required this.activity});
+  final bool isNoir;
+  const _ActivityTile({
+    required this.itineraryId,
+    required this.activity,
+    this.isNoir = false,
+  });
 
   static const _categoryLabels = {
     'MUSEUM': 'Museu',
@@ -508,6 +544,18 @@ class _ActivityTile extends ConsumerWidget {
         ? '${poi.averageDurationMinutes} min'
         : null;
 
+    // Paleta local: dentro do bloco "Noite" (Noir), tudo inverte pra
+    // fundo escuro/texto ivory/acento dourado de verdade — fora dele
+    // (Manhã/Tarde), segue o tema claro normal.
+    final accent = isNoir ? AppTheme.goldNoir : AppTheme.primary;
+    final textColor = isNoir ? AppTheme.ivory : AppTheme.foreground;
+    final mutedColor = isNoir
+        ? AppTheme.ivory.withValues(alpha: 0.5)
+        : AppTheme.mutedForeground;
+    final faintColor = isNoir
+        ? AppTheme.ivory.withValues(alpha: 0.35)
+        : AppTheme.mutedForeground.withValues(alpha: 0.7);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -519,16 +567,17 @@ class _ActivityTile extends ConsumerWidget {
             height: 28,
             margin: const EdgeInsets.only(top: 2),
             decoration: BoxDecoration(
-              color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+              color: accent.withValues(alpha: isNoir ? 0.15 : 0.08),
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
                 '${activity.orderInSlot}',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppTheme.primaryBlue,
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: GoogleFonts.jost(
+                  fontSize: 11,
+                  color: accent,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -536,7 +585,7 @@ class _ActivityTile extends ConsumerWidget {
 
           // Thumbnail
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             child: poi.images.isNotEmpty
                 ? CachedNetworkImage(
                     imageUrl: poi.images.first,
@@ -552,22 +601,16 @@ class _ActivityTile extends ConsumerWidget {
                       child: SizedBox(
                         width: 56,
                         height: 56,
-                        child: Icon(
-                          Icons.image_outlined,
-                          color: AppTheme.softBlack.withValues(alpha: 0.3),
-                        ),
+                        child: Icon(Icons.image_outlined, color: faintColor),
                       ),
                     ),
                   )
                 : ColoredBox(
-                    color: AppTheme.shimmerBase,
+                    color: isNoir ? AppTheme.navy : AppTheme.shimmerBase,
                     child: SizedBox(
                       width: 56,
                       height: 56,
-                      child: Icon(
-                        Icons.image_outlined,
-                        color: AppTheme.softBlack.withValues(alpha: 0.3),
-                      ),
+                      child: Icon(Icons.image_outlined, color: faintColor),
                     ),
                   ),
           ),
@@ -580,51 +623,33 @@ class _ActivityTile extends ConsumerWidget {
               children: [
                 Text(
                   poi.title,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.softBlack,
-                      ),
+                  style: GoogleFonts.jost(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     Text(
                       categoryLabel,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppTheme.softBlack.withValues(alpha: 0.5),
-                          ),
+                      style: GoogleFonts.jost(fontSize: 12, color: mutedColor),
                     ),
                     if (budgetLabel.isNotEmpty) ...[
-                      Text(
-                        ' · ',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color:
-                                  AppTheme.softBlack.withValues(alpha: 0.3),
-                            ),
-                      ),
+                      Text(' · ', style: GoogleFonts.jost(fontSize: 12, color: faintColor)),
                       Text(
                         budgetLabel,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppTheme.goldenOrange,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        style: GoogleFonts.jost(
+                          fontSize: 12,
+                          color: accent,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                     if (duration != null) ...[
-                      Text(
-                        ' · ',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color:
-                                  AppTheme.softBlack.withValues(alpha: 0.3),
-                            ),
-                      ),
-                      Text(
-                        duration,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color:
-                                  AppTheme.softBlack.withValues(alpha: 0.5),
-                            ),
-                      ),
+                      Text(' · ', style: GoogleFonts.jost(fontSize: 12, color: faintColor)),
+                      Text(duration, style: GoogleFonts.jost(fontSize: 12, color: mutedColor)),
                     ],
                   ],
                 ),
@@ -635,32 +660,26 @@ class _ActivityTile extends ConsumerWidget {
                     poi.description!,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.softBlack.withValues(alpha: 0.45),
-                          height: 1.5,
-                        ),
+                    style: GoogleFonts.jost(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w300,
+                      color: mutedColor,
+                      height: 1.5,
+                    ),
                   ),
                 ],
                 if (poi.address != null && poi.address!.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined,
-                          size: 12,
-                          color: AppTheme.softBlack.withValues(alpha: 0.35)),
+                      Icon(Icons.location_on_outlined, size: 12, color: faintColor),
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(
                           poi.address!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(
-                                color:
-                                    AppTheme.softBlack.withValues(alpha: 0.4),
-                              ),
+                          style: GoogleFonts.jost(fontSize: 12, color: faintColor),
                         ),
                       ),
                       if (poi.latitude != null && poi.longitude != null)
@@ -675,11 +694,7 @@ class _ActivityTile extends ConsumerWidget {
             ),
           ),
           IconButton(
-            icon: Icon(
-              Icons.edit_outlined,
-              size: 20,
-              color: AppTheme.softBlack.withValues(alpha: 0.45),
-            ),
+            icon: Icon(Icons.edit_outlined, size: 20, color: mutedColor),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: () => _openEditSheet(context, ref),
@@ -814,7 +829,7 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
             Text(
               _error!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.manrope(fontSize: 15, color: AppTheme.softBlack),
+              style: GoogleFonts.jost(fontSize: 15, color: AppTheme.softBlack),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -832,7 +847,7 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
         child: Text(
           'Nenhuma alternativa encontrada para esta categoria.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.manrope(
+          style: GoogleFonts.jost(
             fontSize: 15,
             color: AppTheme.softBlack.withValues(alpha: 0.6),
           ),

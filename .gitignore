@@ -2,6 +2,12 @@
 .dart_tool/
 build/
 
+# Node / React web
+node_modules/
+routeTree.gen.ts
+.output/
+.vinxi/
+
 # Java
 target/
 .idea/

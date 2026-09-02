@@ -1201,7 +1201,7 @@ class _BudgetCard extends StatelessWidget {
           children: [
             Text(
               budget.symbol,
-              style: GoogleFonts.manrope(
+              style: GoogleFonts.jost(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: selected
