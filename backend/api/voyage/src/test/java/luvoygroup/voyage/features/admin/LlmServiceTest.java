@@ -4,6 +4,8 @@ import luvoygroup.voyage.domain.Poi;
 import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.domain.enums.PoiCategory;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentClassification;
+import luvoygroup.voyage.features.admin.dto.PoiTitleChange;
+import luvoygroup.voyage.features.admin.dto.PoiTitleNormalization;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendation;
 import org.junit.jupiter.api.BeforeEach;
@@ -233,6 +235,98 @@ class LlmServiceTest {
 
         PoiEnrichmentClassification actual = service.classifyMustSeeAndLandmarks(
             "Roma", "Itália", List.of(poiWith("Coliseu", PoiCategory.MUSEUM))
+        );
+
+        assertEquals(expected, actual);
+    }
+
+    // ─── normalizePoiTitleLanguage — construção do prompt ────────────────────
+    //
+    // Mesmo padrão de classifyMustSeeAndLandmarks: só testamos a MONTAGEM da
+    // chamada ao ChatClient (o prompt de verdade enviado), não a resposta do
+    // LLM em si.
+
+    private String capturePromptForNormalizePoiTitleLanguage(List<String> titles) {
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(promptCaptor.capture())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(PoiTitleNormalization.class))
+            .thenReturn(new PoiTitleNormalization(List.of()));
+
+        service.normalizePoiTitleLanguage("Budapeste", "Hungria", titles);
+
+        return promptCaptor.getValue();
+    }
+
+    @Test
+    void normalizePoiTitleLanguage_shouldIncludeCityAndCountry_inPrompt() {
+        String prompt = capturePromptForNormalizePoiTitleLanguage(List.of("Fisherman's Bastion"));
+
+        assertTrue(prompt.contains("Budapeste"));
+        assertTrue(prompt.contains("Hungria"));
+    }
+
+    @Test
+    void normalizePoiTitleLanguage_shouldIncludeEachTitle_inPrompt() {
+        String prompt = capturePromptForNormalizePoiTitleLanguage(
+            List.of("Fisherman's Bastion", "Basílica de Santo Estêvão")
+        );
+
+        assertTrue(prompt.contains("Fisherman's Bastion"));
+        assertTrue(prompt.contains("Basílica de Santo Estêvão"));
+    }
+
+    @Test
+    void normalizePoiTitleLanguage_shouldRequestChangesKey_inPrompt() {
+        String prompt = capturePromptForNormalizePoiTitleLanguage(List.of("Fisherman's Bastion"));
+
+        assertTrue(prompt.contains("\"changes\""));
+        assertTrue(prompt.contains("\"originalTitle\""));
+        assertTrue(prompt.contains("\"normalizedTitle\""));
+    }
+
+    @Test
+    void normalizePoiTitleLanguage_shouldInstructLlm_toNeverInventTitles() {
+        String prompt = capturePromptForNormalizePoiTitleLanguage(List.of("Fisherman's Bastion"));
+
+        assertTrue(prompt.toLowerCase().contains("nunca invente"),
+            "O prompt deve instruir explicitamente que o LLM não deve inventar títulos novos.");
+    }
+
+    @Test
+    void normalizePoiTitleLanguage_shouldInstructLlm_toOnlyReturnTitlesThatNeedToChange() {
+        String prompt = capturePromptForNormalizePoiTitleLanguage(List.of("Fisherman's Bastion"));
+
+        assertTrue(prompt.toLowerCase().contains("somente os títulos que precisam"),
+            "O prompt deve deixar claro que só os títulos que precisam mudar devem ser retornados.");
+    }
+
+    @Test
+    void normalizePoiTitleLanguage_shouldMentionKeepingProperNamesInOriginalLanguage_inPrompt() {
+        String prompt = capturePromptForNormalizePoiTitleLanguage(List.of("Sagrada Família"));
+
+        assertTrue(prompt.contains("Sagrada Família") || prompt.contains("Wat Arun"),
+            "O prompt deve dar exemplo(s) de nome próprio que deve permanecer no idioma original.");
+    }
+
+    @Test
+    void normalizePoiTitleLanguage_shouldCallChatClient_withPoiTitleNormalizationEntity() {
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        PoiTitleNormalization expected =
+            new PoiTitleNormalization(List.of(new PoiTitleChange("Fisherman's Bastion", "Bastião dos Pescadores")));
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(PoiTitleNormalization.class)).thenReturn(expected);
+
+        PoiTitleNormalization actual = service.normalizePoiTitleLanguage(
+            "Budapeste", "Hungria", List.of("Fisherman's Bastion")
         );
 
         assertEquals(expected, actual);

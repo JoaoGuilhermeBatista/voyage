@@ -5,6 +5,7 @@ import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.features.admin.dto.CatholicChurchClassification;
 import luvoygroup.voyage.features.admin.dto.GeneratedContent;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentClassification;
+import luvoygroup.voyage.features.admin.dto.PoiTitleNormalization;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendation;
 import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList;
@@ -212,6 +213,69 @@ public class LlmService {
             .user(prompt)
             .call()
             .entity(PoiEnrichmentClassification.class);
+    }
+
+    /**
+     * Contrato: dado um destino (city, country) e a lista de títulos de POI
+     * JÁ CADASTRADOS e ativos desse destino, pergunta ao LLM quais desses
+     * títulos — e SOMENTE esses, verbatim, sem inventar — precisam mudar
+     * pra normalizar o idioma DENTRO do mesmo destino (achado: dentro da
+     * mesma cidade, alguns POIs têm título traduzido pro português e outros
+     * não, sem critério consistente — ver luvoy-pendencias.md). Usada por
+     * AdminService#enrichExistingPoisWithNormalizedTitleLanguage para
+     * corrigir retroativamente POIs que já existem no banco, IN PLACE (nunca
+     * recria/deleta — mesmo padrão de classifyMustSeeAndLandmarks). Retorna
+     * SOMENTE os títulos que precisam mudar; um título já correto (traduzido
+     * ou mantido no original, conforme o critério editorial abaixo) não deve
+     * aparecer na resposta.
+     */
+    public PoiTitleNormalization normalizePoiTitleLanguage(String city, String country, List<String> poiTitles) {
+        log.info("Normalizando idioma de título de POI via LLM para {}, {}", city, country);
+
+        String titlesList = poiTitles.stream()
+            .map(title -> "- " + title)
+            .collect(java.util.stream.Collectors.joining("\n"));
+
+        String prompt = """
+            Você é um editor de conteúdo de turismo especializado em guias de viagem em português
+            brasileiro. Abaixo está a lista EXATA de títulos de pontos de interesse já cadastrados
+            para %s, %s. O catálogo tem uma inconsistência: dentro do MESMO destino, alguns títulos
+            estão traduzidos para português e outros permanecem no idioma original, sem critério —
+            sua tarefa é normalizar isso.
+
+            Lista de títulos (um por linha):
+            %s
+
+            Critério editorial:
+            - Traduza para português títulos que são descrições genéricas do local e têm tradução
+              natural e comum em guias de viagem em português (ex: "Fisherman's Bastion" →
+              "Bastião dos Pescadores").
+            - MANTENHA no idioma original títulos que são nomes próprios consagrados
+              internacionalmente pelo nome original, mesmo em texto em português — ex: "Sagrada
+              Família", "Wat Arun", "Rijksmuseum", "Neuschwanstein".
+            - Em caso de dúvida real sobre se é nome próprio ou descrição genérica, prefira MANTER
+              como está — só normalize quando tiver certeza do critério.
+
+            Regras OBRIGATÓRIAS:
+            - Retorne SOMENTE os títulos que precisam MUDAR — nunca inclua um título que já está
+              correto (seja porque já está traduzido corretamente, seja porque já está,
+              corretamente, mantido no original).
+            - originalTitle deve ser EXATO (verbatim) — copie exatamente como aparece na lista
+              acima, sem alterar grafia, capitalização ou acentuação.
+            - NUNCA invente um título que não esteja na lista fornecida.
+
+            Responda SOMENTE com JSON válido, sem markdown, sem explicações, no formato exato:
+            {
+              "changes": [
+                { "originalTitle": "Título Exato Como Está", "normalizedTitle": "Novo Título Normalizado" }
+              ]
+            }
+            """.formatted(city, country, titlesList);
+
+        return chatClient.prompt()
+            .user(prompt)
+            .call()
+            .entity(PoiTitleNormalization.class);
     }
 
     /**

@@ -8,6 +8,8 @@ import luvoygroup.voyage.features.admin.dto.CatholicChurchClassification;
 import luvoygroup.voyage.features.admin.dto.GeneratedPoi;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentClassification;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentReport;
+import luvoygroup.voyage.features.admin.dto.PoiTitleChange;
+import luvoygroup.voyage.features.admin.dto.PoiTitleNormalization;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
 import luvoygroup.voyage.repository.DestinationRepository;
@@ -387,6 +389,126 @@ class AdminServiceTest {
 
         verify(poiRepo).save(argThat(p -> p.getId().equals(puertaDelSol.getId())
             && p.isMustSee() && p.getCategory() == PoiCategory.LANDMARK));
+        verify(poiRepo, never()).save(argThat(p -> p != null && p.getId().equals(torreDeBelem.getId())));
+
+        assertEquals(1, report.destinationsProcessed());
+        assertEquals(1, report.destinationsSkipped());
+        assertTrue(report.processedSlugs().contains("madrid"));
+        assertFalse(report.processedSlugs().contains("lisboa"));
+    }
+
+    // ─── enrichExistingPoisWithNormalizedTitleLanguage ────────────────────────
+    //
+    // Mesmo padrão de enrichExistingPoisWithMustSeeAndLandmark, mas SEM o
+    // skip condicional: aqui TODO destino ativo com POIs é processado
+    // (diferença: o problema de idioma já existe no catálogo inteiro, não é
+    // condicional a um estado específico como "nenhum mustSee ainda").
+
+    @Test
+    void enrichExistingPoisWithNormalizedTitleLanguage_shouldApplyChanges_inPlace() {
+        Destination budapeste = Destination.builder()
+            .id(UUID.randomUUID()).slug("budapeste").name("Budapeste").city("Budapeste").country("Hungria")
+            .active(true).build();
+
+        Poi fishermansBastion = Poi.builder().id(UUID.randomUUID()).destination(budapeste)
+            .title("Fisherman's Bastion").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .active(true).build();
+        Poi basilicaSantoEstevao = Poi.builder().id(UUID.randomUUID()).destination(budapeste)
+            .title("Basílica de Santo Estêvão").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .active(true).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(budapeste));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(budapeste.getId()))
+            .thenReturn(List.of(fishermansBastion, basilicaSantoEstevao));
+        when(llmService.normalizePoiTitleLanguage(eq("Budapeste"), eq("Hungria"), anyList()))
+            .thenReturn(new PoiTitleNormalization(
+                List.of(new PoiTitleChange("Fisherman's Bastion", "Bastião dos Pescadores"))
+            ));
+        when(poiRepo.save(any(Poi.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PoiEnrichmentReport report = service.enrichExistingPoisWithNormalizedTitleLanguage();
+
+        verify(poiRepo).save(argThat(p -> p.getId().equals(fishermansBastion.getId())
+            && p.getTitle().equals("Bastião dos Pescadores")));
+        verify(poiRepo, never()).save(argThat(p -> p != null && p.getId().equals(basilicaSantoEstevao.getId())));
+
+        assertEquals(1, report.destinationsProcessed());
+        assertEquals(0, report.destinationsSkipped());
+        assertEquals(1, report.totalPoisEnriched());
+        assertTrue(report.processedSlugs().contains("budapeste"));
+    }
+
+    @Test
+    void enrichExistingPoisWithNormalizedTitleLanguage_shouldSkipDestination_withNoActivePois() {
+        Destination edimburgo = Destination.builder()
+            .id(UUID.randomUUID()).slug("edimburgo").name("Edimburgo").city("Edimburgo").country("Escócia")
+            .active(true).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(edimburgo));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(edimburgo.getId())).thenReturn(List.of());
+
+        PoiEnrichmentReport report = service.enrichExistingPoisWithNormalizedTitleLanguage();
+
+        verify(llmService, never()).normalizePoiTitleLanguage(anyString(), anyString(), anyList());
+        assertEquals(0, report.destinationsProcessed());
+        assertEquals(1, report.destinationsSkipped());
+    }
+
+    @Test
+    void enrichExistingPoisWithNormalizedTitleLanguage_shouldIgnoreHallucinatedTitle_withoutModifyingAnyPoi() {
+        Destination faro = Destination.builder()
+            .id(UUID.randomUUID()).slug("faro").name("Faro").city("Faro").country("Portugal")
+            .active(true).build();
+
+        Poi se = Poi.builder().id(UUID.randomUUID()).destination(faro)
+            .title("Sé de Faro").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .active(true).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(faro));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(faro.getId())).thenReturn(List.of(se));
+        when(llmService.normalizePoiTitleLanguage(eq("Faro"), eq("Portugal"), anyList()))
+            .thenReturn(new PoiTitleNormalization(
+                List.of(new PoiTitleChange("Título Inventado Pelo LLM", "Qualquer Coisa"))
+            ));
+
+        PoiEnrichmentReport report = service.enrichExistingPoisWithNormalizedTitleLanguage();
+
+        verify(poiRepo, never()).save(any(Poi.class));
+        assertEquals("Sé de Faro", se.getTitle());
+        assertEquals(0, report.totalPoisEnriched());
+    }
+
+    @Test
+    void enrichExistingPoisWithNormalizedTitleLanguage_shouldNotStop_whenOneDestinationFails() {
+        Destination lisboa = Destination.builder()
+            .id(UUID.randomUUID()).slug("lisboa").name("Lisboa").city("Lisboa").country("Portugal")
+            .active(true).build();
+        Destination madrid = Destination.builder()
+            .id(UUID.randomUUID()).slug("madrid").name("Madrid").city("Madrid").country("Espanha")
+            .active(true).build();
+
+        Poi torreDeBelem = Poi.builder().id(UUID.randomUUID()).destination(lisboa)
+            .title("Torre de Belém").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .active(true).build();
+        Poi puertaDelSol = Poi.builder().id(UUID.randomUUID()).destination(madrid)
+            .title("Puerta del Sol").category(PoiCategory.PARK).budgetTier(BudgetTier.ECONOMY)
+            .active(true).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(lisboa, madrid));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(lisboa.getId())).thenReturn(List.of(torreDeBelem));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(madrid.getId())).thenReturn(List.of(puertaDelSol));
+        when(llmService.normalizePoiTitleLanguage(eq("Lisboa"), eq("Portugal"), anyList()))
+            .thenThrow(new RuntimeException("Falha simulada do LLM"));
+        when(llmService.normalizePoiTitleLanguage(eq("Madrid"), eq("Espanha"), anyList()))
+            .thenReturn(new PoiTitleNormalization(
+                List.of(new PoiTitleChange("Puerta del Sol", "Porta do Sol"))
+            ));
+        when(poiRepo.save(any(Poi.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PoiEnrichmentReport report = service.enrichExistingPoisWithNormalizedTitleLanguage();
+
+        verify(poiRepo).save(argThat(p -> p.getId().equals(puertaDelSol.getId())
+            && p.getTitle().equals("Porta do Sol")));
         verify(poiRepo, never()).save(argThat(p -> p != null && p.getId().equals(torreDeBelem.getId())));
 
         assertEquals(1, report.destinationsProcessed());

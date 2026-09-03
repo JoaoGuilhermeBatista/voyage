@@ -185,4 +185,34 @@ class AdminControllerTest {
         mockMvc.perform(post("/api/v1/admin/pois/enrich-mustsee-landmark"))
             .andExpect(status().isForbidden());
     }
+
+    // ─── POST /admin/pois/enrich-title-language ────────────────────────────────
+    //
+    // Mesmo padrão dos dois endpoints irmãos acima (AdminService mockado, só
+    // roteamento e checagem de X-Admin-Token são exercitados aqui).
+
+    @Test
+    void teste58_shouldEnrichTitleLanguage_whenAdminTokenIsValid() throws Exception {
+        PoiEnrichmentReport report = new PoiEnrichmentReport(1, 0, 3, List.of("budapeste"), null, null);
+        when(adminService.enrichExistingPoisWithNormalizedTitleLanguage()).thenReturn(report);
+
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-title-language")
+                .header("X-Admin-Token", VALID_ADMIN_TOKEN))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.destinationsProcessed").value(1))
+            .andExpect(jsonPath("$.totalPoisEnriched").value(3));
+    }
+
+    @Test
+    void teste59_shouldReturn403_whenAdminTokenIsWrong_forEnrichTitleLanguage() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-title-language")
+                .header("X-Admin-Token", "wrong-token"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void teste60_shouldReturn403_whenAdminTokenIsMissing_forEnrichTitleLanguage() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/pois/enrich-title-language"))
+            .andExpect(status().isForbidden());
+    }
 }

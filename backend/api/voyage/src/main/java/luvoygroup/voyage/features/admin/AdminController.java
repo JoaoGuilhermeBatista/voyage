@@ -89,4 +89,17 @@ public class AdminController {
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithMustSeeAndLandmark());
     }
+
+    @PostMapping("/pois/enrich-title-language")
+    @Operation(summary = "Normaliza retroativamente, via GPT-4o, o idioma do título de POIs já cadastrados " +
+        "dentro de cada destino (alguns traduzidos pro português, outros não, sem critério), atualizando " +
+        "IN PLACE (nunca cria ou deleta POIs). Processa todos os destinos ativos com POIs.")
+    public ResponseEntity<PoiEnrichmentReport> enrichTitleLanguage(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.ok(adminService.enrichExistingPoisWithNormalizedTitleLanguage());
+    }
 }

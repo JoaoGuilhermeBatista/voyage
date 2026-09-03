@@ -274,6 +274,79 @@ public class AdminService {
         );
     }
 
+    /**
+     * Normaliza retroativamente, IN PLACE (mesmo id, sem deletar/recriar —
+     * POIs são referenciados por FK em atividades de itinerário, templates
+     * de itinerário e favoritos), o idioma do título de POIs já existentes:
+     * dentro do MESMO destino, alguns títulos estão traduzidos pro
+     * português e outros não, sem critério (achado revisando o catálogo em
+     * 2026-09, ver luvoy-pendencias.md). Diferente de
+     * enrichExistingPoisWithMustSeeAndLandmark (que pula destino que já tem
+     * mustSee), aqui TODO destino ativo com POIs é processado — o problema
+     * de idioma já existe no catálogo inteiro, não é condicional. Erro em
+     * um destino não interrompe os demais (mesmo padrão de
+     * enrichExistingPoisWithCatholicChurchFlag).
+     */
+    public PoiEnrichmentReport enrichExistingPoisWithNormalizedTitleLanguage() {
+        List<Destination> destinations = destinationRepo.findAllByActiveTrue();
+        log.info("Destinos ativos a verificar para normalização de idioma de título: {}", destinations.size());
+
+        List<String> processed = new ArrayList<>();
+        int totalEnriched = 0;
+        int skipped = 0;
+
+        for (Destination destination : destinations) {
+            List<Poi> pois = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId());
+            if (pois.isEmpty()) {
+                skipped++;
+                continue;
+            }
+
+            try {
+                List<String> titles = pois.stream().map(Poi::getTitle).toList();
+                PoiTitleNormalization normalization =
+                    llmService.normalizePoiTitleLanguage(destination.getCity(), destination.getCountry(), titles);
+
+                int enrichedForDestination = 0;
+                if (normalization != null && normalization.changes() != null) {
+                    for (PoiTitleChange change : normalization.changes()) {
+                        Poi matched = pois.stream()
+                            .filter(p -> p.getTitle().equals(change.originalTitle()))
+                            .findFirst()
+                            .orElse(null);
+
+                        if (matched == null) {
+                            log.warn("Título alucinado pelo LLM ignorado (normalização de idioma, não pertence ao catálogo do destino {}): {}",
+                                destination.getSlug(), change.originalTitle());
+                            continue;
+                        }
+                        if (change.normalizedTitle() == null || change.normalizedTitle().isBlank()) {
+                            log.warn("normalizedTitle vazio pelo LLM ignorado para '{}' em {}",
+                                change.originalTitle(), destination.getSlug());
+                            continue;
+                        }
+
+                        log.info("  '{}' → '{}'", matched.getTitle(), change.normalizedTitle());
+                        matched.setTitle(change.normalizedTitle());
+                        poiRepo.save(matched);
+                        enrichedForDestination++;
+                    }
+                }
+
+                processed.add(destination.getSlug());
+                totalEnriched += enrichedForDestination;
+                log.info("✓ {} — {} títulos normalizados", destination.getSlug(), enrichedForDestination);
+            } catch (Exception e) {
+                log.error("✗ Erro em {} — pulando destino: {}", destination.getSlug(), e.getMessage());
+                skipped++;
+            }
+        }
+
+        return new PoiEnrichmentReport(
+            processed.size(), skipped, totalEnriched, processed, null, null
+        );
+    }
+
     private LocalTime parseTime(String time) {
         if (time == null || time.isBlank() || time.equalsIgnoreCase("null")) return null;
         try {
