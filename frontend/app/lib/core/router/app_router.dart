@@ -10,6 +10,8 @@ import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/recommendations/presentation/screens/recommendations_screen.dart';
 import '../../features/itinerary/presentation/screens/itineraries_screen.dart';
 import '../../features/itinerary/presentation/screens/itinerary_screen.dart';
+import '../../features/itinerary/presentation/screens/create_trip_screen.dart';
+import '../../features/itinerary/presentation/screens/trip_detail_screen.dart';
 import '../../features/destinations/presentation/screens/destination_screen.dart';
 import '../../features/itinerarytemplates/presentation/screens/template_preview_screen.dart';
 import '../../features/favorites/presentation/screens/favorites_screen.dart';
@@ -54,8 +56,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/home',
     redirect: (context, state) {
-      final isLoggedIn =
-          Supabase.instance.client.auth.currentSession != null;
+      final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
       final path = state.matchedLocation;
 
       // Não logado → sempre vai para login
@@ -70,8 +71,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // O StateProvider local serve apenas como fallback durante o loading.
       final backendCompleted =
           userAsync.valueOrNull?.onboardingCompleted ?? false;
-      final effectiveOnboardingCompleted = backendCompleted ||
-          (userAsync.isLoading && onboardingCompleted);
+      final effectiveOnboardingCompleted =
+          backendCompleted || (userAsync.isLoading && onboardingCompleted);
 
       if (path == '/login') {
         return effectiveOnboardingCompleted ? '/home' : '/onboarding';
@@ -95,25 +96,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ),
     routes: [
       // Fora do shell — sem bottom nav bar
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: '/destinos/:slug',
-        builder: (context, state) => DestinationScreen(
-          slug: state.pathParameters['slug']!,
-        ),
+        builder: (context, state) =>
+            DestinationScreen(slug: state.pathParameters['slug']!),
       ),
       GoRoute(
         path: '/roteiro/:id',
-        builder: (context, state) => ItineraryScreen(
-          id: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            ItineraryScreen(id: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/roteiros/nova-viagem',
+        builder: (context, state) => const CreateTripScreen(),
+      ),
+      GoRoute(
+        path: '/roteiros/viagem/:tripGroupId',
+        builder: (context, state) =>
+            TripDetailScreen(tripGroupId: state.pathParameters['tripGroupId']!),
       ),
       GoRoute(
         path: '/destinos/:slug/roteiros/:templateId',

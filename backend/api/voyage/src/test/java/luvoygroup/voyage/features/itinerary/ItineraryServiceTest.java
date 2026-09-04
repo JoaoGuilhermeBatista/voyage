@@ -1,0 +1,274 @@
+package luvoygroup.voyage.features.itinerary;
+
+import luvoygroup.voyage.domain.Destination;
+import luvoygroup.voyage.domain.Itinerary;
+import luvoygroup.voyage.exception.InvalidDateRangeException;
+import luvoygroup.voyage.exception.ResourceNotFoundException;
+import luvoygroup.voyage.features.itinerary.dto.*;
+import luvoygroup.voyage.repository.ItineraryActivityRepository;
+import luvoygroup.voyage.repository.ItineraryRepository;
+import luvoygroup.voyage.repository.PoiRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
+/**
+ * Testes unitários "standalone" de ItineraryService — mesmo padrão
+ * estabelecido em AdminServiceTest/LlmServiceTest: NÃO usa
+ * @ExtendWith(MockitoExtension.class) de propósito (mocks via
+ * Mockito.mock() direto), service instanciado via construtor gerado pelo
+ * Lombok (@RequiredArgsConstructor).
+ *
+ * Cobre a feature multi-destino (item 7 do backlog, ver luvoy-pendencias.md):
+ * ItineraryEngineService é mockado, então a lógica real de geração de
+ * atividades não é exercitada aqui — só a orquestração de
+ * generateTrip/findAllTrips/findTripByGroupId (agrupamento por
+ * tripGroupId, validação de sobreposição de datas).
+ */
+class ItineraryServiceTest {
+
+    private ItineraryEngineService engineService;
+    private ItineraryRepository itineraryRepo;
+    private ItineraryActivityRepository activityRepo;
+    private PoiRepository poiRepo;
+
+    private ItineraryService service;
+
+    private static final UUID USER_ID = UUID.randomUUID();
+
+    @BeforeEach
+    void setUp() {
+        engineService = mock(ItineraryEngineService.class);
+        itineraryRepo = mock(ItineraryRepository.class);
+        activityRepo = mock(ItineraryActivityRepository.class);
+        poiRepo = mock(PoiRepository.class);
+
+        service = new ItineraryService(engineService, itineraryRepo, activityRepo, poiRepo);
+    }
+
+    private Destination destinationWith(String name) {
+        return Destination.builder().id(UUID.randomUUID()).slug(name.toLowerCase()).name(name)
+            .country("País").city(name).tagline("").active(true).build();
+    }
+
+    private Itinerary itineraryWith(UUID id, Destination destination, LocalDate start, LocalDate end, String title) {
+        return Itinerary.builder()
+            .id(id).user(null).destination(destination)
+            .startDate(start).endDate(end).title(title)
+            .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
+            .build();
+    }
+
+    private ItineraryRequest requestFor(UUID destinationId, LocalDate start, LocalDate end) {
+        return new ItineraryRequest(destinationId, start, end, null, null, null, null, null, null);
+    }
+
+    // ─── generateTrip ───────────────────────────────────────────────────────
+
+    @Test
+    void generateTrip_shouldCreateAllLegs_withSharedTripGroupId_andSequentialOrder() {
+        Destination paris = destinationWith("Paris");
+        Destination amsterdam = destinationWith("Amsterdã");
+
+        UUID legIdParis = UUID.randomUUID();
+        UUID legIdAmsterdam = UUID.randomUUID();
+
+        ItineraryRequest legParis = requestFor(paris.getId(), LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
+        ItineraryRequest legAmsterdam = requestFor(amsterdam.getId(), LocalDate.of(2027, 9, 5), LocalDate.of(2027, 9, 7));
+
+        Itinerary itineraryParis = itineraryWith(legIdParis, paris, legParis.startDate(), legParis.endDate(), "Paris");
+        Itinerary itineraryAmsterdam = itineraryWith(legIdAmsterdam, amsterdam, legAmsterdam.startDate(), legAmsterdam.endDate(), "Amsterdã");
+
+        when(engineService.generate(eq(USER_ID), eq(legParis)))
+            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
+        when(engineService.generate(eq(USER_ID), eq(legAmsterdam)))
+            .thenReturn(new ItineraryResponseDTO(legIdAmsterdam, "Amsterdã", amsterdam.getId(), "Amsterdã", "", legAmsterdam.startDate(), legAmsterdam.endDate(), List.of()));
+
+        when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
+        when(itineraryRepo.findById(legIdAmsterdam)).thenReturn(Optional.of(itineraryAmsterdam));
+        when(itineraryRepo.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TripSummaryDTO trip = service.generateTrip(USER_ID, new CreateTripRequest(List.of(legParis, legAmsterdam)));
+
+        assertNotNull(trip.tripGroupId());
+        assertEquals(2, trip.legs().size());
+        assertEquals("Paris + Amsterdã", trip.title());
+        assertEquals(LocalDate.of(2027, 9, 1), trip.startDate());
+        assertEquals(LocalDate.of(2027, 9, 7), trip.endDate());
+
+        assertEquals(itineraryParis.getTripGroupId(), itineraryAmsterdam.getTripGroupId());
+        assertEquals(0, itineraryParis.getTripGroupOrder());
+        assertEquals(1, itineraryAmsterdam.getTripGroupOrder());
+
+        verify(itineraryRepo).save(itineraryParis);
+        verify(itineraryRepo).save(itineraryAmsterdam);
+    }
+
+    @Test
+    void generateTrip_shouldAllowGapBetweenLegs() {
+        Destination paris = destinationWith("Paris");
+        Destination roma = destinationWith("Roma");
+
+        // Trecho 1 termina dia 4, trecho 2 só começa dia 6 (folga de 1 dia) — permitido.
+        ItineraryRequest legParis = requestFor(paris.getId(), LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
+        ItineraryRequest legRoma = requestFor(roma.getId(), LocalDate.of(2027, 9, 6), LocalDate.of(2027, 9, 9));
+
+        UUID legIdParis = UUID.randomUUID();
+        UUID legIdRoma = UUID.randomUUID();
+        Itinerary itineraryParis = itineraryWith(legIdParis, paris, legParis.startDate(), legParis.endDate(), "Paris");
+        Itinerary itineraryRoma = itineraryWith(legIdRoma, roma, legRoma.startDate(), legRoma.endDate(), "Roma");
+
+        when(engineService.generate(eq(USER_ID), eq(legParis)))
+            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
+        when(engineService.generate(eq(USER_ID), eq(legRoma)))
+            .thenReturn(new ItineraryResponseDTO(legIdRoma, "Roma", roma.getId(), "Roma", "", legRoma.startDate(), legRoma.endDate(), List.of()));
+        when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
+        when(itineraryRepo.findById(legIdRoma)).thenReturn(Optional.of(itineraryRoma));
+        when(itineraryRepo.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TripSummaryDTO trip = service.generateTrip(USER_ID, new CreateTripRequest(List.of(legParis, legRoma)));
+
+        assertEquals(2, trip.legs().size());
+        verify(engineService).generate(USER_ID, legParis);
+        verify(engineService).generate(USER_ID, legRoma);
+    }
+
+    @Test
+    void generateTrip_shouldThrowInvalidDateRange_whenLegsOverlap() {
+        UUID parisId = UUID.randomUUID();
+        UUID romaId = UUID.randomUUID();
+
+        // Trecho 2 começa (dia 3) antes do trecho 1 terminar (dia 4) — sobreposição proibida.
+        ItineraryRequest legParis = requestFor(parisId, LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
+        ItineraryRequest legRoma = requestFor(romaId, LocalDate.of(2027, 9, 3), LocalDate.of(2027, 9, 6));
+
+        assertThrows(InvalidDateRangeException.class,
+            () -> service.generateTrip(USER_ID, new CreateTripRequest(List.of(legParis, legRoma))));
+
+        verifyNoInteractions(engineService);
+    }
+
+    @Test
+    void generateTrip_shouldThrowInvalidDateRange_whenLegsShareTheSameDay() {
+        UUID parisId = UUID.randomUUID();
+        UUID romaId = UUID.randomUUID();
+
+        // Trecho 2 começa NO MESMO dia em que o trecho 1 termina — também é sobreposição.
+        ItineraryRequest legParis = requestFor(parisId, LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
+        ItineraryRequest legRoma = requestFor(romaId, LocalDate.of(2027, 9, 4), LocalDate.of(2027, 9, 6));
+
+        assertThrows(InvalidDateRangeException.class,
+            () -> service.generateTrip(USER_ID, new CreateTripRequest(List.of(legParis, legRoma))));
+    }
+
+    // ─── findAllTrips ───────────────────────────────────────────────────────
+
+    @Test
+    void findAllTrips_shouldGroupLegsSharingTheSameTripGroupId() {
+        UUID tripGroupId = UUID.randomUUID();
+        Destination paris = destinationWith("Paris");
+        Destination amsterdam = destinationWith("Amsterdã");
+
+        Itinerary legAmsterdam = itineraryWith(UUID.randomUUID(), amsterdam,
+            LocalDate.of(2027, 9, 5), LocalDate.of(2027, 9, 7), "Amsterdã");
+        legAmsterdam.setTripGroupId(tripGroupId);
+        legAmsterdam.setTripGroupOrder(1);
+
+        Itinerary legParis = itineraryWith(UUID.randomUUID(), paris,
+            LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4), "Paris");
+        legParis.setTripGroupId(tripGroupId);
+        legParis.setTripGroupOrder(0);
+
+        // Propositalmente fora de ordem na lista retornada pelo repo — a
+        // ordenação por tripGroupOrder deve corrigir isso no resultado.
+        when(itineraryRepo.findAllByUserIdAndDeletedAtIsNull(USER_ID)).thenReturn(List.of(legAmsterdam, legParis));
+
+        List<TripSummaryDTO> trips = service.findAllTrips(USER_ID);
+
+        assertEquals(1, trips.size());
+        TripSummaryDTO trip = trips.get(0);
+        assertEquals(tripGroupId, trip.tripGroupId());
+        assertEquals(2, trip.legs().size());
+        assertEquals("Paris", trip.legs().get(0).destinationName());
+        assertEquals("Amsterdã", trip.legs().get(1).destinationName());
+    }
+
+    @Test
+    void findAllTrips_shouldTreatStandaloneItinerary_asSingleLegGroup_withNullTripGroupId() {
+        Destination lisboa = destinationWith("Lisboa");
+        Itinerary avulso = itineraryWith(UUID.randomUUID(), lisboa,
+            LocalDate.of(2027, 10, 1), LocalDate.of(2027, 10, 5), "Lisboa");
+        // tripGroupId/tripGroupOrder ficam null — roteiro avulso normal.
+
+        when(itineraryRepo.findAllByUserIdAndDeletedAtIsNull(USER_ID)).thenReturn(List.of(avulso));
+
+        List<TripSummaryDTO> trips = service.findAllTrips(USER_ID);
+
+        assertEquals(1, trips.size());
+        assertNull(trips.get(0).tripGroupId());
+        assertEquals(1, trips.get(0).legs().size());
+        assertEquals("Lisboa", trips.get(0).title());
+    }
+
+    @Test
+    void findAllTrips_shouldKeepSeparateStandaloneItineraries_asSeparateGroups() {
+        Destination lisboa = destinationWith("Lisboa");
+        Destination porto = destinationWith("Porto");
+        Itinerary itLisboa = itineraryWith(UUID.randomUUID(), lisboa,
+            LocalDate.of(2027, 10, 1), LocalDate.of(2027, 10, 5), "Lisboa");
+        Itinerary itPorto = itineraryWith(UUID.randomUUID(), porto,
+            LocalDate.of(2027, 11, 1), LocalDate.of(2027, 11, 3), "Porto");
+
+        when(itineraryRepo.findAllByUserIdAndDeletedAtIsNull(USER_ID)).thenReturn(List.of(itLisboa, itPorto));
+
+        List<TripSummaryDTO> trips = service.findAllTrips(USER_ID);
+
+        assertEquals(2, trips.size());
+    }
+
+    // ─── findTripByGroupId ──────────────────────────────────────────────────
+
+    @Test
+    void findTripByGroupId_shouldReturnLegsInChronologicalOrder() {
+        UUID tripGroupId = UUID.randomUUID();
+        Destination paris = destinationWith("Paris");
+        Destination amsterdam = destinationWith("Amsterdã");
+
+        Itinerary legParis = itineraryWith(UUID.randomUUID(), paris,
+            LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4), "Paris");
+        legParis.setTripGroupId(tripGroupId);
+        legParis.setTripGroupOrder(0);
+
+        Itinerary legAmsterdam = itineraryWith(UUID.randomUUID(), amsterdam,
+            LocalDate.of(2027, 9, 5), LocalDate.of(2027, 9, 7), "Amsterdã");
+        legAmsterdam.setTripGroupId(tripGroupId);
+        legAmsterdam.setTripGroupOrder(1);
+
+        when(itineraryRepo.findAllByTripGroupIdAndUserIdAndDeletedAtIsNullOrderByTripGroupOrderAsc(tripGroupId, USER_ID))
+            .thenReturn(List.of(legParis, legAmsterdam));
+
+        TripSummaryDTO trip = service.findTripByGroupId(tripGroupId, USER_ID);
+
+        assertEquals(tripGroupId, trip.tripGroupId());
+        assertEquals(2, trip.legs().size());
+    }
+
+    @Test
+    void findTripByGroupId_shouldThrowResourceNotFound_whenNoLegsExist() {
+        UUID tripGroupId = UUID.randomUUID();
+        when(itineraryRepo.findAllByTripGroupIdAndUserIdAndDeletedAtIsNullOrderByTripGroupOrderAsc(tripGroupId, USER_ID))
+            .thenReturn(List.of());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.findTripByGroupId(tripGroupId, USER_ID));
+    }
+}

@@ -1,3 +1,64 @@
+/// Viagem multi-destino (spec item 7 — "N cidades + datas por trecho"):
+/// [tripGroupId] é null quando o grupo representa um roteiro avulso
+/// (nesse caso [legs] tem exatamente 1 elemento e a UI trata como sempre
+/// tratou, sem indicação de "trechos"). [startDate]/[endDate] cobrem a
+/// viagem inteira.
+class TripSummaryModel {
+  final String? tripGroupId;
+  final String title;
+  final DateTime startDate;
+  final DateTime endDate;
+  final List<ItinerarySummaryModel> legs;
+
+  const TripSummaryModel({
+    required this.tripGroupId,
+    required this.title,
+    required this.startDate,
+    required this.endDate,
+    required this.legs,
+  });
+
+  bool get isMultiDestino => legs.length > 1;
+
+  factory TripSummaryModel.fromJson(Map<String, dynamic> json) {
+    return TripSummaryModel(
+      tripGroupId: json['tripGroupId'] as String?,
+      title: json['title'] as String,
+      startDate: DateTime.parse(json['startDate'] as String),
+      endDate: DateTime.parse(json['endDate'] as String),
+      legs: (json['legs'] as List<dynamic>)
+          .map((l) => ItinerarySummaryModel.fromJson(l as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+/// Um trecho a criar dentro de uma viagem multi-destino — versão enxuta de
+/// [ItineraryRequest] (só destino + datas): o motor de geração já cai de
+/// volta nas preferências do onboarding quando os campos opcionais não são
+/// enviados, mesmo comportamento de um roteiro avulso gerado sem preencher
+/// vibe/interesses/etc.
+class TripLegInput {
+  final String destinationId;
+  final DateTime startDate;
+  final DateTime endDate;
+
+  const TripLegInput({
+    required this.destinationId,
+    required this.startDate,
+    required this.endDate,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'destinationId': destinationId,
+    'startDate': _formatDate(startDate),
+    'endDate': _formatDate(endDate),
+  };
+
+  static String _formatDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
 class ItinerarySummaryModel {
   final String id;
   final String title;
@@ -22,8 +83,7 @@ class ItinerarySummaryModel {
       id: json['id'] as String,
       title: json['title'] as String,
       destinationName: json['destinationName'] as String,
-      destinationHeroImageUrl:
-          json['destinationHeroImageUrl'] as String? ?? '',
+      destinationHeroImageUrl: json['destinationHeroImageUrl'] as String? ?? '',
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       dayCount: json['dayCount'] as int,
@@ -55,8 +115,7 @@ class ItineraryModel {
       id: json['id'] as String,
       title: json['title'] as String,
       destinationName: json['destinationName'] as String,
-      destinationHeroImageUrl:
-          json['destinationHeroImageUrl'] as String? ?? '',
+      destinationHeroImageUrl: json['destinationHeroImageUrl'] as String? ?? '',
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       days: (json['days'] as List<dynamic>)
@@ -82,8 +141,9 @@ class ItineraryDayModel {
       dayNumber: json['dayNumber'] as int,
       date: DateTime.parse(json['date'] as String),
       activities: (json['activities'] as List<dynamic>)
-          .map((a) =>
-              ItineraryActivityModel.fromJson(a as Map<String, dynamic>))
+          .map(
+            (a) => ItineraryActivityModel.fromJson(a as Map<String, dynamic>),
+          )
           .toList(),
     );
   }
@@ -148,7 +208,8 @@ class PoiDetailModel {
       category: json['category'] as String,
       description: json['description'] as String?,
       address: json['address'] as String?,
-      images: (json['images'] as List<dynamic>?)
+      images:
+          (json['images'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           const [],

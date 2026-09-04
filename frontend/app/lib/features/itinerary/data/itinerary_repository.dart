@@ -10,8 +10,7 @@ class ItineraryRepository {
   Future<List<ItinerarySummaryModel>> fetchAll() async {
     final response = await _dio.get('/itineraries');
     return (response.data as List<dynamic>)
-        .map((j) =>
-            ItinerarySummaryModel.fromJson(j as Map<String, dynamic>))
+        .map((j) => ItinerarySummaryModel.fromJson(j as Map<String, dynamic>))
         .toList();
   }
 
@@ -53,23 +52,50 @@ class ItineraryRepository {
     await _dio.delete('/itineraries/$id');
   }
 
+  Future<List<TripSummaryModel>> fetchAllTrips() async {
+    final response = await _dio.get('/itineraries/trips');
+    return (response.data as List<dynamic>)
+        .map((j) => TripSummaryModel.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<TripSummaryModel> fetchTripByGroupId(String tripGroupId) async {
+    final response = await _dio.get('/itineraries/trips/$tripGroupId');
+    return TripSummaryModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<TripSummaryModel> createTrip(List<TripLegInput> legs) async {
+    final response = await _dio.post(
+      '/itineraries/trips',
+      data: {'legs': legs.map((l) => l.toJson()).toList()},
+    );
+    return TripSummaryModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<List<PoiDetailModel>> getAlternatives(
-      String itineraryId, String activityId) async {
-    final response = await _dio
-        .get('/itineraries/$itineraryId/activities/$activityId/alternatives');
+    String itineraryId,
+    String activityId,
+  ) async {
+    final response = await _dio.get(
+      '/itineraries/$itineraryId/activities/$activityId/alternatives',
+    );
     return (response.data as List<dynamic>)
         .map((j) => PoiDetailModel.fromJson(j as Map<String, dynamic>))
         .toList();
   }
 
   Future<ItineraryActivityModel> substituteActivity(
-      String itineraryId, String activityId, String poiId) async {
+    String itineraryId,
+    String activityId,
+    String poiId,
+  ) async {
     final response = await _dio.patch(
       '/itineraries/$itineraryId/activities/$activityId',
       data: {'poiId': poiId},
     );
     return ItineraryActivityModel.fromJson(
-        response.data as Map<String, dynamic>);
+      response.data as Map<String, dynamic>,
+    );
   }
 
   String _formatDate(DateTime d) =>

@@ -41,6 +41,15 @@ public class Itinerary {
 
     private String pdfUrl;
 
+    // Multi-destino (spec: "N cidades + datas por trecho"): cada trecho da
+    // viagem continua sendo um Itinerary normal (1 destino, 1 faixa de
+    // data) — a "viagem" é uma view lógica agrupando Itinerarys pelo mesmo
+    // tripGroupId, ordenados por tripGroupOrder. Ambos nulos = roteiro
+    // avulso (comportamento de hoje, sem mudança).
+    private UUID tripGroupId;
+
+    private Integer tripGroupOrder;
+
     @OneToMany(mappedBy = "itinerary", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @OrderBy("dayNumber ASC")
     @Builder.Default

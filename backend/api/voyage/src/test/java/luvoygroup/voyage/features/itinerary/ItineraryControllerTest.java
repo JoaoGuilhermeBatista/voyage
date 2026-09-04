@@ -9,6 +9,7 @@ import luvoygroup.voyage.exception.OnboardingNotCompletedException;
 import luvoygroup.voyage.exception.ResourceNotFoundException;
 import luvoygroup.voyage.features.itinerary.dto.ActivityDTO;
 import luvoygroup.voyage.features.itinerary.dto.PoiDetailDTO;
+import luvoygroup.voyage.features.itinerary.dto.TripSummaryDTO;
 import luvoygroup.voyage.security.JwtAuthFilter;
 import luvoygroup.voyage.security.JwtService;
 import luvoygroup.voyage.security.SecurityConfig;
@@ -273,5 +274,96 @@ class ItineraryControllerTest {
                 .content("{}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
+    }
+
+    // ─── Multi-destino (item 7 do backlog) — POST/GET /trips ───────────────────
+    //
+    // ItineraryService é mockado, então a lógica real de agrupamento/validação
+    // (coberta em ItineraryServiceTest) não é exercitada aqui — só roteamento
+    // e validação de @RequestBody.
+
+    private static final String LEG_PARIS = """
+        { "destinationId": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "startDate": "2027-09-01", "endDate": "2027-09-04" }
+        """;
+    private static final String LEG_AMSTERDAM = """
+        { "destinationId": "4fa85f64-5717-4562-b3fc-2c963f66afa7", "startDate": "2027-09-05", "endDate": "2027-09-07" }
+        """;
+
+    @Test
+    void teste40_shouldReturn201_whenGeneratingTripWithValidLegs() throws Exception {
+        TripSummaryDTO trip = new TripSummaryDTO(
+            UUID.randomUUID(), "Paris + Amsterdã",
+            java.time.LocalDate.of(2027, 9, 1), java.time.LocalDate.of(2027, 9, 7),
+            List.of()
+        );
+        when(itineraryService.generateTrip(any(), any())).thenReturn(trip);
+
+        mockMvc.perform(post("/api/v1/itineraries/trips")
+                .header("Authorization", validToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"legs\": [%s, %s] }".formatted(LEG_PARIS, LEG_AMSTERDAM)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.title").value("Paris + Amsterdã"));
+    }
+
+    @Test
+    void teste41_shouldReturn400_whenGeneratingTripWithOnlyOneLeg() throws Exception {
+        mockMvc.perform(post("/api/v1/itineraries/trips")
+                .header("Authorization", validToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"legs\": [%s] }".formatted(LEG_PARIS)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void teste42_shouldReturn400_whenGeneratingTripWithOverlappingLegs() throws Exception {
+        when(itineraryService.generateTrip(any(), any()))
+            .thenThrow(new luvoygroup.voyage.exception.InvalidDateRangeException("Os trechos da viagem não podem se sobrepor"));
+
+        mockMvc.perform(post("/api/v1/itineraries/trips")
+                .header("Authorization", validToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"legs\": [%s, %s] }".formatted(LEG_PARIS, LEG_AMSTERDAM)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void teste43_shouldReturn200_whenListingTrips() throws Exception {
+        when(itineraryService.findAllTrips(any())).thenReturn(List.of(
+            new TripSummaryDTO(UUID.randomUUID(), "Paris + Amsterdã",
+                java.time.LocalDate.of(2027, 9, 1), java.time.LocalDate.of(2027, 9, 7), List.of())
+        ));
+
+        mockMvc.perform(get("/api/v1/itineraries/trips")
+                .header("Authorization", validToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].title").value("Paris + Amsterdã"));
+    }
+
+    @Test
+    void teste44_shouldReturn200_whenGettingTripByGroupId() throws Exception {
+        UUID tripGroupId = UUID.randomUUID();
+        when(itineraryService.findTripByGroupId(eq(tripGroupId), any())).thenReturn(
+            new TripSummaryDTO(tripGroupId, "Paris + Amsterdã",
+                java.time.LocalDate.of(2027, 9, 1), java.time.LocalDate.of(2027, 9, 7), List.of())
+        );
+
+        mockMvc.perform(get("/api/v1/itineraries/trips/" + tripGroupId)
+                .header("Authorization", validToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.tripGroupId").value(tripGroupId.toString()));
+    }
+
+    @Test
+    void teste45_shouldReturn404_whenTripGroupIdDoesNotExist() throws Exception {
+        when(itineraryService.findTripByGroupId(any(), any()))
+            .thenThrow(new ResourceNotFoundException("Viagem não encontrada"));
+
+        mockMvc.perform(get("/api/v1/itineraries/trips/" + UUID.randomUUID())
+                .header("Authorization", validToken))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 }

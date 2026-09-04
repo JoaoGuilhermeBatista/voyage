@@ -37,6 +37,33 @@ public class ItineraryController {
         return itineraryService.findAll(UUID.fromString(principal.id()));
     }
 
+    @PostMapping("/trips")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Gera uma viagem multi-destino: N trechos (cada um um roteiro completo), " +
+        "agrupados sob a mesma viagem. Trechos não podem se sobrepor em data.")
+    public TripSummaryDTO generateTrip(
+        @AuthenticationPrincipal AuthenticatedUser principal,
+        @Valid @RequestBody CreateTripRequest request
+    ) {
+        return itineraryService.generateTrip(UUID.fromString(principal.id()), request);
+    }
+
+    @GetMapping("/trips")
+    @Operation(summary = "Lista todas as viagens do usuário autenticado, agrupadas — " +
+        "um roteiro avulso vira um grupo de 1 trecho só")
+    public List<TripSummaryDTO> listAllTrips(@AuthenticationPrincipal AuthenticatedUser principal) {
+        return itineraryService.findAllTrips(UUID.fromString(principal.id()));
+    }
+
+    @GetMapping("/trips/{tripGroupId}")
+    @Operation(summary = "Retorna os trechos de uma viagem multi-destino, na ordem cronológica")
+    public TripSummaryDTO getTripByGroupId(
+        @AuthenticationPrincipal AuthenticatedUser principal,
+        @PathVariable UUID tripGroupId
+    ) {
+        return itineraryService.findTripByGroupId(tripGroupId, UUID.fromString(principal.id()));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Retorna um roteiro completo com todos os POIs e dias")
     public ItineraryResponseDTO getById(

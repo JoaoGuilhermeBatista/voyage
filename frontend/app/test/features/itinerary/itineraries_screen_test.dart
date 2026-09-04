@@ -1,9 +1,10 @@
 // Testes da feature "Item B — novo ponto de entrada para gerar roteiro na
-// aba Roteiros" (frontend). Fase TDD "testes primeiro": nenhuma lógica de
-// negócio nova foi implementada ainda (botão "Criar roteiro", troca do
-// estado vazio) — os testes abaixo documentam o contrato esperado e ficam
-// RED de propósito (falha de asserção clara, não erro de compilação) até o
-// próximo agente implementar.
+// aba Roteiros" (frontend), atualizados pra cobrir a feature multi-destino
+// (item 7 do backlog, ver luvoy-pendencias.md): o botão "Criar roteiro"
+// (tanto o FAB quanto o do estado vazio) agora abre um pequeno seletor
+// ("Roteiro simples" / "Viagem com vários destinos") em vez de ir direto
+// pro wizard de um destino só — e a tela passou a consumir tripsProvider
+// (lista agrupada) em vez de itinerariesProvider (lista plana).
 
 import 'package:app/features/destinations/presentation/providers/destination_provider.dart';
 import 'package:app/features/itinerary/data/itinerary_models.dart';
@@ -25,45 +26,52 @@ void main() {
     mockRepo = MockItineraryRepository();
   });
 
-  List<ItinerarySummaryModel> sampleItineraries() => [
-        ItinerarySummaryModel(
-          id: 'itin-1',
-          title: 'Viagem a Paris',
-          destinationName: 'Paris',
-          destinationHeroImageUrl: '',
-          startDate: DateTime(2026, 9, 1),
-          endDate: DateTime(2026, 9, 4),
-          dayCount: 3,
-        ),
-      ];
+  ItinerarySummaryModel sampleItinerary() => ItinerarySummaryModel(
+    id: 'itin-1',
+    title: 'Viagem a Paris',
+    destinationName: 'Paris',
+    destinationHeroImageUrl: '',
+    startDate: DateTime(2026, 9, 1),
+    endDate: DateTime(2026, 9, 4),
+    dayCount: 3,
+  );
+
+  List<TripSummaryModel> sampleTrips() => [
+    TripSummaryModel(
+      tripGroupId: null,
+      title: sampleItinerary().title,
+      startDate: sampleItinerary().startDate,
+      endDate: sampleItinerary().endDate,
+      legs: [sampleItinerary()],
+    ),
+  ];
 
   List<Override> commonOverrides() => [
-        itineraryRepositoryProvider.overrideWithValue(mockRepo),
-        // Preventivo para quando "Criar roteiro" abrir o wizard sem
-        // destino pré-definido (modo cidade-primeiro), que passa a
-        // observar estes providers.
-        destinationsProvider.overrideWith((ref) async => const []),
-        destinationSearchProvider.overrideWith((ref, query) async => const []),
-      ];
+    itineraryRepositoryProvider.overrideWithValue(mockRepo),
+    // Preventivo para quando "Criar roteiro" abrir o wizard sem
+    // destino pré-definido (modo cidade-primeiro), que passa a
+    // observar estes providers.
+    destinationsProvider.overrideWith((ref) async => const []),
+    destinationSearchProvider.overrideWith((ref, query) async => const []),
+  ];
 
-  Widget buildScreen(List<ItinerarySummaryModel> itineraries) {
+  Widget buildScreen(List<TripSummaryModel> trips) {
     return ProviderScope(
       overrides: [
-        itinerariesProvider.overrideWith((ref) async => itineraries),
+        tripsProvider.overrideWith((ref) async => trips),
         ...commonOverrides(),
       ],
       child: const MaterialApp(home: ItinerariesScreen()),
     );
   }
 
-  // ── (i) Botão "Criar roteiro" sempre visível ───────────────────────────
+  // ── (i) Botão "Criar roteiro" sempre visível → abre o seletor ──────────
 
   testWidgets(
-    'botão "Criar roteiro" existe mesmo com a lista de roteiros '
-    'não-vazia, e ao tocar abre o wizard (GenerateItinerarySheet) sem '
-    'destino pré-definido (RED — botão ainda não existe)',
+    'botão "Criar roteiro" existe mesmo com a lista não-vazia, e ao tocar '
+    'abre o seletor com as duas opções (roteiro simples / viagem multi-destino)',
     (tester) async {
-      await tester.pumpWidget(buildScreen(sampleItineraries()));
+      await tester.pumpWidget(buildScreen(sampleTrips()));
       await tester.pumpAndSettle();
 
       expect(find.text('Criar roteiro'), findsOneWidget);
@@ -71,10 +79,27 @@ void main() {
       await tester.tap(find.text('Criar roteiro'));
       await tester.pumpAndSettle();
 
+      expect(find.text('Roteiro simples'), findsOneWidget);
+      expect(find.text('Viagem com vários destinos'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tocar em "Roteiro simples" no seletor abre o wizard sem destino pré-definido',
+    (tester) async {
+      await tester.pumpWidget(buildScreen(sampleTrips()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Criar roteiro'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Roteiro simples'));
+      await tester.pumpAndSettle();
+
       expect(find.byType(GenerateItinerarySheet), findsOneWidget);
 
-      final sheet =
-          tester.widget<GenerateItinerarySheet>(find.byType(GenerateItinerarySheet));
+      final sheet = tester.widget<GenerateItinerarySheet>(
+        find.byType(GenerateItinerarySheet),
+      );
       expect(sheet.destinationId, isNull);
       expect(sheet.destinationName, isNull);
     },
@@ -82,21 +107,21 @@ void main() {
 
   // ── (j) Estado vazio ────────────────────────────────────────────────────
 
-  testWidgets(
-    'estado vazio mostra o botão "Criar roteiro" (não mais "Explorar '
-    'destinos") e tocá-lo abre o wizard em vez de navegar para /home '
-    '(RED — hoje o botão ainda se chama "Explorar destinos")',
-    (tester) async {
-      await tester.pumpWidget(buildScreen(const []));
-      await tester.pumpAndSettle();
+  testWidgets('estado vazio mostra o botão "Criar roteiro" (não mais "Explorar '
+      'destinos") e tocá-lo abre o mesmo seletor com as duas opções — é '
+      'justamente na primeira viagem que a escolha mais importa', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildScreen(const []));
+    await tester.pumpAndSettle();
 
-      expect(find.text('Explorar destinos'), findsNothing);
-      expect(find.text('Criar roteiro'), findsOneWidget);
+    expect(find.text('Explorar destinos'), findsNothing);
+    expect(find.text('Criar roteiro'), findsOneWidget);
 
-      await tester.tap(find.text('Criar roteiro'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Criar roteiro'));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(GenerateItinerarySheet), findsOneWidget);
-    },
-  );
+    expect(find.text('Roteiro simples'), findsOneWidget);
+    expect(find.text('Viagem com vários destinos'), findsOneWidget);
+  });
 }

@@ -10,4 +10,5 @@ import java.util.UUID;
 public interface ItineraryRepository extends JpaRepository<Itinerary, UUID> {
     List<Itinerary> findAllByUserIdAndDeletedAtIsNull(UUID userId);
     Optional<Itinerary> findByIdAndDeletedAtIsNull(UUID id);
+    List<Itinerary> findAllByTripGroupIdAndUserIdAndDeletedAtIsNullOrderByTripGroupOrderAsc(UUID tripGroupId, UUID userId);
 }
