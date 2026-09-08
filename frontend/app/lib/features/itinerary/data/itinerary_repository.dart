@@ -105,3 +105,16 @@ class ItineraryRepository {
 final itineraryRepositoryProvider = Provider<ItineraryRepository>((ref) {
   return ItineraryRepository(ref.watch(apiClientProvider).dio);
 });
+
+/// Mensagem amigável quando o backend recusa por limite do plano gratuito
+/// (roteiro avulso OU viagem multi-destino inteira: 1 por mês corrido — ver
+/// ItineraryService.enforceMonthlyLimit no backend, decisão de 2026-09-08).
+/// `null` se o erro não for esse caso, pra quem chamar cair no texto de erro
+/// genérico de sempre.
+String? freeTierLimitMessage(Object error) {
+  if (error is DioException && error.response?.statusCode == 402) {
+    return 'Você já usou seu roteiro gratuito deste mês. Assine o Premium '
+        'para gerar roteiros ilimitados.';
+  }
+  return null;
+}

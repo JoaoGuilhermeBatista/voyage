@@ -2,12 +2,15 @@ package luvoygroup.voyage.features.itinerary;
 
 import luvoygroup.voyage.domain.Destination;
 import luvoygroup.voyage.domain.Itinerary;
+import luvoygroup.voyage.domain.User;
 import luvoygroup.voyage.exception.InvalidDateRangeException;
+import luvoygroup.voyage.exception.PaymentRequiredException;
 import luvoygroup.voyage.exception.ResourceNotFoundException;
 import luvoygroup.voyage.features.itinerary.dto.*;
 import luvoygroup.voyage.repository.ItineraryActivityRepository;
 import luvoygroup.voyage.repository.ItineraryRepository;
 import luvoygroup.voyage.repository.PoiRepository;
+import luvoygroup.voyage.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +44,7 @@ class ItineraryServiceTest {
     private ItineraryRepository itineraryRepo;
     private ItineraryActivityRepository activityRepo;
     private PoiRepository poiRepo;
+    private UserRepository userRepo;
 
     private ItineraryService service;
 
@@ -52,8 +56,23 @@ class ItineraryServiceTest {
         itineraryRepo = mock(ItineraryRepository.class);
         activityRepo = mock(ItineraryActivityRepository.class);
         poiRepo = mock(PoiRepository.class);
+        userRepo = mock(UserRepository.class);
 
-        service = new ItineraryService(engineService, itineraryRepo, activityRepo, poiRepo);
+        service = new ItineraryService(engineService, itineraryRepo, activityRepo, poiRepo, userRepo);
+
+        // Free por padrão, sem nenhum roteiro este mês — a maioria dos
+        // testes existentes não se importa com o limite mensal; os testes
+        // específicos da regra sobrescrevem isso.
+        when(userRepo.findById(USER_ID)).thenReturn(Optional.of(freeUser()));
+        when(itineraryRepo.findAllByUserIdAndDeletedAtIsNull(USER_ID)).thenReturn(List.of());
+    }
+
+    private User freeUser() {
+        return User.builder().id(USER_ID).isPremium(false).build();
+    }
+
+    private User premiumUser() {
+        return User.builder().id(USER_ID).isPremium(true).build();
     }
 
     private Destination destinationWith(String name) {
@@ -270,5 +289,105 @@ class ItineraryServiceTest {
             .thenReturn(List.of());
 
         assertThrows(ResourceNotFoundException.class, () -> service.findTripByGroupId(tripGroupId, USER_ID));
+    }
+
+    // ─── Limite mensal do plano gratuito (1 roteiro/mês, ver luvoy-pendencias.md) ─
+
+    @Test
+    void generate_shouldSucceed_whenFreeUserHasNoItineraryThisMonth() {
+        ItineraryRequest request = requestFor(UUID.randomUUID(), LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
+        when(engineService.generate(USER_ID, request))
+            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", request.startDate(), request.endDate(), List.of()));
+
+        assertDoesNotThrow(() -> service.generate(USER_ID, request));
+        verify(engineService).generate(USER_ID, request);
+    }
+
+    @Test
+    void generate_shouldThrowPaymentRequired_whenFreeUserAlreadyGeneratedOneThisMonth() {
+        Destination paris = destinationWith("Paris");
+        Itinerary generatedThisMonth = itineraryWith(UUID.randomUUID(), paris,
+            LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4), "Paris");
+        generatedThisMonth.setCreatedAt(LocalDateTime.now());
+
+        when(itineraryRepo.findAllByUserIdAndDeletedAtIsNull(USER_ID)).thenReturn(List.of(generatedThisMonth));
+
+        ItineraryRequest request = requestFor(UUID.randomUUID(), LocalDate.of(2027, 10, 1), LocalDate.of(2027, 10, 4));
+        assertThrows(PaymentRequiredException.class, () -> service.generate(USER_ID, request));
+        verifyNoInteractions(engineService);
+    }
+
+    @Test
+    void generate_shouldSucceed_whenFreeUsersOnlyItineraryThisMonthWasCreatedInAPreviousMonth() {
+        Destination paris = destinationWith("Paris");
+        Itinerary generatedLastMonth = itineraryWith(UUID.randomUUID(), paris,
+            LocalDate.of(2027, 8, 1), LocalDate.of(2027, 8, 4), "Paris");
+        generatedLastMonth.setCreatedAt(LocalDateTime.now().minusMonths(1));
+
+        when(itineraryRepo.findAllByUserIdAndDeletedAtIsNull(USER_ID)).thenReturn(List.of(generatedLastMonth));
+
+        ItineraryRequest request = requestFor(UUID.randomUUID(), LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
+        when(engineService.generate(USER_ID, request))
+            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", request.startDate(), request.endDate(), List.of()));
+
+        assertDoesNotThrow(() -> service.generate(USER_ID, request));
+    }
+
+    @Test
+    void generate_shouldNeverThrow_forPremiumUser_regardlessOfHowManyItinerariesThisMonth() {
+        when(userRepo.findById(USER_ID)).thenReturn(Optional.of(premiumUser()));
+
+        Destination paris = destinationWith("Paris");
+        Itinerary already = itineraryWith(UUID.randomUUID(), paris,
+            LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4), "Paris");
+        already.setCreatedAt(LocalDateTime.now());
+        when(itineraryRepo.findAllByUserIdAndDeletedAtIsNull(USER_ID)).thenReturn(List.of(already));
+
+        ItineraryRequest request = requestFor(UUID.randomUUID(), LocalDate.of(2027, 9, 10), LocalDate.of(2027, 9, 12));
+        when(engineService.generate(USER_ID, request))
+            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", request.startDate(), request.endDate(), List.of()));
+
+        assertDoesNotThrow(() -> service.generate(USER_ID, request));
+    }
+
+    @Test
+    void generateTrip_shouldThrowPaymentRequired_whenFreeUserAlreadyGeneratedOneThisMonth() {
+        Destination paris = destinationWith("Paris");
+        Itinerary generatedThisMonth = itineraryWith(UUID.randomUUID(), paris,
+            LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4), "Paris");
+        generatedThisMonth.setCreatedAt(LocalDateTime.now());
+        when(itineraryRepo.findAllByUserIdAndDeletedAtIsNull(USER_ID)).thenReturn(List.of(generatedThisMonth));
+
+        ItineraryRequest legRoma = requestFor(UUID.randomUUID(), LocalDate.of(2027, 10, 1), LocalDate.of(2027, 10, 4));
+        assertThrows(PaymentRequiredException.class,
+            () -> service.generateTrip(USER_ID, new CreateTripRequest(List.of(legRoma))));
+        verifyNoInteractions(engineService);
+    }
+
+    @Test
+    void generateTrip_withMultipleLegs_shouldCountAsOnlyOneUnit_againstTheMonthlyLimit() {
+        // Uma viagem multi-destino de 2 trechos, gerada de uma vez, não pode
+        // "gastar" 2 unidades do limite mensal — é 1 ação de criação só.
+        Destination paris = destinationWith("Paris");
+        Destination amsterdam = destinationWith("Amsterdã");
+
+        UUID legIdParis = UUID.randomUUID();
+        UUID legIdAmsterdam = UUID.randomUUID();
+        ItineraryRequest legParis = requestFor(paris.getId(), LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
+        ItineraryRequest legAmsterdam = requestFor(amsterdam.getId(), LocalDate.of(2027, 9, 5), LocalDate.of(2027, 9, 7));
+
+        Itinerary itineraryParis = itineraryWith(legIdParis, paris, legParis.startDate(), legParis.endDate(), "Paris");
+        Itinerary itineraryAmsterdam = itineraryWith(legIdAmsterdam, amsterdam, legAmsterdam.startDate(), legAmsterdam.endDate(), "Amsterdã");
+
+        when(engineService.generate(eq(USER_ID), eq(legParis)))
+            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
+        when(engineService.generate(eq(USER_ID), eq(legAmsterdam)))
+            .thenReturn(new ItineraryResponseDTO(legIdAmsterdam, "Amsterdã", amsterdam.getId(), "Amsterdã", "", legAmsterdam.startDate(), legAmsterdam.endDate(), List.of()));
+        when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
+        when(itineraryRepo.findById(legIdAmsterdam)).thenReturn(Optional.of(itineraryAmsterdam));
+        when(itineraryRepo.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() ->
+            service.generateTrip(USER_ID, new CreateTripRequest(List.of(legParis, legAmsterdam))));
     }
 }

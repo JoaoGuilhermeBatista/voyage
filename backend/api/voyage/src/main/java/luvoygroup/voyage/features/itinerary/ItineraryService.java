@@ -1,17 +1,21 @@
 package luvoygroup.voyage.features.itinerary;
 
 import luvoygroup.voyage.domain.Itinerary;
+import luvoygroup.voyage.domain.User;
 import luvoygroup.voyage.exception.ForbiddenAccessException;
 import luvoygroup.voyage.exception.InvalidDateRangeException;
+import luvoygroup.voyage.exception.PaymentRequiredException;
 import luvoygroup.voyage.exception.ResourceNotFoundException;
 import luvoygroup.voyage.features.itinerary.dto.*;
 import luvoygroup.voyage.repository.ItineraryActivityRepository;
 import luvoygroup.voyage.repository.ItineraryRepository;
 import luvoygroup.voyage.repository.PoiRepository;
+import luvoygroup.voyage.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -23,12 +27,20 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ItineraryService {
 
+    // Plano gratuito: 1 roteiro (ou viagem multi-destino inteira, que conta
+    // como 1 só) por mês corrido — decisão do usuário em 2026-09-08, ver
+    // luvoy-pendencias.md. Assinante premium (User.isPremium) não passa por
+    // essa checagem, sempre ilimitado.
+    private static final int FREE_MONTHLY_ITINERARY_LIMIT = 1;
+
     private final ItineraryEngineService engineService;
     private final ItineraryRepository itineraryRepo;
     private final ItineraryActivityRepository activityRepo;
     private final PoiRepository poiRepo;
+    private final UserRepository userRepo;
 
     public ItineraryResponseDTO generate(UUID userId, ItineraryRequest request) {
+        enforceMonthlyLimit(userId);
         return engineService.generate(userId, request);
     }
 
@@ -82,6 +94,7 @@ public class ItineraryService {
      */
     @Transactional
     public TripSummaryDTO generateTrip(UUID userId, CreateTripRequest request) {
+        enforceMonthlyLimit(userId);
         List<ItineraryRequest> legs = request.legs();
         validateNoOverlap(legs);
 
@@ -113,6 +126,29 @@ public class ItineraryService {
             throw new ResourceNotFoundException("Viagem não encontrada");
 
         return TripSummaryDTO.from(legs);
+    }
+
+    /**
+     * Plano gratuito: 1 roteiro (avulso OU viagem multi-destino inteira,
+     * que conta como 1 unidade só) por mês corrido. Assinante premium pula
+     * a checagem inteira. "Mês corrido" = desde o dia 1 às 00:00 no fuso do
+     * servidor até agora — reseta sozinho a cada mês, sem job/cron.
+     */
+    private void enforceMonthlyLimit(UUID userId) {
+        User user = userRepo.findById(userId).orElseThrow(ResourceNotFoundException::new);
+        if (user.isPremium()) return;
+
+        LocalDateTime startOfMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+
+        long tripsThisMonth = itineraryRepo.findAllByUserIdAndDeletedAtIsNull(userId).stream()
+            .filter(it -> it.getCreatedAt() != null && !it.getCreatedAt().isBefore(startOfMonth))
+            .map(it -> it.getTripGroupId() != null ? it.getTripGroupId() : it.getId())
+            .distinct()
+            .count();
+
+        if (tripsThisMonth >= FREE_MONTHLY_ITINERARY_LIMIT) {
+            throw new PaymentRequiredException();
+        }
     }
 
     private void validateNoOverlap(List<ItineraryRequest> legs) {

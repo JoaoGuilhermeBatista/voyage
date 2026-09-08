@@ -152,10 +152,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           context.push('/roteiros/viagem/${trip.tripGroupId}');
         }
       }
-    } catch (_) {
+    } catch (e) {
       setState(() {
         _loading = false;
         _error =
+            freeTierLimitMessage(e) ??
             'Não foi possível criar a viagem. Confira se as datas não se sobrepõem e tente novamente.';
       });
     }

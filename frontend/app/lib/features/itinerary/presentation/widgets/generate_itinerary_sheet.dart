@@ -80,8 +80,19 @@ class _GenerateItinerarySheetState
   String? _error;
 
   static const _months = [
-    '', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+    '',
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez',
   ];
 
   /// Ordem lógica das etapas — desloca conforme o modo (com ou sem
@@ -176,10 +187,9 @@ class _GenerateItinerarySheetState
     return '${d.day} ${_months[d.month]} ${d.year}';
   }
 
-  int get _nights =>
-      (_startDate != null && _endDate != null)
-          ? _endDate!.difference(_startDate!).inDays
-          : 0;
+  int get _nights => (_startDate != null && _endDate != null)
+      ? _endDate!.difference(_startDate!).inDays
+      : 0;
 
   Future<void> _pickStart() async {
     final picked = await showDatePicker(
@@ -211,7 +221,8 @@ class _GenerateItinerarySheetState
 
   Future<void> _generate() async {
     if (_startDate == null || _endDate == null) return;
-    final effectiveDestinationId = widget.destinationId ?? _selectedDestinationId;
+    final effectiveDestinationId =
+        widget.destinationId ?? _selectedDestinationId;
     if (effectiveDestinationId == null) return;
 
     setState(() {
@@ -227,10 +238,12 @@ class _GenerateItinerarySheetState
         Navigator.of(context).pop();
         context.push('/roteiro/${itinerary.id}');
       }
-    } catch (_) {
+    } catch (e) {
       setState(() {
         _loading = false;
-        _error = 'Não foi possível gerar o roteiro. Tente novamente.';
+        _error =
+            freeTierLimitMessage(e) ??
+            'Não foi possível gerar o roteiro. Tente novamente.';
       });
     }
   }
@@ -276,8 +289,9 @@ class _GenerateItinerarySheetState
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
         decoration: BoxDecoration(
@@ -304,7 +318,8 @@ class _GenerateItinerarySheetState
                     const SizedBox(height: 20),
                     _Header(
                       stepName: _currentStepName,
-                      destinationName: widget.destinationName ??
+                      destinationName:
+                          widget.destinationName ??
                           _selectedDestinationName ??
                           '',
                     ),
@@ -320,9 +335,9 @@ class _GenerateItinerarySheetState
                       const SizedBox(height: 12),
                       Text(
                         _error!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.red[400],
-                            ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: Colors.red[400]),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -349,56 +364,53 @@ class _GenerateItinerarySheetState
   Widget _buildStepContent() {
     return switch (_currentStepName) {
       _StepName.city => _StepCity(
-          controller: _cityController,
-          selectedId: _selectedDestinationId,
-          onSelect: _selectDestination,
-        ),
+        controller: _cityController,
+        selectedId: _selectedDestinationId,
+        onSelect: _selectDestination,
+      ),
       _StepName.dates => _StepDates(
-          startDate: _startDate,
-          endDate: _endDate,
-          nights: _nights,
-          dateLabel: _dateLabel,
-          onPickStart: _loading ? null : _pickStart,
-          onPickEnd: _loading || _startDate == null ? null : _pickEnd,
-        ),
+        startDate: _startDate,
+        endDate: _endDate,
+        nights: _nights,
+        dateLabel: _dateLabel,
+        onPickStart: _loading ? null : _pickStart,
+        onPickEnd: _loading || _startDate == null ? null : _pickEnd,
+      ),
       _StepName.area => _StepArea(
-          controller: _areaController,
-          destinationId: widget.destinationId ?? _selectedDestinationId,
-          budgetTier: _budget?.backendKey,
-          onSuggestionSelected: (name) =>
-              setState(() => _areaController.text = name),
-        ),
-      _StepName.vibe => _StepVibe(
-          selected: _vibe,
-          onSelect: _selectVibe,
-        ),
+        controller: _areaController,
+        destinationId: widget.destinationId ?? _selectedDestinationId,
+        budgetTier: _budget?.backendKey,
+        onSuggestionSelected: (name) =>
+            setState(() => _areaController.text = name),
+      ),
+      _StepName.vibe => _StepVibe(selected: _vibe, onSelect: _selectVibe),
       _StepName.interests => InterestsStep(
-          selected: _interests,
-          onToggle: (i) => setState(() {
-            if (_interests.contains(i)) {
-              _interests.remove(i);
-            } else {
-              _interests.add(i);
-            }
-          }),
-          showStepNumber: false,
-          scrollable: false,
-        ),
+        selected: _interests,
+        onToggle: (i) => setState(() {
+          if (_interests.contains(i)) {
+            _interests.remove(i);
+          } else {
+            _interests.add(i);
+          }
+        }),
+        showStepNumber: false,
+        scrollable: false,
+      ),
       _StepName.rhythm => RhythmStep(
-          selected: _rhythm,
-          onSelected: (r) => setState(() => _rhythm = r),
-          showStepNumber: false,
-          scrollable: false,
-        ),
+        selected: _rhythm,
+        onSelected: (r) => setState(() => _rhythm = r),
+        showStepNumber: false,
+        scrollable: false,
+      ),
       _StepName.companions => _StepCompanions(
-          selected: _companions,
-          onSelect: (c) => setState(() => _companions = c),
-          hideSolo: _vibe == _TripVibe.romantic,
-        ),
+        selected: _companions,
+        onSelect: (c) => setState(() => _companions = c),
+        hideSolo: _vibe == _TripVibe.romantic,
+      ),
       _StepName.budget => _StepBudget(
-          selected: _budget,
-          onSelect: (b) => setState(() => _budget = b),
-        ),
+        selected: _budget,
+        onSelect: (b) => setState(() => _budget = b),
+      ),
     };
   }
 }
@@ -495,25 +507,25 @@ class _Header extends StatelessWidget {
         Text(
           destinationName,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha: 0.45),
-              ),
+            color: AppTheme.softBlack.withValues(alpha: 0.45),
+          ),
         ),
         if (title != null) ...[
           const SizedBox(height: 16),
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.softBlack,
-                ),
+              fontWeight: FontWeight.w600,
+              color: AppTheme.softBlack,
+            ),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
             Text(
               subtitle,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.45),
-                  ),
+                color: AppTheme.softBlack.withValues(alpha: 0.45),
+              ),
             ),
           ],
         ],
@@ -552,7 +564,8 @@ class _NavRow extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               side: BorderSide(
-                  color: AppTheme.softBlack.withValues(alpha: 0.2)),
+                color: AppTheme.softBlack.withValues(alpha: 0.2),
+              ),
             ),
             child: const Icon(Icons.arrow_back_rounded, size: 18),
           ),
@@ -570,7 +583,9 @@ class _NavRow extends StatelessWidget {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text(isLast ? 'Gerar Roteiro' : 'Continuar'),
             ),
@@ -629,9 +644,9 @@ class _StepDates extends StatelessWidget {
           Center(
             child: Text(
               '$nights ${nights == 1 ? 'noite' : 'noites'}',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppTheme.primaryBlue,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: AppTheme.primaryBlue),
             ),
           ),
         ],
@@ -662,9 +677,7 @@ class _DateField extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.softBlack.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppTheme.softBlack.withValues(alpha: 0.1),
-          ),
+          border: Border.all(color: AppTheme.softBlack.withValues(alpha: 0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -672,20 +685,20 @@ class _DateField extends StatelessWidget {
             Text(
               label.toUpperCase(),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.4),
-                    letterSpacing: 1.1,
-                    fontSize: 10,
-                  ),
+                color: AppTheme.softBlack.withValues(alpha: 0.4),
+                letterSpacing: 1.1,
+                fontSize: 10,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               value,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: dimmed
-                        ? AppTheme.softBlack.withValues(alpha: 0.3)
-                        : AppTheme.softBlack,
-                    fontWeight: FontWeight.w500,
-                  ),
+                color: dimmed
+                    ? AppTheme.softBlack.withValues(alpha: 0.3)
+                    : AppTheme.softBlack,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -723,19 +736,23 @@ class _StepCity extends ConsumerWidget {
           autofocus: true,
           decoration: InputDecoration(
             hintText: 'Buscar cidade ou destino…',
-            prefixIcon: Icon(Icons.search_rounded,
-                color: AppTheme.softBlack.withValues(alpha: 0.4)),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: AppTheme.softBlack.withValues(alpha: 0.4),
+            ),
             filled: true,
             fillColor: AppTheme.softBlack.withValues(alpha: 0.04),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  BorderSide(color: AppTheme.softBlack.withValues(alpha: 0.1)),
+              borderSide: BorderSide(
+                color: AppTheme.softBlack.withValues(alpha: 0.1),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  BorderSide(color: AppTheme.softBlack.withValues(alpha: 0.1)),
+              borderSide: BorderSide(
+                color: AppTheme.softBlack.withValues(alpha: 0.1),
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -754,8 +771,8 @@ class _StepCity extends ConsumerWidget {
                   child: Text(
                     'Nenhum destino encontrado',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.softBlack.withValues(alpha: 0.45),
-                        ),
+                      color: AppTheme.softBlack.withValues(alpha: 0.45),
+                    ),
                   ),
                 );
               }
@@ -781,8 +798,8 @@ class _StepCity extends ConsumerWidget {
               child: Text(
                 'Não foi possível carregar os destinos',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.softBlack.withValues(alpha: 0.45),
-                    ),
+                  color: AppTheme.softBlack.withValues(alpha: 0.45),
+                ),
               ),
             ),
           ),
@@ -839,17 +856,17 @@ class _DestinationTile extends StatelessWidget {
                   Text(
                     destination.name,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: selected
-                              ? AppTheme.primaryBlue
-                              : AppTheme.softBlack,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      color: selected
+                          ? AppTheme.primaryBlue
+                          : AppTheme.softBlack,
+                    ),
                   ),
                   Text(
                     destination.country,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.softBlack.withValues(alpha: 0.45),
-                        ),
+                      color: AppTheme.softBlack.withValues(alpha: 0.45),
+                    ),
                   ),
                 ],
               ),
@@ -889,19 +906,23 @@ class _StepArea extends ConsumerWidget {
           textCapitalization: TextCapitalization.words,
           decoration: InputDecoration(
             hintText: 'Ex: Marais, Eixample, Centro…',
-            prefixIcon: Icon(Icons.location_on_outlined,
-                color: AppTheme.softBlack.withValues(alpha: 0.4)),
+            prefixIcon: Icon(
+              Icons.location_on_outlined,
+              color: AppTheme.softBlack.withValues(alpha: 0.4),
+            ),
             filled: true,
             fillColor: AppTheme.softBlack.withValues(alpha: 0.04),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                  color: AppTheme.softBlack.withValues(alpha: 0.1)),
+                color: AppTheme.softBlack.withValues(alpha: 0.1),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(
-                  color: AppTheme.softBlack.withValues(alpha: 0.1)),
+                color: AppTheme.softBlack.withValues(alpha: 0.1),
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -946,21 +967,22 @@ class _StepArea extends ConsumerWidget {
               Text(
                 'Sugestões:',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppTheme.softBlack.withValues(alpha: 0.45),
-                    ),
+                  color: AppTheme.softBlack.withValues(alpha: 0.45),
+                ),
               ),
               const SizedBox(height: 8),
               Column(
                 children: suggestions.neighborhoods
-                    .map((neighborhood) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _NeighborhoodSuggestionCard(
-                            neighborhood: neighborhood,
-                            selected: controller.text == neighborhood.name,
-                            onTap: () =>
-                                onSuggestionSelected(neighborhood.name),
-                          ),
-                        ))
+                    .map(
+                      (neighborhood) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _NeighborhoodSuggestionCard(
+                          neighborhood: neighborhood,
+                          selected: controller.text == neighborhood.name,
+                          onTap: () => onSuggestionSelected(neighborhood.name),
+                        ),
+                      ),
+                    )
                     .toList(),
               ),
             ],
@@ -1026,18 +1048,18 @@ class _NeighborhoodSuggestionCard extends StatelessWidget {
                   Text(
                     neighborhood.name,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: selected
-                              ? AppTheme.primaryBlue
-                              : AppTheme.softBlack,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      color: selected
+                          ? AppTheme.primaryBlue
+                          : AppTheme.softBlack,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     neighborhood.advantage,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppTheme.softBlack.withValues(alpha: 0.45),
-                        ),
+                      color: AppTheme.softBlack.withValues(alpha: 0.45),
+                    ),
                   ),
                 ],
               ),
@@ -1057,7 +1079,11 @@ enum _TripVibe {
   culture('Cultura & Arte', Icons.museum_outlined, 'CULTURE'),
   wellness('Relaxar', Icons.spa_outlined, 'WELLNESS'),
   business('Trabalho + lazer', Icons.work_outline_rounded, 'BUSINESS'),
-  silence('Silêncio & Contemplação', Icons.self_improvement_outlined, 'SILENCE');
+  silence(
+    'Silêncio & Contemplação',
+    Icons.self_improvement_outlined,
+    'SILENCE',
+  );
 
   final String label;
   final IconData icon;
@@ -1076,12 +1102,14 @@ class _StepVibe extends StatelessWidget {
       spacing: 10,
       runSpacing: 10,
       children: _TripVibe.values
-          .map((v) => _OptionChip(
-                label: v.label,
-                icon: v.icon,
-                selected: selected == v,
-                onTap: () => onSelect(v),
-              ))
+          .map(
+            (v) => _OptionChip(
+              label: v.label,
+              icon: v.icon,
+              selected: selected == v,
+              onTap: () => onSelect(v),
+            ),
+          )
           .toList(),
     );
   }
@@ -1120,12 +1148,14 @@ class _StepCompanions extends StatelessWidget {
       spacing: 10,
       runSpacing: 10,
       children: options
-          .map((c) => _OptionChip(
-                label: c.label,
-                icon: c.icon,
-                selected: selected == c,
-                onTap: () => onSelect(c),
-              ))
+          .map(
+            (c) => _OptionChip(
+              label: c.label,
+              icon: c.icon,
+              selected: selected == c,
+              onTap: () => onSelect(c),
+            ),
+          )
           .toList(),
     );
   }
@@ -1153,17 +1183,18 @@ class _StepBudget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: _Budget.values
-          .map((b) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                      right: b == _Budget.luxury ? 0 : 10),
-                  child: _BudgetCard(
-                    budget: b,
-                    selected: selected == b,
-                    onTap: () => onSelect(b),
-                  ),
+          .map(
+            (b) => Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: b == _Budget.luxury ? 0 : 10),
+                child: _BudgetCard(
+                  budget: b,
+                  selected: selected == b,
+                  onTap: () => onSelect(b),
                 ),
-              ))
+              ),
+            ),
+          )
           .toList(),
     );
   }
@@ -1173,10 +1204,11 @@ class _BudgetCard extends StatelessWidget {
   final _Budget budget;
   final bool selected;
   final VoidCallback onTap;
-  const _BudgetCard(
-      {required this.budget,
-      required this.selected,
-      required this.onTap});
+  const _BudgetCard({
+    required this.budget,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1204,20 +1236,18 @@ class _BudgetCard extends StatelessWidget {
               style: GoogleFonts.jost(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: selected
-                    ? AppTheme.primaryBlue
-                    : AppTheme.goldenOrange,
+                color: selected ? AppTheme.primaryBlue : AppTheme.goldenOrange,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               budget.label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: selected
-                        ? AppTheme.primaryBlue
-                        : AppTheme.softBlack.withValues(alpha: 0.55),
-                    fontSize: 11,
-                  ),
+                color: selected
+                    ? AppTheme.primaryBlue
+                    : AppTheme.softBlack.withValues(alpha: 0.55),
+                fontSize: 11,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1234,11 +1264,12 @@ class _OptionChip extends StatelessWidget {
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
-  const _OptionChip(
-      {required this.label,
-      required this.icon,
-      required this.selected,
-      required this.onTap});
+  const _OptionChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1273,12 +1304,9 @@ class _OptionChip extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: selected
-                        ? AppTheme.primaryBlue
-                        : AppTheme.softBlack,
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.w400,
-                  ),
+                color: selected ? AppTheme.primaryBlue : AppTheme.softBlack,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
             ),
           ],
         ),
