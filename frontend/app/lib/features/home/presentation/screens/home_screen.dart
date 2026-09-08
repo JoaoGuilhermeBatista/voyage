@@ -7,25 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../../shared/widgets/loading_shimmer.dart';
+import '../../../collections/presentation/providers/collection_provider.dart';
 import '../../../destinations/data/destination_summary_model.dart';
 import '../../../destinations/presentation/providers/destination_provider.dart';
-
-// Seções temáticas: cada grupo define qual substring de tag deve casar.
-// Se nenhum destino tiver tags suficientes, a seção é omitida automaticamente.
-const _thematicGroups = [
-  _ThemeGroup(key: 'cultura', label: 'Cultura & Arte'),
-  _ThemeGroup(key: 'gastronomia', label: 'Gastronomia'),
-  _ThemeGroup(key: 'moda', label: 'Moda & Design'),
-  _ThemeGroup(key: 'natureza', label: 'Natureza'),
-  _ThemeGroup(key: 'bem-estar', label: 'Bem-estar'),
-  _ThemeGroup(key: 'vida noturna', label: 'Vida Noturna'),
-];
-
-class _ThemeGroup {
-  final String key;
-  final String label;
-  const _ThemeGroup({required this.key, required this.label});
-}
 
 // Gradiente-placeholder determinístico (a partir do slug) usado onde ainda
 // não há foto real — ex.: o hero de "destino da semana". Tons dentro da
@@ -91,11 +75,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // Hero bleeds até o topo (sem SafeArea) — só o wordmark/texto por
           // dentro respeita a área segura, via padding manual.
           provider.when(
-            data: (destinations) => SliverToBoxAdapter(
-              child: _buildHero(destinations),
-            ),
+            data: (destinations) =>
+                SliverToBoxAdapter(child: _buildHero(destinations)),
             loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-            error: (_, __) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+            error: (_, __) =>
+                const SliverToBoxAdapter(child: SizedBox.shrink()),
           ),
           SliverSafeArea(
             top: false,
@@ -123,14 +107,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── Hero — "destino da semana", ver spec §4.1 ───────────────────────────────
-  // Sem foto real ainda (só a forma do layout): usa um gradiente
-  // determinístico a partir do slug no lugar da imagem, mesmo critério de
-  // placeholder já usado nos cards do carrossel.
+  // Mesmo critério hasImage/CachedNetworkImage dos outros cards (ex.:
+  // _DestinationCaptionCard): foto real quando heroImageUrl existe, senão
+  // cai no gradiente determinístico a partir do slug.
 
   Widget _buildHero(List<DestinationSummaryModel> destinations) {
     if (destinations.isEmpty) return const SizedBox.shrink();
     final featured = destinations.first;
     final topInset = MediaQuery.of(context).padding.top;
+    final hasImage = featured.heroImageUrl.isNotEmpty;
+    final gradient = placeholderGradientFor(featured.slug);
 
     return SizedBox(
       height: 480,
@@ -138,15 +124,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: placeholderGradientFor(featured.slug),
-              ),
-            ),
-          ),
+          hasImage
+              ? CachedNetworkImage(
+                  imageUrl: featured.heroImageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: gradient),
+                    ),
+                  ),
+                  errorWidget: (_, __, ___) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: gradient),
+                    ),
+                  ),
+                )
+              : DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: gradient),
+                  ),
+                ),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -229,9 +226,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 6),
           Text(
             'Destinos curados para cada tipo de viagem',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.mutedForeground,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
           ),
         ],
       ),
@@ -257,7 +254,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           suffixIcon: _query.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.close_rounded, color: AppTheme.mutedForeground, size: 18),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: AppTheme.mutedForeground,
+                    size: 18,
+                  ),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _query = '');
@@ -288,26 +289,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Text(
               'Nenhum destino disponível',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.45),
-                  ),
+                color: AppTheme.softBlack.withValues(alpha: 0.45),
+              ),
             ),
           ),
         ),
       );
     }
 
-    final featured = _stableShuffled(destinations, 'em-destaque').take(10).toList();
+    final featured = _stableShuffled(
+      destinations,
+      'em-destaque',
+    ).take(10).toList();
 
-    // Build thematic sections that have at least 2 matching destinations
-    final thematic = <_ThemeGroup, List<DestinationSummaryModel>>{};
-    for (final group in _thematicGroups) {
-      final filtered = destinations.where((d) => d.tags.any(
-            (t) => t.toLowerCase().contains(group.key),
-          )).toList();
-      if (filtered.length >= 2) {
-        thematic[group] = _stableShuffled(filtered, group.key);
-      }
-    }
+    // Coleções editoriais reais (GET /collections) — curadoria manual no
+    // banco, não mais filtro client-side por tag. Falha/loading silenciosos:
+    // se a chamada não voltar a tempo, a Home só fica sem essas seções, sem
+    // travar o resto da tela (mesmo critério de graceful-degradation já
+    // usado no restante do app).
+    final collectionsAsync = ref.watch(collectionsProvider);
+    final collections = collectionsAsync.asData?.value ?? const [];
 
     return SliverToBoxAdapter(
       child: Column(
@@ -318,12 +319,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 12),
           _HorizontalCarousel(destinations: featured, overlayStyle: false),
 
-          for (final entry in thematic.entries) ...[
-            const SizedBox(height: 28),
-            _SectionHeader(eyebrow: 'Coleção', title: entry.key.label, italic: true),
-            const SizedBox(height: 12),
-            _HorizontalCarousel(destinations: entry.value),
-          ],
+          for (final collection in collections)
+            if (collection.destinations.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              _SectionHeader(
+                eyebrow: collection.eyebrow ?? 'Coleção',
+                title: collection.title,
+                italic: true,
+              ),
+              const SizedBox(height: 12),
+              _HorizontalCarousel(destinations: collection.destinations),
+            ],
 
           const SizedBox(height: 40),
           Padding(
@@ -355,8 +361,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Text(
               'Nenhum destino encontrado',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.45),
-                  ),
+                color: AppTheme.softBlack.withValues(alpha: 0.45),
+              ),
             ),
           ),
         ),
@@ -404,10 +410,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               itemCount: 5,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
-              itemBuilder: (_, __) => const SizedBox(
-                width: 200,
-                child: CardShimmer(),
-              ),
+              itemBuilder: (_, __) =>
+                  const SizedBox(width: 200, child: CardShimmer()),
             ),
           ),
         ],
@@ -423,14 +427,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
         child: Column(
           children: [
-            Icon(Icons.wifi_off_rounded,
-                size: 40, color: AppTheme.softBlack.withValues(alpha: 0.3)),
+            Icon(
+              Icons.wifi_off_rounded,
+              size: 40,
+              color: AppTheme.softBlack.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               'Não foi possível carregar os destinos',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.5),
-                  ),
+                color: AppTheme.softBlack.withValues(alpha: 0.5),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -451,7 +458,11 @@ class _SectionHeader extends StatelessWidget {
   final String title;
   final String? eyebrow;
   final bool italic;
-  const _SectionHeader({required this.title, this.eyebrow, this.italic = false});
+  const _SectionHeader({
+    required this.title,
+    this.eyebrow,
+    this.italic = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -484,10 +495,14 @@ class _SectionHeader extends StatelessWidget {
 
 class _HorizontalCarousel extends StatelessWidget {
   final List<DestinationSummaryModel> destinations;
+
   /// true (padrão) = cards "coleção" (nome sobre a imagem, ver spec §4.3).
   /// false = cards "destinos" (legenda ABAIXO da imagem, ver spec §4.2).
   final bool overlayStyle;
-  const _HorizontalCarousel({required this.destinations, this.overlayStyle = true});
+  const _HorizontalCarousel({
+    required this.destinations,
+    this.overlayStyle = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -602,7 +617,7 @@ class _CarouselCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorIndex =
         destination.slug.codeUnits.fold(0, (a, b) => a + b) %
-            _placeholders.length;
+        _placeholders.length;
     final placeholder = _placeholders[colorIndex];
     final hasImage = destination.heroImageUrl.isNotEmpty;
 
@@ -690,7 +705,7 @@ class _VerticalDestinationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorIndex =
         destination.slug.codeUnits.fold(0, (a, b) => a + b) %
-            _placeholders.length;
+        _placeholders.length;
     final placeholder = _placeholders[colorIndex];
     final hasImage = destination.heroImageUrl.isNotEmpty;
 
@@ -733,8 +748,10 @@ class _VerticalDestinationCard extends StatelessWidget {
                 left: 18,
                 child: Text(
                   destination.country.toUpperCase(),
-                  style: AppTheme.eyebrow(color: AppTheme.goldSoft, letterSpacing: 1.6)
-                      .copyWith(fontSize: 10),
+                  style: AppTheme.eyebrow(
+                    color: AppTheme.goldSoft,
+                    letterSpacing: 1.6,
+                  ).copyWith(fontSize: 10),
                 ),
               ),
 
@@ -750,9 +767,7 @@ class _VerticalDestinationCard extends StatelessWidget {
                     children: [
                       Text(
                         destination.name,
-                        style: Theme.of(context)
-                            .textTheme
-                            .displayMedium
+                        style: Theme.of(context).textTheme.displayMedium
                             ?.copyWith(
                               fontSize: 26,
                               color: Colors.white,
