@@ -136,7 +136,7 @@ public class ItineraryService {
      */
     private void enforceMonthlyLimit(UUID userId) {
         User user = userRepo.findById(userId).orElseThrow(ResourceNotFoundException::new);
-        if (user.isPremium()) return;
+        if (user.hasActivePremium()) return;
 
         LocalDateTime startOfMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay();
 

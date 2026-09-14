@@ -48,7 +48,17 @@ exchange-rate:
   api-key: ${EXCHANGE_RATE_API_KEY:not-configured}
 
 stripe:
+  secret-key: ${STRIPE_SECRET_KEY:not-configured}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:not-configured}
+  price:
+    # 3 produtos distintos no Stripe Dashboard — ver luvoy-pendencias.md:
+    # 1) assinatura recorrente (cartão, cobrança automática mensal)
+    # 2) pagamento avulso via Pix que dá 30 dias de premium (sem
+    #    auto-renovação — Pix não suporta cobrança recorrente no Stripe)
+    # 3) pagamento avulso via Pix de 1 exportação extra de PDF
+    premium-monthly-card: ${STRIPE_PRICE_PREMIUM_MONTHLY_CARD:not-configured}
+    premium-monthly-pix: ${STRIPE_PRICE_PREMIUM_MONTHLY_PIX:not-configured}
+    pdf-export-pix: ${STRIPE_PRICE_PDF_EXPORT_PIX:not-configured}
 
 admin:
   token: ${ADMIN_TOKEN:not-configured}

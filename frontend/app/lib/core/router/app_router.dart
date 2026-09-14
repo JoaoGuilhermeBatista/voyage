@@ -18,6 +18,7 @@ import '../../features/favorites/presentation/screens/favorites_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/edit_preferences_screen.dart';
 import '../../features/profile/presentation/providers/user_provider.dart';
+import '../../features/billing/presentation/screens/premium_screen.dart';
 import '../../shared/widgets/scaffold_with_nav_bar.dart';
 
 // Adapta um Stream<T> para Listenable, necessário para refreshListenable do GoRouter.
@@ -130,6 +131,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/perfil/preferencias',
         builder: (context, state) => const EditPreferencesScreen(),
+      ),
+      GoRoute(
+        path: '/premium',
+        builder: (context, state) => const PremiumScreen(),
       ),
 
       // Shell — 5 abas com bottom nav bar

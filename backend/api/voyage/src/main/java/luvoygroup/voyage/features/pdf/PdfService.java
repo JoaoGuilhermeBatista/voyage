@@ -33,11 +33,16 @@ public class PdfService {
         User user = userRepository.findById(userId)
             .orElseThrow(ResourceNotFoundException::new);
 
-        if (!user.isPremium()) {
-            if (user.getPdfExportCount() >= 1) {
+        if (!user.hasActivePremium()) {
+            if (user.getPdfExportCount() < 1) {
+                user.setPdfExportCount(user.getPdfExportCount() + 1);
+            } else if (user.getExtraPdfCredits() > 0) {
+                // 1ª exportação grátis já usada — consome 1 crédito avulso
+                // comprado via Pix em vez de bloquear direto.
+                user.setExtraPdfCredits(user.getExtraPdfCredits() - 1);
+            } else {
                 throw new PaymentRequiredException();
             }
-            user.setPdfExportCount(user.getPdfExportCount() + 1);
             userRepository.save(user);
         }
 

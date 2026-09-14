@@ -7,12 +7,13 @@ import '../../../../core/themes/app_theme.dart';
 import '../providers/user_provider.dart';
 
 /// Tela "Perfil" — spec LUVOY §8. Card "Meu Plano" reflete o campo real
-/// `user.isPremium`: variante Free em tema claro, variante Premium como
-/// bloco Noir de verdade (fundo `ink`, dourado `goldNoir`), igual ao bloco
-/// Noite do roteiro. O CTA "Tornar-se Premium" do spec original foi
-/// deliberadamente omitido — não existe fluxo de assinatura/checkout real
-/// no app hoje, então o card fica informativo (mesmo critério usado para
-/// não construir Concierge/Checklists/paywall, ver luvoy-pendencias.md).
+/// `user.isPremium` (já calculado pelo backend via `hasActivePremium()`,
+/// considera a data de validade — nunca fica "premium pra sempre" por
+/// engano): variante Free em tema claro, variante Premium como bloco Noir
+/// de verdade (fundo `ink`, dourado `goldNoir`), igual ao bloco Noite do
+/// roteiro. O CTA "Tornar-se Premium" abre a tela `/premium` (ver
+/// features/billing/) — os 3 fluxos de pagamento (cartão, Pix mensal, Pix
+/// PDF avulso) já existem de verdade agora, ver luvoy-pendencias.md.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -39,7 +40,11 @@ class ProfileScreen extends ConsumerWidget {
                 onTap: () => context.push('/perfil/preferencias'),
               ),
               const SizedBox(height: 12),
-              _PlanCard(isPremium: user?.isPremium ?? false),
+              _PlanCard(
+                isPremium: user?.isPremium ?? false,
+                premiumExpiresAt: user?.premiumExpiresAt,
+                onTapUpgrade: () => context.push('/premium'),
+              ),
               const SizedBox(height: 12),
               _ActionCard(
                 icon: Icons.info_outline,
@@ -242,90 +247,128 @@ class _ActionCard extends StatelessWidget {
 
 class _PlanCard extends StatelessWidget {
   final bool isPremium;
-  const _PlanCard({required this.isPremium});
+  final DateTime? premiumExpiresAt;
+  final VoidCallback onTapUpgrade;
+
+  const _PlanCard({
+    required this.isPremium,
+    required this.premiumExpiresAt,
+    required this.onTapUpgrade,
+  });
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   @override
   Widget build(BuildContext context) {
     if (isPremium) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppTheme.ink,
+      return Material(
+        color: AppTheme.ink,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTapUpgrade,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.goldNoir.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.workspace_premium_outlined,
-              size: 22,
-              color: AppTheme.goldNoir,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Badge(
-                    label: 'NOIR',
-                    background: AppTheme.goldNoir,
-                    foreground: AppTheme.ink,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Acesso completo à curadoria Noir',
-                    style: GoogleFonts.jost(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w300,
-                      color: AppTheme.ivory.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.goldNoir.withValues(alpha: 0.4),
               ),
             ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.workspace_premium_outlined,
-            size: 22,
-            color: AppTheme.primary,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                _Badge(
-                  label: 'GRATUITO',
-                  background: AppTheme.goldSoft,
-                  foreground: AppTheme.foreground,
-                  border: AppTheme.primary,
+                const Icon(
+                  Icons.workspace_premium_outlined,
+                  size: 22,
+                  color: AppTheme.goldNoir,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Acesso às coleções essenciais',
-                  style: GoogleFonts.jost(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w300,
-                    color: AppTheme.mutedForeground,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _Badge(
+                        label: 'NOIR',
+                        background: AppTheme.goldNoir,
+                        foreground: AppTheme.ink,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        premiumExpiresAt != null
+                            ? 'Válido até ${_formatDate(premiumExpiresAt!)}'
+                            : 'Acesso completo à curadoria Noir',
+                        style: GoogleFonts.jost(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w300,
+                          color: AppTheme.ivory.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: AppTheme.ivory.withValues(alpha: 0.4),
                 ),
               ],
             ),
           ),
-        ],
+        ),
+      );
+    }
+
+    return Material(
+      color: AppTheme.card,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTapUpgrade,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.workspace_premium_outlined,
+                size: 22,
+                color: AppTheme.primary,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Badge(
+                      label: 'GRATUITO',
+                      background: AppTheme.goldSoft,
+                      foreground: AppTheme.foreground,
+                      border: AppTheme.primary,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tornar-se Premium',
+                      style: GoogleFonts.jost(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                        color: AppTheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
