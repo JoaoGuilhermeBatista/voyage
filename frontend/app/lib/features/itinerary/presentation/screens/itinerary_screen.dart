@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:printing/printing.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../currency/presentation/providers/currency_provider.dart';
 import '../../../maps/presentation/widgets/open_in_maps_button.dart';
 import '../../../maps/presentation/widgets/route_info_bar.dart';
+import '../../../pdf/data/pdf_repository.dart';
+import '../../../pdf/pdf_generator.dart';
 import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
 import '../providers/itinerary_provider.dart';
@@ -44,7 +47,9 @@ class ItineraryScreen extends ConsumerWidget {
                         'Não foi possível carregar o roteiro.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.jost(
-                            fontSize: 15, color: AppTheme.softBlack),
+                          fontSize: 15,
+                          color: AppTheme.softBlack,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
@@ -72,11 +77,29 @@ class _ItineraryBody extends StatelessWidget {
   const _ItineraryBody({required this.itinerary});
 
   static const _months = [
-    '', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+    '',
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez',
   ];
   static const _weekdays = [
-    '', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom',
+    '',
+    'Seg',
+    'Ter',
+    'Qua',
+    'Qui',
+    'Sex',
+    'Sáb',
+    'Dom',
   ];
 
   String _dayLabel(ItineraryDayModel day) {
@@ -99,10 +122,11 @@ class _ItineraryBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final days = (List.of(itinerary.days)
-          ..sort((a, b) => a.dayNumber.compareTo(b.dayNumber)))
-        .where((d) => d.activities.isNotEmpty)
-        .toList();
+    final days =
+        (List.of(itinerary.days)
+              ..sort((a, b) => a.dayNumber.compareTo(b.dayNumber)))
+            .where((d) => d.activities.isNotEmpty)
+            .toList();
 
     return CustomScrollView(
       slivers: [
@@ -126,8 +150,8 @@ class _ItineraryBody extends StatelessWidget {
                 Text(
                   _dateRange(),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.softBlack.withValues(alpha: 0.5),
-                      ),
+                    color: AppTheme.softBlack.withValues(alpha: 0.5),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 const _CurrencyRatesBar(),
@@ -171,8 +195,8 @@ class _CurrencyRatesBar extends ConsumerWidget {
       error: (_, _) => const SizedBox.shrink(),
       data: (rates) {
         final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.softBlack.withValues(alpha: 0.5),
-            );
+          color: AppTheme.softBlack.withValues(alpha: 0.5),
+        );
         return Row(
           children: [
             Icon(
@@ -209,7 +233,9 @@ class _HeroAppBar extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Excluir roteiro'),
-        content: const Text('Tem certeza que deseja excluir este roteiro? Esta ação não pode ser desfeita.'),
+        content: const Text(
+          'Tem certeza que deseja excluir este roteiro? Esta ação não pode ser desfeita.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -234,6 +260,39 @@ class _HeroAppBar extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Não foi possível excluir o roteiro.')),
+        );
+      }
+    }
+  }
+
+  /// PdfRepository.confirmExport só autoriza e conta (1ª grátis, depois
+  /// premium ilimitado ou 1 crédito avulso via Pix) — o PDF em si é
+  /// montado aqui no cliente a partir do [itinerary] já carregado na
+  /// tela, sem precisar de nova chamada ao backend pro conteúdo.
+  Future<void> _exportPdf(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(pdfRepositoryProvider).confirmExport(itinerary.id);
+      final bytes = await ItineraryPdfGenerator.generate(itinerary);
+      await Printing.sharePdf(bytes: bytes, filename: '${itinerary.title}.pdf');
+    } catch (e) {
+      if (!context.mounted) return;
+      final limitMessage = pdfLimitMessage(e);
+      if (limitMessage != null) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(limitMessage),
+            action: SnackBarAction(
+              label: 'Ver planos',
+              onPressed: () => context.push('/premium'),
+            ),
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível exportar o PDF. Tente novamente.'),
+          ),
         );
       }
     }
@@ -271,15 +330,29 @@ class _HeroAppBar extends ConsumerWidget {
               color: AppTheme.background,
               onSelected: (value) {
                 if (value == 'delete') _confirmDelete(context, ref);
+                if (value == 'export') _exportPdf(context, ref);
               },
               itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'export',
+                  child: Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Exportar PDF'),
+                    ],
+                  ),
+                ),
                 PopupMenuItem(
                   value: 'delete',
                   child: Row(
                     children: [
                       Icon(Icons.delete_outline, color: Colors.red, size: 18),
                       SizedBox(width: 8),
-                      Text('Excluir roteiro', style: TextStyle(color: Colors.red)),
+                      Text(
+                        'Excluir roteiro',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ],
                   ),
                 ),
@@ -297,7 +370,8 @@ class _HeroAppBar extends ConsumerWidget {
               CachedNetworkImage(
                 imageUrl: itinerary.destinationHeroImageUrl,
                 fit: BoxFit.cover,
-                placeholder: (_, _) => const ColoredBox(color: Color(0xFF1A252F)),
+                placeholder: (_, _) =>
+                    const ColoredBox(color: Color(0xFF1A252F)),
                 errorWidget: (_, _, _) =>
                     const ColoredBox(color: Color(0xFF1A252F)),
               )
@@ -391,8 +465,9 @@ class _SlotSection extends StatelessWidget {
     // "bloco com borda", só a Noite inverte pra bg-ink/gold-noir.
     final isNoir = slot == 'EVENING';
     final bg = isNoir ? AppTheme.ink : AppTheme.card;
-    final borderColor =
-        isNoir ? AppTheme.goldNoir.withValues(alpha: 0.25) : AppTheme.border;
+    final borderColor = isNoir
+        ? AppTheme.goldNoir.withValues(alpha: 0.25)
+        : AppTheme.border;
     final labelColor = isNoir ? AppTheme.goldNoir : AppTheme.mutedForeground;
 
     return SliverToBoxAdapter(
@@ -408,7 +483,10 @@ class _SlotSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: borderColor)),
                 ),
@@ -527,18 +605,15 @@ class _ActivityTile extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _AlternativesSheet(
-        itineraryId: itineraryId,
-        activity: activity,
-      ),
+      builder: (_) =>
+          _AlternativesSheet(itineraryId: itineraryId, activity: activity),
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final poi = activity.poi;
-    final categoryLabel =
-        _categoryLabels[poi.category] ?? poi.category;
+    final categoryLabel = _categoryLabels[poi.category] ?? poi.category;
     final budgetLabel = _budgetLabels[poi.budgetTier] ?? '';
     final duration = poi.averageDurationMinutes != null
         ? '${poi.averageDurationMinutes} min'
@@ -637,7 +712,13 @@ class _ActivityTile extends ConsumerWidget {
                       style: GoogleFonts.jost(fontSize: 12, color: mutedColor),
                     ),
                     if (budgetLabel.isNotEmpty) ...[
-                      Text(' · ', style: GoogleFonts.jost(fontSize: 12, color: faintColor)),
+                      Text(
+                        ' · ',
+                        style: GoogleFonts.jost(
+                          fontSize: 12,
+                          color: faintColor,
+                        ),
+                      ),
                       Text(
                         budgetLabel,
                         style: GoogleFonts.jost(
@@ -648,13 +729,24 @@ class _ActivityTile extends ConsumerWidget {
                       ),
                     ],
                     if (duration != null) ...[
-                      Text(' · ', style: GoogleFonts.jost(fontSize: 12, color: faintColor)),
-                      Text(duration, style: GoogleFonts.jost(fontSize: 12, color: mutedColor)),
+                      Text(
+                        ' · ',
+                        style: GoogleFonts.jost(
+                          fontSize: 12,
+                          color: faintColor,
+                        ),
+                      ),
+                      Text(
+                        duration,
+                        style: GoogleFonts.jost(
+                          fontSize: 12,
+                          color: mutedColor,
+                        ),
+                      ),
                     ],
                   ],
                 ),
-                if (poi.description != null &&
-                    poi.description!.isNotEmpty) ...[
+                if (poi.description != null && poi.description!.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     poi.description!,
@@ -672,14 +764,21 @@ class _ActivityTile extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined, size: 12, color: faintColor),
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 12,
+                        color: faintColor,
+                      ),
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(
                           poi.address!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.jost(fontSize: 12, color: faintColor),
+                          style: GoogleFonts.jost(
+                            fontSize: 12,
+                            color: faintColor,
+                          ),
                         ),
                       ),
                       if (poi.latitude != null && poi.longitude != null)
@@ -721,14 +820,10 @@ class _ActivityTile extends ConsumerWidget {
 class _AlternativesSheet extends ConsumerStatefulWidget {
   final String itineraryId;
   final ItineraryActivityModel activity;
-  const _AlternativesSheet({
-    required this.itineraryId,
-    required this.activity,
-  });
+  const _AlternativesSheet({required this.itineraryId, required this.activity});
 
   @override
-  ConsumerState<_AlternativesSheet> createState() =>
-      _AlternativesSheetState();
+  ConsumerState<_AlternativesSheet> createState() => _AlternativesSheetState();
 }
 
 class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
@@ -770,11 +865,9 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
     if (_substitutingPoiId != null) return;
     setState(() => _substitutingPoiId = poi.id);
     try {
-      await ref.read(itineraryRepositoryProvider).substituteActivity(
-            widget.itineraryId,
-            widget.activity.id,
-            poi.id,
-          );
+      await ref
+          .read(itineraryRepositoryProvider)
+          .substituteActivity(widget.itineraryId, widget.activity.id, poi.id);
       if (!mounted) return;
       ref.invalidate(itineraryDetailProvider(widget.itineraryId));
       Navigator.of(context).pop();
@@ -816,7 +909,9 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(child: CircularProgressIndicator(color: AppTheme.primaryBlue)),
+        child: Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryBlue),
+        ),
       );
     }
 
@@ -858,12 +953,13 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final poi in _alternatives) _AlternativeCard(
-          poi: poi,
-          isSubstituting: _substitutingPoiId == poi.id,
-          disabled: _substitutingPoiId != null,
-          onTap: () => _selectAlternative(poi),
-        ),
+        for (final poi in _alternatives)
+          _AlternativeCard(
+            poi: poi,
+            isSubstituting: _substitutingPoiId == poi.id,
+            disabled: _substitutingPoiId != null,
+            onTap: () => _selectAlternative(poi),
+          ),
       ],
     );
   }
@@ -929,8 +1025,9 @@ class _AlternativeCard extends StatelessWidget {
                                 height: 56,
                                 child: Icon(
                                   Icons.image_outlined,
-                                  color:
-                                      AppTheme.softBlack.withValues(alpha: 0.3),
+                                  color: AppTheme.softBlack.withValues(
+                                    alpha: 0.3,
+                                  ),
                                 ),
                               ),
                             ),
@@ -942,8 +1039,9 @@ class _AlternativeCard extends StatelessWidget {
                               height: 56,
                               child: Icon(
                                 Icons.image_outlined,
-                                color:
-                                    AppTheme.softBlack.withValues(alpha: 0.3),
+                                color: AppTheme.softBlack.withValues(
+                                  alpha: 0.3,
+                                ),
                               ),
                             ),
                           ),
@@ -955,7 +1053,8 @@ class _AlternativeCard extends StatelessWidget {
                       children: [
                         Text(
                           poi.title,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.softBlack,
                               ),
@@ -963,8 +1062,11 @@ class _AlternativeCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           categoryLabel,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppTheme.softBlack.withValues(alpha: 0.5),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppTheme.softBlack.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                         ),
                       ],
