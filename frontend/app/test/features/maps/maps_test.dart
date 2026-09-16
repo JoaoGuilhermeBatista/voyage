@@ -34,8 +34,11 @@ import 'package:app/core/services/api_client.dart';
 import 'package:app/features/maps/data/maps_models.dart';
 import 'package:app/features/maps/data/maps_repository.dart';
 import 'package:app/features/maps/presentation/providers/maps_provider.dart';
+import 'package:app/features/maps/presentation/widgets/map_embed_view.dart';
 import 'package:app/features/maps/presentation/widgets/open_in_maps_button.dart';
+import 'package:app/features/maps/presentation/widgets/poi_map_preview.dart';
 import 'package:app/features/maps/presentation/widgets/route_info_bar.dart';
+import 'package:app/features/maps/presentation/widgets/route_map_preview.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -255,6 +258,75 @@ void main() {
     );
   });
 
+  group('MapsRepository.getDirectionsEmbedUrl()', () {
+    test(
+      'faz GET em /maps/embed-url/directions com origem/destino e retorna '
+      'EmbedUrlModel parseado',
+      () async {
+        when(() => mockDio.get(
+              '/maps/embed-url/directions',
+              queryParameters: {
+                'originLat': -23.5505,
+                'originLng': -46.6333,
+                'destLat': -22.9068,
+                'destLng': -43.1729,
+              },
+            )).thenAnswer((_) async => Response(
+              data: embedJsonConfigured,
+              statusCode: 200,
+              requestOptions: RequestOptions(path: '/maps/embed-url/directions'),
+            ));
+
+        final repository = MapsRepository(mockApiClient);
+        final result = await repository.getDirectionsEmbedUrl(
+          originLat: -23.5505,
+          originLng: -46.6333,
+          destLat: -22.9068,
+          destLng: -43.1729,
+        );
+
+        verify(() => mockDio.get(
+              '/maps/embed-url/directions',
+              queryParameters: {
+                'originLat': -23.5505,
+                'originLng': -46.6333,
+                'destLat': -22.9068,
+                'destLng': -43.1729,
+              },
+            )).called(1);
+        expect(result, isA<EmbedUrlModel>());
+        expect(result.configured, true);
+        expect(result.embedUrl, isNotNull);
+      },
+    );
+
+    test(
+      'propaga erro tratável (DioException) quando a chamada falha',
+      () async {
+        when(() => mockDio.get(
+              '/maps/embed-url/directions',
+              queryParameters: any(named: 'queryParameters'),
+            )).thenThrow(
+          DioException(
+            requestOptions: RequestOptions(path: '/maps/embed-url/directions'),
+            type: DioExceptionType.connectionError,
+          ),
+        );
+
+        final repository = MapsRepository(mockApiClient);
+        expect(
+          () => repository.getDirectionsEmbedUrl(
+            originLat: -23.5505,
+            originLng: -46.6333,
+            destLat: -22.9068,
+            destLng: -43.1729,
+          ),
+          throwsA(isA<DioException>()),
+        );
+      },
+    );
+  });
+
   group('directionsProvider (Riverpod)', () {
     late MockMapsRepository mockRepository;
 
@@ -346,6 +418,45 @@ void main() {
       final result = await container.read(embedUrlProvider(key).future);
       expect(result.configured, true);
       expect(container.read(embedUrlProvider(key)), isA<AsyncData>());
+    });
+  });
+
+  group('directionsEmbedUrlProvider (Riverpod)', () {
+    late MockMapsRepository mockRepository;
+
+    setUp(() {
+      mockRepository = MockMapsRepository();
+    });
+
+    test('estado inicial é AsyncLoading, depois AsyncData com o model', () async {
+      final container = ProviderContainer(overrides: [
+        mapsRepositoryProvider.overrideWithValue(mockRepository),
+      ]);
+      addTearDown(container.dispose);
+
+      when(() => mockRepository.getDirectionsEmbedUrl(
+            originLat: -23.5505,
+            originLng: -46.6333,
+            destLat: -22.9068,
+            destLng: -43.1729,
+          )).thenAnswer((_) async => const EmbedUrlModel(
+                configured: true,
+                embedUrl: 'https://www.google.com/maps/embed/v1/directions?key=k',
+              ));
+
+      const key = (-23.5505, -46.6333, -22.9068, -43.1729);
+      expect(
+        container.read(directionsEmbedUrlProvider(key)),
+        isA<AsyncLoading>(),
+      );
+
+      final result =
+          await container.read(directionsEmbedUrlProvider(key).future);
+      expect(result.configured, true);
+      expect(
+        container.read(directionsEmbedUrlProvider(key)),
+        isA<AsyncData>(),
+      );
     });
   });
 
@@ -504,6 +615,162 @@ void main() {
 
         expect(find.byType(RouteInfoBar), findsOneWidget);
         expect(find.textContaining('km'), findsNothing);
+      },
+    );
+  });
+
+  group('PoiMapPreview', () {
+    // Rodando em VM (flutter test, não Web), MapEmbedView resolve para a
+    // implementação stub (map_embed_view_stub.dart) — o texto abaixo é o
+    // que ela renderiza. A implementação real (iframe via
+    // HtmlElementView) só existe compilando para Web, ver
+    // map_embed_view_web.dart.
+    testWidgets(
+      'renderiza MapEmbedView quando o provider retorna configured=true',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              embedUrlProvider((-23.5505, -46.6333)).overrideWith(
+                (ref) async => const EmbedUrlModel(
+                  configured: true,
+                  embedUrl: 'https://www.google.com/maps/embed/v1/place?key=k',
+                ),
+              ),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: PoiMapPreview(lat: -23.5505, lng: -46.6333),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(MapEmbedView), findsOneWidget);
+        expect(
+          find.text('Mapa visual disponível na versão web do LUVOY'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'não renderiza nada quando configured=false',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              embedUrlProvider((-23.5505, -46.6333)).overrideWith(
+                (ref) async => const EmbedUrlModel(configured: false),
+              ),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: PoiMapPreview(lat: -23.5505, lng: -46.6333),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(MapEmbedView), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'não quebra e não renderiza nada quando o provider dá erro',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              embedUrlProvider((-23.5505, -46.6333)).overrideWith((ref) async {
+                throw DioException(
+                  requestOptions: RequestOptions(path: '/maps/embed-url'),
+                  type: DioExceptionType.connectionError,
+                );
+              }),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: PoiMapPreview(lat: -23.5505, lng: -46.6333),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(PoiMapPreview), findsOneWidget);
+        expect(find.byType(MapEmbedView), findsNothing);
+      },
+    );
+  });
+
+  group('RouteMapPreview', () {
+    const key = (-23.5505, -46.6333, -22.9068, -43.1729);
+
+    testWidgets(
+      'renderiza MapEmbedView quando o provider retorna configured=true',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              directionsEmbedUrlProvider(key).overrideWith(
+                (ref) async => const EmbedUrlModel(
+                  configured: true,
+                  embedUrl:
+                      'https://www.google.com/maps/embed/v1/directions?key=k',
+                ),
+              ),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: RouteMapPreview(
+                  originLat: -23.5505,
+                  originLng: -46.6333,
+                  destLat: -22.9068,
+                  destLng: -43.1729,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(MapEmbedView), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'não renderiza nada quando configured=false',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              directionsEmbedUrlProvider(key).overrideWith(
+                (ref) async => const EmbedUrlModel(configured: false),
+              ),
+            ],
+            child: const MaterialApp(
+              home: Scaffold(
+                body: RouteMapPreview(
+                  originLat: -23.5505,
+                  originLng: -46.6333,
+                  destLat: -22.9068,
+                  destLng: -43.1729,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byType(MapEmbedView), findsNothing);
       },
     );
   });

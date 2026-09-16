@@ -44,6 +44,24 @@ class MapsRepository {
     return EmbedUrlModel.fromJson(response.data as Map<String, dynamic>);
   }
 
+  Future<EmbedUrlModel> getDirectionsEmbedUrl({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+  }) async {
+    final response = await _apiClient.dio.get(
+      '/maps/embed-url/directions',
+      queryParameters: {
+        'originLat': originLat,
+        'originLng': originLng,
+        'destLat': destLat,
+        'destLng': destLng,
+      },
+    );
+    return EmbedUrlModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<NeighborhoodSuggestionsModel> getNeighborhoodSuggestions({
     required String destinationId,
     required String budgetTier,

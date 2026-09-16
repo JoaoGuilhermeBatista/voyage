@@ -152,4 +152,32 @@ class MapsServiceTest {
         assertTrue(result.embedUrl() != null && result.embedUrl().contains("-46.6333"));
         verifyNoInteractions(mockRestClient);
     }
+
+    // ─── (e) getDirectionsEmbedUrl — api-key não configurada → configured=false, sem chamada HTTP ─
+
+    @Test
+    void getDirectionsEmbedUrl_shouldReturnNotConfigured_andNeverCallRestClient_whenApiKeyIsBlank() {
+        MapsService service = new MapsService("not-configured", mockRestClient);
+
+        EmbedUrlResponseDTO result = service.getDirectionsEmbedUrl(-23.5505, -46.6333, -22.9068, -43.1729);
+
+        assertFalse(result.configured());
+        assertNull(result.embedUrl());
+        verifyNoInteractions(mockRestClient);
+    }
+
+    // ─── (f) getDirectionsEmbedUrl — api-key configurada → monta a URL de rota (sem chamada HTTP) ─
+
+    @Test
+    void getDirectionsEmbedUrl_shouldBuildUrlWithKeyOriginDestination_whenApiKeyIsConfigured() {
+        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient);
+
+        EmbedUrlResponseDTO result = service.getDirectionsEmbedUrl(-23.5505, -46.6333, -22.9068, -43.1729);
+
+        assertTrue(result.configured());
+        assertTrue(result.embedUrl() != null && result.embedUrl().contains(FAKE_API_KEY));
+        assertTrue(result.embedUrl() != null && result.embedUrl().contains("origin=-23.5505,-46.6333"));
+        assertTrue(result.embedUrl() != null && result.embedUrl().contains("destination=-22.9068,-43.1729"));
+        verifyNoInteractions(mockRestClient);
+    }
 }

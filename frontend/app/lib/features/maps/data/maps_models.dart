@@ -31,6 +31,9 @@ class DirectionsModel {
   }
 }
 
+// EmbedUrlModel também é reaproveitado pra GET /maps/embed-url/directions
+// (mesmo shape de resposta — { configured, embedUrl } — muda só a URL de
+// origem, que vem no modo "directions" da Embed API em vez de "place").
 class EmbedUrlModel {
   final bool configured;
   final String? embedUrl;

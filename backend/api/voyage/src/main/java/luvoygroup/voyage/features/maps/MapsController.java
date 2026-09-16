@@ -62,6 +62,21 @@ public class MapsController {
         return mapsService.getEmbedUrl(parsedLat, parsedLng);
     }
 
+    @GetMapping("/embed-url/directions")
+    @Operation(summary = "URL embutível do Google Maps para a rota entre dois pontos (origem/destino)")
+    public EmbedUrlResponseDTO getDirectionsEmbedUrl(
+        @RequestParam(required = false) String originLat,
+        @RequestParam(required = false) String originLng,
+        @RequestParam(required = false) String destLat,
+        @RequestParam(required = false) String destLng
+    ) {
+        double oLat = parseCoord(originLat, "originLat");
+        double oLng = parseCoord(originLng, "originLng");
+        double dLat = parseCoord(destLat, "destLat");
+        double dLng = parseCoord(destLng, "destLng");
+        return mapsService.getDirectionsEmbedUrl(oLat, oLng, dLat, dLng);
+    }
+
     @GetMapping("/neighborhood-suggestions")
     @Operation(summary = "Sugestão de bairros para hospedagem via Google Places Nearby Search")
     public NeighborhoodSuggestionsDTO getNeighborhoodSuggestions(

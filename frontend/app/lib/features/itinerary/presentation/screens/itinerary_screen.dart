@@ -7,7 +7,9 @@ import 'package:printing/printing.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../currency/presentation/providers/currency_provider.dart';
 import '../../../maps/presentation/widgets/open_in_maps_button.dart';
+import '../../../maps/presentation/widgets/poi_map_preview.dart';
 import '../../../maps/presentation/widgets/route_info_bar.dart';
+import '../../../maps/presentation/widgets/route_map_preview.dart';
 import '../../../pdf/data/pdf_repository.dart';
 import '../../../pdf/pdf_generator.dart';
 import '../../data/itinerary_models.dart';
@@ -559,11 +561,27 @@ class _RouteBetweenActivities extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 6, bottom: 14),
-      child: RouteInfoBar(
-        originLat: originLat,
-        originLng: originLng,
-        destLat: destLat,
-        destLng: destLng,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RouteInfoBar(
+            originLat: originLat,
+            originLng: originLng,
+            destLat: destLat,
+            destLng: destLng,
+          ),
+          _MapPreviewToggle(
+            preview: RouteMapPreview(
+              originLat: originLat,
+              originLng: originLng,
+              destLat: destLat,
+              destLng: destLng,
+            ),
+            mutedColor: AppTheme.softBlack.withValues(alpha: 0.5),
+            collapsedLabel: 'Ver rota no mapa',
+            expandedLabel: 'Ocultar rota',
+          ),
+        ],
       ),
     );
   }
@@ -789,6 +807,14 @@ class _ActivityTile extends ConsumerWidget {
                     ],
                   ),
                 ],
+                if (poi.latitude != null && poi.longitude != null)
+                  _MapPreviewToggle(
+                    preview: PoiMapPreview(
+                      lat: poi.latitude!,
+                      lng: poi.longitude!,
+                    ),
+                    mutedColor: mutedColor,
+                  ),
               ],
             ),
           ),
@@ -800,6 +826,66 @@ class _ActivityTile extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// Toggle "Ver mapa" de um _ActivityTile — some/expande um PoiMapPreview
+// (iframe da Google Maps Embed API, só real no Flutter Web; graceful stub
+// nas demais plataformas). Colapsado por padrão: renderizar um iframe por
+// atividade/rota de cara custaria uma chamada ao backend + um iframe por
+// tile, sem necessidade se a pessoa não pedir pra ver. Genérico o
+// suficiente pra envolver tanto PoiMapPreview (pino único) quanto
+// RouteMapPreview (rota entre duas atividades) — só troca o preview e os
+// rótulos do toggle.
+class _MapPreviewToggle extends StatefulWidget {
+  final Widget preview;
+  final Color mutedColor;
+  final String collapsedLabel;
+  final String expandedLabel;
+  const _MapPreviewToggle({
+    required this.preview,
+    required this.mutedColor,
+    this.collapsedLabel = 'Ver mapa',
+    this.expandedLabel = 'Ocultar mapa',
+  });
+
+  @override
+  State<_MapPreviewToggle> createState() => _MapPreviewToggleState();
+}
+
+class _MapPreviewToggleState extends State<_MapPreviewToggle> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 4),
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _expanded ? Icons.expand_less : Icons.map_outlined,
+                size: 13,
+                color: widget.mutedColor,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _expanded ? widget.expandedLabel : widget.collapsedLabel,
+                style: GoogleFonts.jost(fontSize: 12, color: widget.mutedColor),
+              ),
+            ],
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 8),
+          widget.preview,
+        ],
+      ],
     );
   }
 }

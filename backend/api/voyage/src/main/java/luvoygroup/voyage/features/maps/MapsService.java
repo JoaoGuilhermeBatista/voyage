@@ -80,6 +80,23 @@ public class MapsService {
         return new EmbedUrlResponseDTO(true, embedUrl);
     }
 
+    /**
+     * Mesma lógica de {@link #getEmbedUrl}, mas no modo "directions" da
+     * Embed API — em vez de um pino num único ponto, mostra a rota
+     * traçada entre origem e destino. Também não faz chamada HTTP (só
+     * monta a URL com a key para o app renderizar num iframe/WebView).
+     */
+    public EmbedUrlResponseDTO getDirectionsEmbedUrl(double originLat, double originLng, double destLat, double destLng) {
+        if (!isConfigured()) {
+            return new EmbedUrlResponseDTO(false, null);
+        }
+
+        String embedUrl = "https://www.google.com/maps/embed/v1/directions?key=" + apiKey
+            + "&origin=" + originLat + "," + originLng
+            + "&destination=" + destLat + "," + destLng;
+        return new EmbedUrlResponseDTO(true, embedUrl);
+    }
+
     private boolean isConfigured() {
         return apiKey != null && !apiKey.isBlank() && !"not-configured".equals(apiKey);
     }

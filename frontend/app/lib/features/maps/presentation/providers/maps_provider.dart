@@ -34,6 +34,22 @@ final embedUrlProvider =
   },
 );
 
+/// URL de embed da ROTA entre dois pontos via GET
+/// /api/v1/maps/embed-url/directions. Chave da family é (originLat,
+/// originLng, destLat, destLng) — mesmo formato de directionsProvider.
+final directionsEmbedUrlProvider = FutureProvider.family<EmbedUrlModel,
+    (double originLat, double originLng, double destLat, double destLng)>(
+  (ref, coords) async {
+    final repository = ref.watch(mapsRepositoryProvider);
+    return repository.getDirectionsEmbedUrl(
+      originLat: coords.$1,
+      originLng: coords.$2,
+      destLat: coords.$3,
+      destLng: coords.$4,
+    );
+  },
+);
+
 /// Sugestões de bairro pra hospedagem via GET /api/v1/maps/neighborhood-suggestions.
 /// Chave da family é (destinationId, budgetTier).
 final neighborhoodSuggestionsProvider = FutureProvider.family<

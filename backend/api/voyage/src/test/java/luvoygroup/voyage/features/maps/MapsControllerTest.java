@@ -189,6 +189,73 @@ class MapsControllerTest {
             .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
     }
 
+    // ─── GET /maps/embed-url/directions autenticado, service configured=true → 200 ─
+
+    @Test
+    void shouldReturnDirectionsEmbedUrl_whenAuthenticatedAndConfigured() throws Exception {
+        when(mapsService.getDirectionsEmbedUrl(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+            .thenReturn(new EmbedUrlResponseDTO(
+                true,
+                "https://www.google.com/maps/embed/v1/directions?key=fake-key&origin=-23.5505,-46.6333&destination=-22.9068,-43.1729"
+            ));
+
+        mockMvc.perform(get("/api/v1/maps/embed-url/directions")
+                .header("Authorization", validToken)
+                .param("originLat", "-23.5505")
+                .param("originLng", "-46.6333")
+                .param("destLat", "-22.9068")
+                .param("destLng", "-43.1729"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.configured").value(true))
+            .andExpect(jsonPath("$.embedUrl").value(
+                "https://www.google.com/maps/embed/v1/directions?key=fake-key&origin=-23.5505,-46.6333&destination=-22.9068,-43.1729"));
+    }
+
+    // ─── GET /maps/embed-url/directions com service configured=false → 200, configured:false ─
+
+    @Test
+    void shouldReturn200WithConfiguredFalse_whenGoogleMapsKeyNotConfiguredForDirectionsEmbed() throws Exception {
+        when(mapsService.getDirectionsEmbedUrl(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+            .thenReturn(new EmbedUrlResponseDTO(false, null));
+
+        mockMvc.perform(get("/api/v1/maps/embed-url/directions")
+                .header("Authorization", validToken)
+                .param("originLat", "-23.5505")
+                .param("originLng", "-46.6333")
+                .param("destLat", "-22.9068")
+                .param("destLng", "-43.1729"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.configured").value(false))
+            .andExpect(jsonPath("$.embedUrl").doesNotExist());
+    }
+
+    // ─── GET /maps/embed-url/directions sem um parâmetro obrigatório → 400 ────
+
+    @Test
+    void shouldReturn400_whenDirectionsEmbedUrlParamIsMissing() throws Exception {
+        mockMvc.perform(get("/api/v1/maps/embed-url/directions")
+                .header("Authorization", validToken)
+                .param("originLat", "-23.5505")
+                .param("originLng", "-46.6333")
+                .param("destLat", "-22.9068"))
+            // destLng ausente
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
+    }
+
+    // ─── GET /maps/embed-url/directions sem token → 401 ───────────────────────
+
+    @Test
+    void shouldReturn401_whenNoTokenProvidedForDirectionsEmbedUrl() throws Exception {
+        mockMvc.perform(get("/api/v1/maps/embed-url/directions")
+                .param("originLat", "-23.5505")
+                .param("originLng", "-46.6333")
+                .param("destLat", "-22.9068")
+                .param("destLng", "-43.1729"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
+    }
+
     // ─── Teste 48: GET /maps/neighborhood-suggestions autenticado, delega pro PlacesService ─
     //
     // Este teste cobre só o CONTRATO do controller (roteamento, propagação
