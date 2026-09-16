@@ -291,6 +291,53 @@ class PlacesServiceTest {
         assertTrue(result.neighborhoods().isEmpty());
     }
 
+    // ─── (h) resultado vazio por falha transitória NÃO fica cacheado pra sempre ─
+    //
+    // Bug real suspeitado (registrado em memória de sessão anterior): se a
+    // 1ª tentativa de discoverRealNeighborhoods falhar por um motivo
+    // transitório (aqui simulado como um RuntimeException do RestClient —
+    // capturada pelo try/catch, vira lista vazia), essa lista vazia NÃO
+    // pode ficar memoizada pra sempre — a próxima chamada (mesmo
+    // destinationId) deve tentar de novo, e se a API responder OK dessa
+    // vez, deve retornar sugestões de verdade.
+
+    @Test
+    void suggestNeighborhoods_shouldRetryDiscovery_whenFirstAttemptFailedTransiently_insteadOfCachingEmptyForever() {
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(destinationId)).thenReturn(poisWithCoords());
+
+        // 1ª tentativa: RestClient falha (ex.: timeout de rede) — capturado
+        // por discoverRealNeighborhoods, vira lista vazia.
+        when(mockRestClient.get()).thenThrow(new RuntimeException("timeout simulado"));
+
+        PlacesService service = newService();
+        NeighborhoodSuggestionsDTO first = service.suggestNeighborhoods(destinationId, BudgetTier.MODERATE);
+        assertTrue(first.configured());
+        assertTrue(first.neighborhoods().isEmpty());
+
+        // 2ª tentativa: agora a API responde normalmente. reset() é
+        // necessário antes de re-stubar — com o mock ainda armado pra
+        // lançar, o próprio when(mockRestClient.get()) invocaria o método
+        // e re-lançaria a exceção antes de conseguir trocar o stub.
+        org.mockito.Mockito.reset(mockRestClient);
+        stubNearbySearch(SAMPLE_NEARBY_SEARCH_JSON);
+        when(geocodingService.reverseGeocodeToNeighborhood(-23.5610, -46.6560))
+            .thenReturn(Optional.of("Bela Vista"));
+        when(geocodingService.reverseGeocodeToNeighborhood(-23.5620, -46.6550))
+            .thenReturn(Optional.of("Jardins"));
+        when(llmService.recommendNeighborhoods(anyString(), anyString(), any(), any()))
+            .thenReturn(List.of(new NeighborhoodRecommendation("Bela Vista", "Vantagem qualquer.")));
+
+        NeighborhoodSuggestionsDTO second = service.suggestNeighborhoods(destinationId, BudgetTier.MODERATE);
+
+        // reset(mockRestClient) acima zera o histórico de invocações — o
+        // que importa aqui é que ELE FOI CHAMADO DE NOVO (retry de
+        // verdade), não o total acumulado desde o início do teste.
+        verify(mockRestClient, times(1)).get();
+        assertFalse(second.neighborhoods().isEmpty());
+        assertEquals("Bela Vista", second.neighborhoods().get(0).name());
+    }
+
     @SuppressWarnings("unchecked")
     private void injectDiscoveryCache(PlacesService service, UUID destId, List<String> candidates) {
         try {

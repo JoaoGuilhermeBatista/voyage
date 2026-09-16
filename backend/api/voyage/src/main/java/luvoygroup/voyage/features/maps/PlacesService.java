@@ -140,11 +140,32 @@ public class PlacesService {
             .average()
             .orElseThrow();
 
-        List<String> candidates = discoveryCache.computeIfAbsent(destinationId,
-            id -> discoverRealNeighborhoods(centerLat, centerLng));
+        // Não usamos computeIfAbsent aqui de propósito: ele cachearia uma
+        // lista vazia pra sempre mesmo quando ela veio de uma falha
+        // transitória (rede instável, quota momentânea da Nearby
+        // Search/Geocoding — discoverRealNeighborhoods captura qualquer
+        // exceção e devolve lista vazia, indistinguível de "sem bairro
+        // identificável de verdade"). Só um resultado NÃO-vazio é
+        // memoizado; um resultado vazio é recalculado na próxima chamada
+        // — mais caro pros poucos destinos genuinamente sem bairro
+        // identificável, mas evita a feature ficar travada em "sem
+        // sugestão" pro resto da vida do processo por causa de um erro
+        // pontual.
+        List<String> candidates = discoveryCache.get(destinationId);
+        if (candidates == null) {
+            candidates = discoverRealNeighborhoods(centerLat, centerLng);
+            if (!candidates.isEmpty()) {
+                discoveryCache.put(destinationId, candidates);
+            }
+        }
 
         if (candidates.isEmpty()) {
-            recommendationCache.put(cacheKey, List.of());
+            // Mesmo raciocínio do discoveryCache acima: não cacheamos —
+            // um resultado vazio aqui pode vir de um destino genuinamente
+            // sem bairro identificável (ok recalcular sempre, é barato:
+            // nem chama Nearby Search de novo, já que discoveryCache
+            // segue vazio também) ou de uma falha transitória que ainda
+            // não se resolveu.
             return new NeighborhoodSuggestionsDTO(true, List.of());
         }
 
@@ -157,7 +178,12 @@ public class PlacesService {
             result = List.of();
         }
 
-        recommendationCache.put(cacheKey, result);
+        // Idem: só memoiza um resultado de verdade — uma falha do LLM
+        // (rate limit, timeout) não pode travar as recomendações desse
+        // destino+budget pro resto da vida do processo.
+        if (!result.isEmpty()) {
+            recommendationCache.put(cacheKey, result);
+        }
         return new NeighborhoodSuggestionsDTO(true, result);
     }
 
