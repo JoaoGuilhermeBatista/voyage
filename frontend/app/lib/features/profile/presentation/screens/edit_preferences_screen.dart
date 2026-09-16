@@ -80,7 +80,9 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
     setState(() => _isSaving = true);
 
     try {
-      await ref.read(userRepositoryProvider).updatePreferences(
+      await ref
+          .read(userRepositoryProvider)
+          .updatePreferences(
             budget: _budget!,
             rhythm: _rhythm!,
             groupType: _groupType!,
@@ -219,7 +221,9 @@ class _EditPreferencesScreenState extends ConsumerState<EditPreferencesScreen> {
         child: ElevatedButton(
           onPressed: enabled ? _save : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: enabled ? AppTheme.primaryBlue : AppTheme.shimmerBase,
+            backgroundColor: enabled
+                ? AppTheme.primaryBlue
+                : AppTheme.shimmerBase,
             disabledBackgroundColor: AppTheme.shimmerBase,
             foregroundColor: AppTheme.softWhite,
             disabledForegroundColor: AppTheme.shimmerBase,
