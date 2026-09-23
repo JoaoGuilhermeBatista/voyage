@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -66,7 +67,18 @@ public class ItineraryTemplateService {
         Map<String, Poi> poiByNormalizedTitle = pois.stream()
             .collect(Collectors.toMap(p -> normalizeTitle(p.getTitle()), p -> p, (a, b) -> a));
 
-        String prompt = buildGenerationPrompt(destination, durationDays, budgetTier, pois);
+        // Agrupamento geográfico feito em CÓDIGO (não só por instrução de
+        // texto pro LLM) — ver clusterPoisByDay(). Achado real ao comparar
+        // contra um roteiro de referência da contratante: mesmo com
+        // instrução explícita de proximidade no prompt, a LLM ocasionalmente
+        // escolhia um POI a ~10km de distância dos outros do mesmo dia
+        // (geralmente por bater a categoria certa, ex: "SHOPPING", ignorando
+        // a distância). O dayNumber devolvido pela LLM é sobrescrito pelo
+        // cluster real em validateGeneratedActivity — geograficamente
+        // garantido, não apenas sugerido.
+        Map<UUID, Integer> dayCluster = clusterPoisByDay(pois, durationDays);
+
+        String prompt = buildGenerationPrompt(destination, durationDays, budgetTier, pois, dayCluster);
 
         GeneratedTemplateContent content = chatClient.prompt()
             .user(prompt)
@@ -75,7 +87,7 @@ public class ItineraryTemplateService {
 
         List<ValidatedActivity> validActivities = (content.activities() == null ? List.<GeneratedTemplateActivity>of() : content.activities())
             .stream()
-            .map(ga -> validateGeneratedActivity(ga, poiById, poiByNormalizedTitle))
+            .map(ga -> validateGeneratedActivity(ga, poiById, poiByNormalizedTitle, dayCluster))
             .filter(Objects::nonNull)
             .toList();
 
@@ -236,28 +248,62 @@ public class ItineraryTemplateService {
         );
     }
 
-    private String buildGenerationPrompt(Destination destination, int durationDays, BudgetTier budgetTier, List<Poi> pois) {
-        String poiCatalog = pois.stream()
-            .map(p -> "- id: %s | title: %s | category: %s | budgetTier: %s | mustSee: %s"
-                .formatted(p.getId(), p.getTitle(), p.getCategory(), p.getBudgetTier(), p.isMustSee()))
-            .collect(Collectors.joining("\n"));
+    private String buildGenerationPrompt(
+        Destination destination, int durationDays, BudgetTier budgetTier, List<Poi> pois, Map<UUID, Integer> dayCluster
+    ) {
+        // Catálogo dividido por dia, seguindo o cluster geográfico já
+        // calculado em código (clusterPoisByDay) — cada seção só lista os
+        // POIs daquela região, então a LLM não tem nem a OPÇÃO de escolher
+        // um POI distante pro dia errado (antes disso, a instrução de
+        // proximidade era só textual e a LLM ignorava ocasionalmente).
+        StringBuilder catalogBuilder = new StringBuilder();
+        for (int day = 1; day <= durationDays; day++) {
+            int currentDay = day;
+            List<Poi> dayPois = pois.stream()
+                .filter(p -> dayCluster.getOrDefault(p.getId(), 1) == currentDay)
+                .toList();
+            catalogBuilder.append("Dia %d — use POIs SOMENTE desta lista para este dia (já filtrados por proximidade geográfica):\n"
+                .formatted(currentDay));
+            for (Poi p : dayPois) {
+                catalogBuilder.append("- id: %s | title: %s | category: %s | budgetTier: %s | address: %s | mustSee: %s\n"
+                    .formatted(p.getId(), p.getTitle(), p.getCategory(), p.getBudgetTier(),
+                        p.getAddress() == null ? "desconhecido" : p.getAddress(), p.isMustSee()));
+            }
+            catalogBuilder.append("\n");
+        }
+        String poiCatalog = catalogBuilder.toString();
 
         return """
             Você é um especialista em roteiros de viagem. Monte um roteiro de %d dia(s) para o destino
             "%s", adequado ao orçamento %s, usando SOMENTE os pontos de interesse (POIs) listados abaixo —
             não invente nem utilize POIs fora desta lista.
 
-            POIs disponíveis:
+            O catálogo já vem DIVIDIDO POR DIA (uma seção "Dia N" para cada dia do roteiro) — essa divisão
+            já foi calculada por proximidade geográfica real (coordenadas), então os POIs de cada seção já
+            estão concentrados na mesma região da cidade. REGRA OBRIGATÓRIA: use exclusivamente os POIs da
+            seção "Dia N" para montar as atividades do dia N — nunca pegue um POI de uma seção pra colocar
+            em outro dia. Isso é o que garante que o roteiro de cada dia fique geograficamente coerente (a
+            pé ou com deslocamento curto), sem pular entre pontos distantes da cidade no mesmo dia.
+
             %s
 
             Priorize os POIs com mustSee: true — eles são os pontos imperdíveis do destino e devem ser
-            alocados primeiro, cada um no dia e período (MORNING, AFTERNOON ou EVENING) mais lógico dentro
-            do roteiro, antes de preencher os horários restantes com os demais POIs. Monte a sequência de
-            cada dia como um roteiro real e conhecido daquela cidade montaria — respeitando proximidade e
-            fluxo geográfico, agrupando por categoria quando fizer sentido (ex: museus próximos na mesma
-            janela, vida noturna à noite) — e não como uma escolha aleatória de POIs. Baseie-se em guias de viagem reais e publicados
-            sobre %s para definir uma sequência de visitas coerente com o que um roteiro turístico de
-            verdade sobre esse lugar teria.
+            alocados primeiro, cada um no período (MORNING, AFTERNOON ou EVENING) mais lógico dentro do
+            dia em que já estão (dado pela seção), antes de preencher os horários restantes com os demais
+            POIs da mesma seção. Dentro de cada dia, monte a sequência como um roteiro real e conhecido
+            daquela cidade montaria, agrupando por categoria quando fizer sentido (ex: museus próximos na
+            mesma janela, vida noturna à noite) — e não como uma escolha aleatória de POIs. Baseie-se em
+            guias de viagem reais e publicados sobre %s para definir uma sequência de visitas coerente com
+            o que um roteiro turístico de verdade sobre esse lugar teria.
+
+            DENSIDADE: um roteiro real tem vários pontos por período, não só um. Cada período (MORNING e
+            AFTERNOON, principalmente) deve ter, tipicamente, de 2 a 4 POIs em sequência — a menos que um
+            único POI já ocupe o período inteiro por natureza (ex: um museu muito grande) ou que a seção
+            daquele dia seja pequena demais para sustentar essa densidade.
+
+            REFEIÇÕES: sempre que existir POI de categoria RESTAURANT na seção do dia, compatível com o
+            orçamento, garanta pelo menos uma refeição por dia — o almoço como primeiro item (orderInSlot 0)
+            do período AFTERNOON, e o jantar dentro do período EVENING.
 
             Cada dia deve ter atividades distribuídas nos períodos MORNING, AFTERNOON e EVENING.
             Responda SOMENTE com JSON válido, sem markdown, sem explicações.
@@ -279,7 +325,7 @@ public class ItineraryTemplateService {
     }
 
     private ValidatedActivity validateGeneratedActivity(
-        GeneratedTemplateActivity ga, Map<UUID, Poi> poiById, Map<String, Poi> poiByNormalizedTitle
+        GeneratedTemplateActivity ga, Map<UUID, Poi> poiById, Map<String, Poi> poiByNormalizedTitle, Map<UUID, Integer> dayCluster
     ) {
         try {
             Poi poi = resolvePoi(ga.poiId(), poiById, poiByNormalizedTitle);
@@ -290,16 +336,137 @@ public class ItineraryTemplateService {
 
             ItinerarySlot slot = ItinerarySlot.valueOf(ga.slot().toUpperCase());
 
-            if (ga.dayNumber() == null || ga.orderInSlot() == null) {
-                log.warn("Atividade gerada ignorada (dayNumber/orderInSlot ausente): {}", ga);
+            if (ga.orderInSlot() == null) {
+                log.warn("Atividade gerada ignorada (orderInSlot ausente): {}", ga);
                 return null;
             }
 
-            return new ValidatedActivity(poi, ga.dayNumber(), slot, ga.orderInSlot());
+            // O dayNumber é SOBRESCRITO pelo cluster geográfico real (nunca
+            // confia no que a LLM devolveu para esse campo) — garante que o
+            // agrupamento por dia reflita a divisão geográfica calculada em
+            // clusterPoisByDay, mesmo se a LLM tiver misturado dias. Só cai
+            // no valor devolvido pela LLM se o POI não tiver cluster (não
+            // deveria acontecer hoje — todo POI ativo tem lat/lng).
+            Integer dayNumber = dayCluster.getOrDefault(poi.getId(), ga.dayNumber());
+            if (dayNumber == null) {
+                log.warn("Atividade gerada ignorada (dayNumber ausente e sem cluster geográfico): {}", ga);
+                return null;
+            }
+
+            return new ValidatedActivity(poi, dayNumber, slot, ga.orderInSlot());
         } catch (Exception e) {
             log.warn("Atividade gerada ignorada (dados inválidos): {} — {}", ga, e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Agrupa os POIs em até {@code dayCount} clusters geográficos —
+     * k-means simples sobre (latitude, longitude), com a longitude
+     * corrigida por cos(latitude média) pra não distorcer a distância
+     * leste-oeste. Retorna poiId -> número do dia (1-based).
+     *
+     * Determinístico de propósito (sementes iniciais escolhidas por
+     * ordenação, não aleatórias) — o mesmo catálogo sempre produz o mesmo
+     * agrupamento, facilita testar e comparar execuções.
+     *
+     * Por que em código e não só via prompt: comparação manual contra um
+     * roteiro de referência real (contratante, Paris) mostrou a LLM
+     * escolhendo POIs a ~10km de distância dos outros do mesmo dia mesmo
+     * com instrução explícita de proximidade no texto — geralmente por
+     * casar a categoria certa (ex: "SHOPPING") ignorando a distância. O
+     * cluster geográfico feito aqui é estrutural: o catálogo do prompt já
+     * vem pré-filtrado por dia (ver buildGenerationPrompt), e o dayNumber
+     * final é sempre sobrescrito por este cluster em
+     * validateGeneratedActivity — não depende da LLM obedecer.
+     *
+     * dayCount <= 1 ou nenhum POI com coordenadas: sem clusterização
+     * real, todo mundo cai no dia 1 (mesmo comportamento de antes desta
+     * mudança).
+     */
+    private Map<UUID, Integer> clusterPoisByDay(List<Poi> pois, int dayCount) {
+        Map<UUID, Integer> result = new HashMap<>();
+
+        List<Poi> withCoords = pois.stream()
+            .filter(p -> p.getLatitude() != null && p.getLongitude() != null)
+            .toList();
+
+        if (dayCount <= 1 || withCoords.isEmpty()) {
+            for (Poi p : pois) {
+                result.put(p.getId(), 1);
+            }
+            return result;
+        }
+
+        double avgLat = withCoords.stream().mapToDouble(p -> p.getLatitude().doubleValue()).average().orElse(0);
+        double lngScale = Math.cos(Math.toRadians(avgLat));
+
+        int k = Math.min(dayCount, withCoords.size());
+
+        List<Poi> sortedByLat = withCoords.stream()
+            .sorted(Comparator.comparingDouble(p -> p.getLatitude().doubleValue()))
+            .toList();
+        double[][] centroids = new double[k][2];
+        for (int i = 0; i < k; i++) {
+            // Divisão por piso (sem +0.5 de offset): garante índices
+            // estritamente crescentes e distintos mesmo quando o catálogo
+            // tem exatamente k POIs (o offset de arredondamento colapsava
+            // duas sementes no mesmo índice nesse caso-limite).
+            int idx = Math.min((int) ((long) i * sortedByLat.size() / k), sortedByLat.size() - 1);
+            Poi seed = sortedByLat.get(idx);
+            centroids[i][0] = seed.getLatitude().doubleValue();
+            centroids[i][1] = seed.getLongitude().doubleValue() * lngScale;
+        }
+
+        int[] assignment = new int[withCoords.size()];
+        for (int iter = 0; iter < 20; iter++) {
+            boolean changed = false;
+            for (int i = 0; i < withCoords.size(); i++) {
+                Poi p = withCoords.get(i);
+                double lat = p.getLatitude().doubleValue();
+                double lng = p.getLongitude().doubleValue() * lngScale;
+                int best = 0;
+                double bestDist = Double.MAX_VALUE;
+                for (int c = 0; c < k; c++) {
+                    double dist = Math.hypot(lat - centroids[c][0], lng - centroids[c][1]);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        best = c;
+                    }
+                }
+                if (assignment[i] != best) {
+                    changed = true;
+                    assignment[i] = best;
+                }
+            }
+
+            double[][] sums = new double[k][2];
+            int[] counts = new int[k];
+            for (int i = 0; i < withCoords.size(); i++) {
+                Poi p = withCoords.get(i);
+                int c = assignment[i];
+                sums[c][0] += p.getLatitude().doubleValue();
+                sums[c][1] += p.getLongitude().doubleValue() * lngScale;
+                counts[c]++;
+            }
+            for (int c = 0; c < k; c++) {
+                if (counts[c] > 0) {
+                    centroids[c][0] = sums[c][0] / counts[c];
+                    centroids[c][1] = sums[c][1] / counts[c];
+                }
+            }
+            if (!changed) break;
+        }
+
+        for (int i = 0; i < withCoords.size(); i++) {
+            result.put(withCoords.get(i).getId(), assignment[i] + 1);
+        }
+        // POIs sem coordenadas ficam de fora do mapa — se a LLM ainda assim
+        // escolher um (catálogo os inclui em nenhuma seção específica hoje,
+        // já que todo POI ativo tem lat/lng — ver PlacesServiceTest/dados de
+        // produção), o dayNumber dela é aceito como fallback (ver
+        // validateGeneratedActivity).
+        return result;
     }
 
     /**
