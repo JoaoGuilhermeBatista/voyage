@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/constants/deeplink_constants.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../profile/data/user_model.dart';
 import '../../../profile/presentation/providers/user_provider.dart';
@@ -15,12 +16,13 @@ import '../../data/billing_repository.dart';
 ///
 /// O checkout do Stripe abre no navegador externo (nunca embutido — é a
 /// recomendação do próprio Stripe, evita problema com 3D Secure e outros
-/// fluxos de confirmação). Como o app ainda não tem esquema de deep-link
-/// nem domínio configurado (ver luvoy-pendencias.md), não existe retorno
-/// automático pro app depois do pagamento ainda — esta tela contorna isso
-/// revalidando o perfil sempre que o app volta de segundo plano
-/// (`AppLifecycleState.resumed`, que dispara ao voltar do navegador), mais
-/// um botão manual como reforço.
+/// fluxos de confirmação). O retorno pro app usa o deep link customizado
+/// (ver DeeplinkService/DeeplinkConstants — ainda não há domínio hospedado
+/// pra Universal Links/App Links https://). Mantemos também a revalidação
+/// do perfil ao voltar de segundo plano (`AppLifecycleState.resumed`) e o
+/// botão manual como reforço, já que o pagamento em si é confirmado via
+/// webhook no backend, independente do deep link funcionar perfeitamente em
+/// todo cenário (ex: app encerrado por completo no meio do checkout).
 class PremiumScreen extends ConsumerStatefulWidget {
   const PremiumScreen({super.key});
 
@@ -32,11 +34,8 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen>
     with WidgetsBindingObserver {
   String? _loadingAction;
 
-  // Placeholders até o app ter domínio/deep-link configurado — o pagamento
-  // em si já é confirmado via webhook no backend, independente destas URLs
-  // realmente resolverem pra algo hoje.
-  static const _successUrl = 'https://luvoy.app/premium/sucesso';
-  static const _cancelUrl = 'https://luvoy.app/premium/cancelado';
+  static const _successUrl = DeeplinkConstants.checkoutSuccess;
+  static const _cancelUrl = DeeplinkConstants.checkoutCancel;
 
   @override
   void initState() {
