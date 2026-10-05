@@ -102,4 +102,17 @@ public class AdminController {
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithNormalizedTitleLanguage());
     }
+
+    @PostMapping("/destinations/{slug}/unusual-places/generate")
+    @Operation(summary = "Gera (ou regenera do zero) a lista de 'Lugares Incomuns' de um destino via GPT-4o " +
+        "— feature premium, conteúdo editorial fora do catálogo de POIs já cadastrado")
+    public ResponseEntity<Integer> generateUnusualPlaces(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token,
+        @PathVariable String slug
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.generateUnusualPlaces(slug));
+    }
 }

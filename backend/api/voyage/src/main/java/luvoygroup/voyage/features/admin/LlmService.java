@@ -9,6 +9,7 @@ import luvoygroup.voyage.features.admin.dto.PoiTitleNormalization;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendation;
 import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList;
+import luvoygroup.voyage.features.unusualplaces.dto.UnusualPlacesWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -380,5 +381,57 @@ public class LlmService {
                 return valid;
             })
             .toList();
+    }
+
+    /**
+     * Feature premium "Lugares Incomuns" (escopo definido pelo agente que
+     * implementou isso, não spec oficial da contratante — ver resumo da
+     * sessão). Gera 4 a 6 lugares editoriais fora do roteiro turístico óbvio
+     * do destino, passando o catálogo de POIs JÁ cadastrados como contexto
+     * NEGATIVO (pra não duplicar o que já está no app como ponto turístico
+     * principal). Conteúdo é salvo uma vez via endpoint admin
+     * (ver {@code UnusualPlaceService#generateForDestination}) e servido
+     * depois sem custo de LLM por requisição.
+     */
+    public UnusualPlacesWrapper generateUnusualPlaces(String city, String country, List<String> existingPoiTitles) {
+        log.info("Gerando lugares incomuns via LLM para {}, {}", city, country);
+
+        String existingList = existingPoiTitles.isEmpty()
+            ? "(nenhum cadastrado ainda)"
+            : existingPoiTitles.stream().map(t -> "- " + t).collect(java.util.stream.Collectors.joining("\n"));
+
+        String prompt = """
+            Você é um morador local e guia especializado em %s, %s — alguém que conhece a cidade de
+            verdade, não um guia turístico genérico. Gere de 4 a 6 lugares incomuns, fora do roteiro
+            turístico óbvio, que um morador recomendaria a um amigo visitando.
+
+            Lugares turísticos JÁ cadastrados no catálogo do app (NÃO repita nenhum destes, nem
+            variações óbvias do mesmo local):
+            %s
+
+            Responda SOMENTE com JSON válido, sem markdown, sem explicações.
+
+            Formato exato:
+            {
+              "places": [
+                {
+                  "title": "Nome do lugar",
+                  "description": "2 a 3 frases explicando por que é especial/incomum e o que faz dele uma recomendação de morador local",
+                  "category": "Categoria livre curta, ex: Bar escondido, Mirante local, Ritual de bairro"
+                }
+              ]
+            }
+
+            Regras:
+            - NUNCA inclua pontos turísticos de massa, marcos famosos mundialmente conhecidos, ou
+              qualquer item (ou variação óbvia dele) que já esteja na lista de lugares já cadastrados.
+            - Prefira lugares reais e verificáveis (existe de verdade), mesmo que pouco conhecidos.
+            - category é um rótulo livre curto (não precisa seguir um enum fixo).
+            """.formatted(city, country, existingList);
+
+        return chatClient.prompt()
+            .user(prompt)
+            .call()
+            .entity(UnusualPlacesWrapper.class);
     }
 }

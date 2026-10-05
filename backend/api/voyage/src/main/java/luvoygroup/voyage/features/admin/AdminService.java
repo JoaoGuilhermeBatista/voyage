@@ -9,6 +9,7 @@ import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
 import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
 import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
+import luvoygroup.voyage.features.unusualplaces.UnusualPlaceService;
 import luvoygroup.voyage.repository.DestinationRepository;
 import luvoygroup.voyage.repository.PoiRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class AdminService {
     private final DestinationRepository destinationRepo;
     private final PoiRepository poiRepo;
     private final ItineraryTemplateService itineraryTemplateService;
+    private final UnusualPlaceService unusualPlaceService;
 
     @Transactional
     public DestinationSummaryDTO generateAndSaveDestination(GenerateDestinationRequest request) {
@@ -132,6 +134,10 @@ public class AdminService {
 
     public ItineraryTemplateDTO generateItineraryTemplate(String slug, GenerateTemplateRequest request) {
         return itineraryTemplateService.generateForDestination(slug, request.durationDays(), request.budgetTier());
+    }
+
+    public int generateUnusualPlaces(String slug) {
+        return unusualPlaceService.generateForDestination(slug);
     }
 
     /**

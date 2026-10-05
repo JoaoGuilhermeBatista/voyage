@@ -12,6 +12,7 @@ import luvoygroup.voyage.features.admin.dto.PoiTitleChange;
 import luvoygroup.voyage.features.admin.dto.PoiTitleNormalization;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
+import luvoygroup.voyage.features.unusualplaces.UnusualPlaceService;
 import luvoygroup.voyage.repository.DestinationRepository;
 import luvoygroup.voyage.repository.PoiRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +48,7 @@ class AdminServiceTest {
     private DestinationRepository destinationRepo;
     private PoiRepository poiRepo;
     private ItineraryTemplateService itineraryTemplateService;
+    private UnusualPlaceService unusualPlaceService;
 
     private AdminService service;
 
@@ -58,8 +60,9 @@ class AdminServiceTest {
         destinationRepo = mock(DestinationRepository.class);
         poiRepo = mock(PoiRepository.class);
         itineraryTemplateService = mock(ItineraryTemplateService.class);
+        unusualPlaceService = mock(UnusualPlaceService.class);
 
-        service = new AdminService(llmService, destinationRepo, poiRepo, itineraryTemplateService);
+        service = new AdminService(llmService, destinationRepo, poiRepo, itineraryTemplateService, unusualPlaceService);
 
         destination = Destination.builder()
             .id(UUID.randomUUID())
@@ -516,4 +519,5 @@ class AdminServiceTest {
         assertTrue(report.processedSlugs().contains("madrid"));
         assertFalse(report.processedSlugs().contains("lisboa"));
     }
+
 }
