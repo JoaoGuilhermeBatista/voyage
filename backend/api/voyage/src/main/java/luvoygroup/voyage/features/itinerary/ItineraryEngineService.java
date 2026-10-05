@@ -38,6 +38,18 @@ public class ItineraryEngineService {
 
     @Transactional
     public ItineraryResponseDTO generate(UUID userId, ItineraryRequest request) {
+        return generate(userId, request, new TripSaturationLedger());
+    }
+
+    /**
+     * Mesma geração de {@link #generate(UUID, ItineraryRequest)}, mas
+     * recebendo um {@link TripSaturationLedger} de fora — usado por
+     * {@link ItineraryService#generateTrip} pra acumular saturação de
+     * categoria/mustSee ao longo de TODOS os trechos de uma viagem
+     * multi-destino, em vez de cada trecho começar do zero.
+     */
+    @Transactional
+    ItineraryResponseDTO generate(UUID userId, ItineraryRequest request, TripSaturationLedger ledger) {
         // Step 1: Validate dates
         if (request.startDate().isBefore(LocalDate.now()))
             throw new InvalidDateRangeException("A data de início não pode ser no passado");
@@ -77,14 +89,13 @@ public class ItineraryEngineService {
             throw new InsufficientContentException(
                 "O destino ainda não tem POIs suficientes para gerar um roteiro. Mínimo: 8.");
 
-        // Steps 4 & 5: Score and sort
+        // Steps 4 & 5: pontuação acontece dentro de pickPois, por slot — não
+        // dá mais pra ordenar uma vez só no início, porque o ledger de
+        // saturação muda a cada POI escolhido (ver TripSaturationLedger).
         LatLng effectiveStayAreaLocation = stayAreaLocation;
-        List<Poi> ranked = candidates.stream()
-            .sorted(Comparator.comparingInt((Poi p) -> scoreFor(p, effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation)).reversed())
-            .collect(Collectors.toCollection(ArrayList::new));
 
         log.info("Engine: {} POIs candidatos para {} dias em {} [budget={}, group={}, vibe={}]",
-            ranked.size(), dayCount, destination.getName(), effectiveBudget, effectiveGroup, tripVibe);
+            candidates.size(), dayCount, destination.getName(), effectiveBudget, effectiveGroup, tripVibe);
 
         // Step 6, 7, 8: Distribute, order by proximity, persist
         String title = destination.getName() + " — " + dayCount + (dayCount == 1 ? " dia" : " dias");
@@ -112,11 +123,13 @@ public class ItineraryEngineService {
             List<ActivityDTO> activityDTOs = new ArrayList<>();
 
             for (SlotSpec spec : slotSpecs) {
-                List<Poi> slotPois = pickPois(ranked, usedIds, spec.slot(), spec.count());
+                List<Poi> slotPois = pickPois(candidates, usedIds, spec.slot(), spec.count(),
+                    effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation, ledger);
                 List<Poi> ordered = nearestNeighbor(slotPois);
 
                 for (int i = 0; i < ordered.size(); i++) {
                     Poi poi = ordered.get(i);
+                    ledger.record(poi);
                     ItineraryActivity saved = itineraryActivityRepo.save(ItineraryActivity.builder()
                         .itineraryDay(day)
                         .poi(poi)
@@ -140,19 +153,29 @@ public class ItineraryEngineService {
         );
     }
 
-    private List<Poi> pickPois(List<Poi> ranked, Set<UUID> usedIds, ItinerarySlot slot, int count) {
+    private List<Poi> pickPois(
+        List<Poi> candidates, Set<UUID> usedIds, ItinerarySlot slot, int count,
+        List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation, TripSaturationLedger ledger
+    ) {
+        // Pontuação ao vivo (não um ranking fixo pré-calculado) porque o
+        // ledger de saturação muda a cada POI escolhido — reordenar a cada
+        // slot é o que permite ao motor reagir ao que já foi usado em dias
+        // anteriores da mesma viagem, não só evitar repetir o mesmo POI.
+        Comparator<Poi> byLiveScoreDesc = Comparator.comparingInt(
+            (Poi p) -> scoreFor(p, interests, group, vibe, stayAreaLocation, ledger)).reversed();
+
         List<Poi> result = new ArrayList<>();
-        // First pass: prefer unused POIs
-        for (Poi poi : ranked) {
-            if (result.size() >= count) break;
-            if (usedIds.contains(poi.getId())) continue;
-            if (!isCompatible(poi, slot)) continue;
-            result.add(poi);
-            usedIds.add(poi.getId());
-        }
+        // First pass: prefer unused POIs, ranked pela pontuação atual
+        candidates.stream()
+            .filter(p -> !usedIds.contains(p.getId()))
+            .filter(p -> isCompatible(p, slot))
+            .sorted(byLiveScoreDesc)
+            .limit(count)
+            .forEach(p -> { result.add(p); usedIds.add(p.getId()); });
+
         // Second pass: reuse in insertion order (oldest used first = max gap between repeats)
         if (result.size() < count) {
-            Map<UUID, Poi> byId = ranked.stream().collect(Collectors.toMap(Poi::getId, p -> p));
+            Map<UUID, Poi> byId = candidates.stream().collect(Collectors.toMap(Poi::getId, p -> p));
             List<UUID> toRefresh = new ArrayList<>();
             for (UUID id : new ArrayList<>(usedIds)) {
                 if (result.size() >= count) break;
@@ -180,7 +203,9 @@ public class ItineraryEngineService {
         };
     }
 
-    private int scoreFor(Poi poi, List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation) {
+    private int scoreFor(
+        Poi poi, List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation, TripSaturationLedger ledger
+    ) {
         int score = 0;
         for (String interest : interests) {
             if (poi.getTags().contains(interest)) score += 10;
@@ -197,6 +222,12 @@ public class ItineraryEngineService {
             else if (distKm <= 3) score += 3;
             else if (distKm <= 6) score += 1;
         }
+        // Variedade ao longo da viagem inteira (não só do dia): categoria já
+        // muito repetida perde pontos aos poucos, e depois que a viagem fica
+        // saturada de mustSee, POIs não-mustSee ganham um empurrão — nunca o
+        // suficiente pra superar um mustSee de verdade (+20).
+        score -= ledger.categoryPenalty(poi.getCategory());
+        if (ledger.isMustSeeSaturated() && !poi.isMustSee()) score += 8;
         return score;
     }
 

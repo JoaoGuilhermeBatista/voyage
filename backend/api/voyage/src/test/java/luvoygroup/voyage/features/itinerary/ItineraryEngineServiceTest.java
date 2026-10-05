@@ -775,7 +775,126 @@ class ItineraryEngineServiceTest {
             "mesmo quando o POI mustSee está longe do stayArea e o POI comum está perto");
     }
 
+    // ─── Regra de negócio nova: variedade ao longo da viagem (TripSaturationLedger) ──
+    //
+    // Contrato (RED por design — a implementar em ItineraryEngineService
+    // via TripSaturationLedger): categoria repetida demais na viagem perde
+    // pontos aos poucos, e depois que a viagem fica saturada de mustSee
+    // (>50% das atividades já escolhidas, com amostra mínima de 4), POIs
+    // não-mustSee ganham um empurrão de pontuação — nunca o suficiente pra
+    // superar um mustSee "limpo", mas o bastante pra virar o jogo quando o
+    // mustSee concorrente já está com a própria categoria penalizada.
+
+    @Test
+    void testeVariedade_shouldPenalizeRepeatedCategory_favoringFreshCategoryOnNextPick() {
+        // SOLO neutro pra RESTAURANT e PARK (ambos 0 em groupBonus — SOLO só
+        // bonifica MUSEUM/NIGHTLIFE), sem interesses, sem vibe — isola o
+        // efeito da penalidade de categoria de qualquer outro bônus.
+        OnboardingPreferences neutralPrefs = OnboardingPreferences.builder()
+            .id(UUID.randomUUID()).user(user)
+            .budget(BudgetTier.MODERATE).rhythm(TravelRhythm.RELAXED)
+            .groupType(GroupType.SOLO).interests(List.of())
+            .build();
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(neutralPrefs));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        List<Poi> candidates = new ArrayList<>();
+        Poi restaurant0 = makePoiWithCategory(PoiCategory.RESTAURANT);
+        Poi restaurant1 = makePoiWithCategory(PoiCategory.RESTAURANT);
+        Poi park = makePoiWithCategory(PoiCategory.PARK);
+        candidates.add(restaurant0);
+        candidates.add(restaurant1);
+        candidates.add(park);
+        for (int i = 0; i < 5; i++) candidates.add(makePoiWithCategory(PoiCategory.SHOPPING)); // filler, >= 8 no total
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate start = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, start, start, null, null, null, null, null, null); // RELAXED, 1 dia = 2 slots (Morning + Afternoon)
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        List<UUID> pickedIds = result.days().get(0).activities().stream().map(a -> a.poi().id()).toList();
+
+        assertEquals(restaurant0.getId(), pickedIds.get(0),
+            "Primeiro pick: tudo empatado em 0, desempate por ordem de entrada favorece o primeiro RESTAURANT");
+        assertEquals(park.getId(), pickedIds.get(1),
+            "Segundo pick: o segundo RESTAURANT já carrega penalidade de categoria (-2) e perde pro PARK " +
+            "(categoria ainda não usada, score 0) — penalidade de repetição ainda não implementada em scoreFor");
+    }
+
+    @Test
+    void testeVariedade_shouldBoostNonMustSeeCategory_afterTripBecomesMustSeeSaturated() {
+        // GROUP type: MUSEUM e RESTAURANT ficam neutros (0 em groupBonus),
+        // só "gastronomia" dá bônus de interesse — isola mustSee + penalidade
+        // de categoria + bônus de saturação.
+        OnboardingPreferences prefsGastronomia = OnboardingPreferences.builder()
+            .id(UUID.randomUUID()).user(user)
+            .budget(BudgetTier.MODERATE).rhythm(TravelRhythm.MODERATE)
+            .groupType(GroupType.GROUP).interests(List.of("gastronomia"))
+            .build();
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefsGastronomia));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        List<Poi> candidates = new ArrayList<>();
+        // 5 MUSEUM mustSee idênticos: 4 serão consumidos no dia 1 (3 slots) +
+        // manhã do dia 2, sobrando 1 ("lateMustSee") pra concorrer na tarde
+        // do dia 2 contra o POI nichado.
+        List<Poi> museumsMustSee = new ArrayList<>();
+        for (int i = 0; i < 5; i++) museumsMustSee.add(makePoiWithCategoryMustSeeAndTags(PoiCategory.MUSEUM, true, List.of()));
+        candidates.addAll(museumsMustSee);
+
+        Poi nicheCandidate = makePoiWithCategoryMustSeeAndTags(PoiCategory.RESTAURANT, false, List.of("gastronomia"));
+        candidates.add(nicheCandidate);
+
+        for (int i = 0; i < 2; i++) candidates.add(makePoiWithCategory(PoiCategory.SHOPPING)); // filler, >= 8 no total
+
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate start = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, start, start.plusDays(1), null, null, null, null, null, null); // MODERATE = 3 slots/dia, 2 dias
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        // Dia 2, tarde (2º slot do dia 2) = 5º pick no total — ledger nesse
+        // ponto: 4 MUSEUM mustSee já escolhidos (dia 1 inteiro + manhã do
+        // dia 2), então totalCount=4, mustSeeCount=4 (saturado). O MUSEUM
+        // restante pontua 20 (mustSee) - 8 (penalidade, 4 ocorrências) = 12.
+        // O nicheCandidate pontua 0 (groupBonus) + 10 (tag "gastronomia") +
+        // 8 (bônus de saturação, categoria RESTAURANT ainda fresca) = 18.
+        // 18 > 12 — sem o bônus de saturação, o MUSEUM (12) venceria o
+        // nicheCandidate (10).
+        UUID afternoonDay2PoiId = result.days().get(1).activities().get(1).poi().id();
+
+        assertEquals(nicheCandidate.getId(), afternoonDay2PoiId,
+            "Depois que a viagem fica saturada de mustSee, o POI não-mustSee de categoria fresca deve " +
+            "ser priorizado sobre mais um mustSee de categoria já penalizada (bônus de saturação ainda " +
+            "não implementado em scoreFor/TripSaturationLedger)");
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private Poi makePoiWithCategoryMustSeeAndTags(PoiCategory category, boolean mustSee, List<String> tags) {
+        return Poi.builder()
+            .id(UUID.randomUUID())
+            .destination(destination)
+            .title("POI-" + UUID.randomUUID().toString().substring(0, 6))
+            .category(category)
+            .budgetTier(BudgetTier.MODERATE)
+            .tags(tags)
+            .active(true)
+            .mustSee(mustSee)
+            .latitude(BigDecimal.valueOf(48.8 + Math.random() * 0.1))
+            .longitude(BigDecimal.valueOf(2.3 + Math.random() * 0.1))
+            .averageDurationMinutes(90)
+            .build();
+    }
+
+
 
     private Poi makePoi(BudgetTier tier) {
         return makePoi(tier, false);

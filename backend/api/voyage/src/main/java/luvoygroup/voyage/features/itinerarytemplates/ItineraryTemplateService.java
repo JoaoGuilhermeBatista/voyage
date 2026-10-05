@@ -305,6 +305,11 @@ public class ItineraryTemplateService {
             orçamento, garanta pelo menos uma refeição por dia — o almoço como primeiro item (orderInSlot 0)
             do período AFTERNOON, e o jantar dentro do período EVENING.
 
+            VARIEDADE: não concentre todos os POIs mustSee/imperdíveis nos primeiros dias do roteiro —
+            distribua-os ao longo de toda a viagem. Se um dia já reuniu vários POIs mustSee, prefira que
+            outro dia (não precisa ser o seguinte) tenha mais POIs comuns/não-mustSee da seção — dá a
+            sensação de descoberta local em vez de um roteiro só de pontos turísticos óbvios em sequência.
+
             Cada dia deve ter atividades distribuídas nos períodos MORNING, AFTERNOON e EVENING.
             Responda SOMENTE com JSON válido, sem markdown, sem explicações.
 

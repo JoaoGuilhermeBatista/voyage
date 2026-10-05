@@ -108,9 +108,9 @@ class ItineraryServiceTest {
         Itinerary itineraryParis = itineraryWith(legIdParis, paris, legParis.startDate(), legParis.endDate(), "Paris");
         Itinerary itineraryAmsterdam = itineraryWith(legIdAmsterdam, amsterdam, legAmsterdam.startDate(), legAmsterdam.endDate(), "Amsterdã");
 
-        when(engineService.generate(eq(USER_ID), eq(legParis)))
+        when(engineService.generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class)))
             .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
-        when(engineService.generate(eq(USER_ID), eq(legAmsterdam)))
+        when(engineService.generate(eq(USER_ID), eq(legAmsterdam), any(TripSaturationLedger.class)))
             .thenReturn(new ItineraryResponseDTO(legIdAmsterdam, "Amsterdã", amsterdam.getId(), "Amsterdã", "", legAmsterdam.startDate(), legAmsterdam.endDate(), List.of()));
 
         when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
@@ -147,9 +147,9 @@ class ItineraryServiceTest {
         Itinerary itineraryParis = itineraryWith(legIdParis, paris, legParis.startDate(), legParis.endDate(), "Paris");
         Itinerary itineraryRoma = itineraryWith(legIdRoma, roma, legRoma.startDate(), legRoma.endDate(), "Roma");
 
-        when(engineService.generate(eq(USER_ID), eq(legParis)))
+        when(engineService.generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class)))
             .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
-        when(engineService.generate(eq(USER_ID), eq(legRoma)))
+        when(engineService.generate(eq(USER_ID), eq(legRoma), any(TripSaturationLedger.class)))
             .thenReturn(new ItineraryResponseDTO(legIdRoma, "Roma", roma.getId(), "Roma", "", legRoma.startDate(), legRoma.endDate(), List.of()));
         when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
         when(itineraryRepo.findById(legIdRoma)).thenReturn(Optional.of(itineraryRoma));
@@ -158,8 +158,8 @@ class ItineraryServiceTest {
         TripSummaryDTO trip = service.generateTrip(USER_ID, new CreateTripRequest(List.of(legParis, legRoma)));
 
         assertEquals(2, trip.legs().size());
-        verify(engineService).generate(USER_ID, legParis);
-        verify(engineService).generate(USER_ID, legRoma);
+        verify(engineService).generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class));
+        verify(engineService).generate(eq(USER_ID), eq(legRoma), any(TripSaturationLedger.class));
     }
 
     @Test
@@ -379,9 +379,9 @@ class ItineraryServiceTest {
         Itinerary itineraryParis = itineraryWith(legIdParis, paris, legParis.startDate(), legParis.endDate(), "Paris");
         Itinerary itineraryAmsterdam = itineraryWith(legIdAmsterdam, amsterdam, legAmsterdam.startDate(), legAmsterdam.endDate(), "Amsterdã");
 
-        when(engineService.generate(eq(USER_ID), eq(legParis)))
+        when(engineService.generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class)))
             .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
-        when(engineService.generate(eq(USER_ID), eq(legAmsterdam)))
+        when(engineService.generate(eq(USER_ID), eq(legAmsterdam), any(TripSaturationLedger.class)))
             .thenReturn(new ItineraryResponseDTO(legIdAmsterdam, "Amsterdã", amsterdam.getId(), "Amsterdã", "", legAmsterdam.startDate(), legAmsterdam.endDate(), List.of()));
         when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
         when(itineraryRepo.findById(legIdAmsterdam)).thenReturn(Optional.of(itineraryAmsterdam));
@@ -389,5 +389,44 @@ class ItineraryServiceTest {
 
         assertDoesNotThrow(() ->
             service.generateTrip(USER_ID, new CreateTripRequest(List.of(legParis, legAmsterdam))));
+    }
+
+    // ─── Ledger de saturação compartilhado entre trechos ───────────────────
+
+    @Test
+    void generateTrip_shouldShareTheSameSaturationLedger_acrossAllLegs() {
+        // Contrato: o ledger de variedade de categoria/mustSee (ver
+        // TripSaturationLedger) deve ser UM só, criado antes do loop de
+        // trechos, e reaproveitado pra todos — nunca um ledger novo por
+        // trecho. É isso que faz o motor "lembrar" que já visitou muitos
+        // museus em Paris quando for escolher POIs em Roma.
+        Destination paris = destinationWith("Paris");
+        Destination roma = destinationWith("Roma");
+
+        UUID legIdParis = UUID.randomUUID();
+        UUID legIdRoma = UUID.randomUUID();
+        ItineraryRequest legParis = requestFor(paris.getId(), LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
+        ItineraryRequest legRoma = requestFor(roma.getId(), LocalDate.of(2027, 9, 5), LocalDate.of(2027, 9, 7));
+
+        Itinerary itineraryParis = itineraryWith(legIdParis, paris, legParis.startDate(), legParis.endDate(), "Paris");
+        Itinerary itineraryRoma = itineraryWith(legIdRoma, roma, legRoma.startDate(), legRoma.endDate(), "Roma");
+
+        when(engineService.generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class)))
+            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
+        when(engineService.generate(eq(USER_ID), eq(legRoma), any(TripSaturationLedger.class)))
+            .thenReturn(new ItineraryResponseDTO(legIdRoma, "Roma", roma.getId(), "Roma", "", legRoma.startDate(), legRoma.endDate(), List.of()));
+        when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
+        when(itineraryRepo.findById(legIdRoma)).thenReturn(Optional.of(itineraryRoma));
+        when(itineraryRepo.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.generateTrip(USER_ID, new CreateTripRequest(List.of(legParis, legRoma)));
+
+        org.mockito.ArgumentCaptor<TripSaturationLedger> ledgerCaptor =
+            org.mockito.ArgumentCaptor.forClass(TripSaturationLedger.class);
+        verify(engineService, times(2)).generate(eq(USER_ID), any(ItineraryRequest.class), ledgerCaptor.capture());
+
+        List<TripSaturationLedger> capturedLedgers = ledgerCaptor.getAllValues();
+        assertSame(capturedLedgers.get(0), capturedLedgers.get(1),
+            "O mesmo ledger deve ser passado para todos os trechos da viagem, não um novo por trecho");
     }
 }
