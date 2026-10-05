@@ -2,6 +2,7 @@ package luvoygroup.voyage.features.admin;
 
 import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentReport;
+import luvoygroup.voyage.features.admin.dto.PoiTopUpReport;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
 import luvoygroup.voyage.security.JwtService;
 import luvoygroup.voyage.security.SecurityConfig;
@@ -213,6 +214,37 @@ class AdminControllerTest {
     @Test
     void teste60_shouldReturn403_whenAdminTokenIsMissing_forEnrichTitleLanguage() throws Exception {
         mockMvc.perform(post("/api/v1/admin/pois/enrich-title-language"))
+            .andExpect(status().isForbidden());
+    }
+
+    // ─── POST /admin/destinations/{slug}/pois/generate ─────────────────────────
+    //
+    // AdminService é mockado, então a lógica real não é exercitada aqui — só
+    // roteamento e a checagem de X-Admin-Token, mesmo padrão dos endpoints
+    // irmãos acima (@RequestHeader(required=false)).
+
+    @Test
+    void teste61_shouldGeneratePoisForExistingDestination_whenAdminTokenIsValid() throws Exception {
+        PoiTopUpReport report = new PoiTopUpReport("edimburgo", 12);
+        when(adminService.generatePoisForExistingDestination("edimburgo")).thenReturn(report);
+
+        mockMvc.perform(post("/api/v1/admin/destinations/edimburgo/pois/generate")
+                .header("X-Admin-Token", VALID_ADMIN_TOKEN))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.destinationSlug").value("edimburgo"))
+            .andExpect(jsonPath("$.poisGenerated").value(12));
+    }
+
+    @Test
+    void teste62_shouldReturn403_whenAdminTokenIsWrong_forGeneratePoisForExistingDestination() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/destinations/edimburgo/pois/generate")
+                .header("X-Admin-Token", "wrong-token"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void teste63_shouldReturn403_whenAdminTokenIsMissing_forGeneratePoisForExistingDestination() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/destinations/edimburgo/pois/generate"))
             .andExpect(status().isForbidden());
     }
 }

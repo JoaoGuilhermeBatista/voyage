@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import luvoygroup.voyage.features.admin.dto.BatchGenerationReport;
 import luvoygroup.voyage.features.admin.dto.GenerateDestinationRequest;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentReport;
+import luvoygroup.voyage.features.admin.dto.PoiTopUpReport;
 import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
 import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
@@ -101,6 +102,25 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithNormalizedTitleLanguage());
+    }
+
+    @PostMapping("/destinations/{slug}/pois/generate")
+    @Operation(summary = "Gera e ADICIONA POIs novos via GPT-4o a um destino que já existe (não sobrescreve " +
+        "nem deleta os POIs já cadastrados) — usado para aprofundar destinos secundários com poucos POIs, " +
+        "diferente de /pois/generate-batch que só processa destinos com ZERO POIs")
+    public ResponseEntity<PoiTopUpReport> generatePoisForExistingDestination(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token,
+        @PathVariable String slug,
+        @RequestParam(required = false) String focusCategory
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        if (focusCategory == null)
+            return ResponseEntity.ok(adminService.generatePoisForExistingDestination(slug));
+
+        var category = luvoygroup.voyage.domain.enums.PoiCategory.valueOf(focusCategory.toUpperCase());
+        return ResponseEntity.ok(adminService.generatePoisForExistingDestination(slug, category));
     }
 
     @PostMapping("/destinations/{slug}/unusual-places/generate")

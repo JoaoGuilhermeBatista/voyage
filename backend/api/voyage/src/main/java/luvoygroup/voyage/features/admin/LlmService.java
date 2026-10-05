@@ -53,7 +53,24 @@ public class LlmService {
     }
 
     public PoisWrapper generatePois(String city, String country) {
-        log.info("Gerando POIs via LLM para {}, {}", city, country);
+        return generatePois(city, country, null, List.of());
+    }
+
+    public PoisWrapper generatePois(String city, String country, String focusCategory, List<String> existingTitles) {
+        log.info("Gerando POIs via LLM para {}, {}{}", city, country,
+            focusCategory == null ? "" : " (foco: " + focusCategory + ")");
+
+        String focusInstruction = focusCategory == null ? "" : """
+
+            ATENÇÃO — reforço de categoria: priorize fortemente a categoria %s (pelo menos 12 dos 20 pontos
+            devem ser dessa categoria), mantendo só uma pequena variedade das demais para realismo.
+            """.formatted(focusCategory);
+
+        String existingList = existingTitles.isEmpty()
+            ? ""
+            : "\nLugares JÁ cadastrados no catálogo deste destino (NÃO repita nenhum destes, nem variações " +
+                "óbvias do mesmo local):\n" +
+                existingTitles.stream().map(t -> "- " + t).collect(java.util.stream.Collectors.joining("\n")) + "\n";
 
         String prompt = """
             Você é um especialista em turismo europeu. Gere 20 pontos de interesse reais e populares para %s, %s.
@@ -99,7 +116,7 @@ public class LlmService {
               incluindo templos, igrejas, sinagogas, mesquitas ou locais de culto de outras religiões ou
               denominações cristãs não-católicas (ex: protestante, evangélica, ortodoxa), e também para
               marcos históricos/culturais em geral que não sejam especificamente um templo católico
-            """.formatted(city, country);
+            %s%s""".formatted(city, country, focusInstruction, existingList);
 
         return chatClient.prompt()
             .user(prompt)

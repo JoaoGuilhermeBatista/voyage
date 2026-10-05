@@ -4,6 +4,7 @@ import luvoygroup.voyage.domain.Destination;
 import luvoygroup.voyage.domain.Poi;
 import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.domain.enums.PoiCategory;
+import luvoygroup.voyage.exception.ResourceNotFoundException;
 import luvoygroup.voyage.features.admin.dto.*;
 import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
 import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
@@ -91,7 +92,18 @@ public class AdminService {
     @Transactional
     public int generateAndSavePoisForDestination(Destination destination) {
         PoisWrapper wrapper = llmService.generatePois(destination.getCity(), destination.getCountry());
+        return saveGeneratedPois(wrapper, destination);
+    }
 
+    @Transactional
+    public int generateAndSavePoisForDestination(Destination destination, String focusCategory, List<String> existingTitles) {
+        PoisWrapper wrapper = llmService.generatePois(
+            destination.getCity(), destination.getCountry(), focusCategory, existingTitles
+        );
+        return saveGeneratedPois(wrapper, destination);
+    }
+
+    private int saveGeneratedPois(PoisWrapper wrapper, Destination destination) {
         if (wrapper == null || wrapper.pois() == null || wrapper.pois().isEmpty())
             throw new IllegalStateException("GPT não retornou POIs para " + destination.getSlug());
 
@@ -351,6 +363,44 @@ public class AdminService {
         return new PoiEnrichmentReport(
             processed.size(), skipped, totalEnriched, processed, null, null
         );
+    }
+
+    /**
+     * Gera e ADICIONA POIs novos a um destino que já existe (diferente de
+     * generatePoisBatch, que só processa destinos com ZERO POIs) — usado
+     * para aprofundar destinos secundários que ficaram com poucos POIs na
+     * geração inicial. Não sobrescreve nem deleta os POIs já existentes.
+     */
+    @Transactional
+    public PoiTopUpReport generatePoisForExistingDestination(String slug) {
+        Destination destination = destinationRepo.findBySlug(slug)
+            .orElseThrow(ResourceNotFoundException::new);
+
+        int count = generateAndSavePoisForDestination(destination);
+        return new PoiTopUpReport(slug, count);
+    }
+
+    /**
+     * Mesmo comportamento acima, mas permite focar o reforço numa categoria
+     * específica (ex: RESTAURANT, NIGHTLIFE) quando o destino está com
+     * cobertura fraca nela — pede pro LLM priorizar essa categoria e evita
+     * repetir os POIs já cadastrados (mesmo padrão de contexto negativo
+     * usado em UnusualPlaceService).
+     */
+    @Transactional
+    public PoiTopUpReport generatePoisForExistingDestination(String slug, PoiCategory focusCategory) {
+        Destination destination = destinationRepo.findBySlug(slug)
+            .orElseThrow(ResourceNotFoundException::new);
+
+        List<String> existingTitles = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId())
+            .stream().map(Poi::getTitle).toList();
+
+        int count = generateAndSavePoisForDestination(
+            destination,
+            focusCategory == null ? null : focusCategory.name(),
+            existingTitles
+        );
+        return new PoiTopUpReport(slug, count);
     }
 
     private LocalTime parseTime(String time) {

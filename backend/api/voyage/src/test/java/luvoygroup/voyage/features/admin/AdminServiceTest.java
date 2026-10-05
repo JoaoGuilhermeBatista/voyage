@@ -520,4 +520,59 @@ class AdminServiceTest {
         assertFalse(report.processedSlugs().contains("lisboa"));
     }
 
+    // ─── generatePoisForExistingDestination: adiciona POIs a destino já existente ──
+
+    @Test
+    void generatePoisForExistingDestination_shouldAddPois_toDestinationThatAlreadyHasSome() {
+        when(destinationRepo.findBySlug("copenhague")).thenReturn(java.util.Optional.of(destination));
+
+        GeneratedPoi novoPoi = new GeneratedPoi(
+            "Nyhavn", "LANDMARK", "Canal histórico colorido", "Nyhavn, Copenhagen",
+            55.6797, 12.5908, "ECONOMY", 45, null, null, List.of("historia"), true, false
+        );
+        when(llmService.generatePois("Copenhagen", "Dinamarca"))
+            .thenReturn(new PoisWrapper(List.of(novoPoi)));
+        when(poiRepo.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        var report = service.generatePoisForExistingDestination("copenhague");
+
+        assertEquals("copenhague", report.destinationSlug());
+        assertEquals(1, report.poisGenerated());
+        verify(poiRepo).saveAll(anyList());
+    }
+
+    @Test
+    void generatePoisForExistingDestination_shouldThrowResourceNotFound_whenSlugDoesNotExist() {
+        when(destinationRepo.findBySlug("inexistente")).thenReturn(java.util.Optional.empty());
+
+        assertThrows(luvoygroup.voyage.exception.ResourceNotFoundException.class,
+            () -> service.generatePoisForExistingDestination("inexistente"));
+
+        verify(llmService, never()).generatePois(anyString(), anyString());
+    }
+
+    // ─── generatePoisForExistingDestination(slug, focusCategory): reforço focado numa categoria ──
+
+    @Test
+    void generatePoisForExistingDestination_withFocusCategory_shouldPassExistingTitles_andFocusToLlm() {
+        when(destinationRepo.findBySlug("copenhague")).thenReturn(java.util.Optional.of(destination));
+        Poi jaExistente = Poi.builder().id(UUID.randomUUID()).title("Tivoli Gardens")
+            .category(PoiCategory.PARK).active(true).destination(destination).build();
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId()))
+            .thenReturn(List.of(jaExistente));
+
+        GeneratedPoi novoPoi = new GeneratedPoi(
+            "Noma", "RESTAURANT", "Restaurante premiado", "Refshalevej 96, Copenhagen",
+            55.6838, 12.6089, "LUXURY", 120, null, null, List.of("gastronomia"), false, false
+        );
+        when(llmService.generatePois("Copenhagen", "Dinamarca", "RESTAURANT", List.of("Tivoli Gardens")))
+            .thenReturn(new PoisWrapper(List.of(novoPoi)));
+        when(poiRepo.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        var report = service.generatePoisForExistingDestination("copenhague", PoiCategory.RESTAURANT);
+
+        assertEquals("copenhague", report.destinationSlug());
+        assertEquals(1, report.poisGenerated());
+        verify(llmService).generatePois("Copenhagen", "Dinamarca", "RESTAURANT", List.of("Tivoli Gardens"));
+    }
 }
