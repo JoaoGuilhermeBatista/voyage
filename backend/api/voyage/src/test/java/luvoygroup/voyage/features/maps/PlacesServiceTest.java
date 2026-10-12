@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -336,6 +337,98 @@ class PlacesServiceTest {
         verify(mockRestClient, times(1)).get();
         assertFalse(second.neighborhoods().isEmpty());
         assertEquals("Bela Vista", second.neighborhoods().get(0).name());
+    }
+
+    // ─── fetchPhotoUrl ──────────────────────────────────────────────────────
+
+    private static final String SAMPLE_FIND_PLACE_JSON = """
+        {"status": "OK", "candidates": [{"place_id": "place-123"}]}
+        """;
+
+    private static final String SAMPLE_PLACE_DETAILS_JSON = """
+        {"status": "OK", "result": {"photos": [{"photo_reference": "ref-abc"}]}}
+        """;
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void stubSequentialBodies(String... jsonResponses) {
+        RestClient.RequestHeadersUriSpec uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+        RestClient.RequestHeadersSpec headersSpec = mock(RestClient.RequestHeadersSpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        when(mockRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), any(Object[].class))).thenReturn(headersSpec);
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(String.class)).thenReturn(jsonResponses[0],
+            java.util.Arrays.copyOfRange(jsonResponses, 1, jsonResponses.length));
+    }
+
+    @Test
+    void fetchPhotoUrl_shouldReturnEmpty_withoutAnyHttpCall_whenApiKeyIsNotConfigured() {
+        Function<String, Optional<String>> redirectResolver = mock(Function.class);
+        PlacesService service = new PlacesService(
+            "not-configured", mockRestClient, destinationRepo, poiRepo, geocodingService, llmService, redirectResolver);
+
+        Optional<String> result = service.fetchPhotoUrl("Coliseu", "Roma");
+
+        assertTrue(result.isEmpty());
+        verifyNoInteractions(mockRestClient);
+        verifyNoInteractions(redirectResolver);
+    }
+
+    @Test
+    void fetchPhotoUrl_shouldReturnFinalRedirectUrl_whenFullFlowSucceeds() {
+        stubSequentialBodies(SAMPLE_FIND_PLACE_JSON, SAMPLE_PLACE_DETAILS_JSON);
+        Function<String, Optional<String>> redirectResolver = mock(Function.class);
+        when(redirectResolver.apply(anyString()))
+            .thenReturn(Optional.of("https://lh3.googleusercontent.com/final-photo"));
+
+        PlacesService service = new PlacesService(
+            FAKE_API_KEY, mockRestClient, destinationRepo, poiRepo, geocodingService, llmService, redirectResolver);
+
+        Optional<String> result = service.fetchPhotoUrl("Coliseu", "Roma");
+
+        assertEquals(Optional.of("https://lh3.googleusercontent.com/final-photo"), result);
+    }
+
+    @Test
+    void fetchPhotoUrl_shouldReturnEmpty_andNeverCallDetailsOrRedirectResolver_whenFindPlaceHasNoCandidates() {
+        stubSequentialBodies("""
+            {"status": "ZERO_RESULTS", "candidates": []}
+            """);
+        Function<String, Optional<String>> redirectResolver = mock(Function.class);
+        PlacesService service = new PlacesService(
+            FAKE_API_KEY, mockRestClient, destinationRepo, poiRepo, geocodingService, llmService, redirectResolver);
+
+        Optional<String> result = service.fetchPhotoUrl("Lugar Inexistente", "Roma");
+
+        assertTrue(result.isEmpty());
+        verifyNoInteractions(redirectResolver);
+    }
+
+    @Test
+    void fetchPhotoUrl_shouldReturnEmpty_whenPlaceDetailsHasNoPhotos() {
+        stubSequentialBodies(SAMPLE_FIND_PLACE_JSON, """
+            {"status": "OK", "result": {"photos": []}}
+            """);
+        Function<String, Optional<String>> redirectResolver = mock(Function.class);
+        PlacesService service = new PlacesService(
+            FAKE_API_KEY, mockRestClient, destinationRepo, poiRepo, geocodingService, llmService, redirectResolver);
+
+        Optional<String> result = service.fetchPhotoUrl("Coliseu", "Roma");
+
+        assertTrue(result.isEmpty());
+        verifyNoInteractions(redirectResolver);
+    }
+
+    @Test
+    void fetchPhotoUrl_shouldReturnEmpty_neverPropagating_whenRestClientThrows() {
+        when(mockRestClient.get()).thenThrow(new RuntimeException("timeout simulado"));
+        Function<String, Optional<String>> redirectResolver = mock(Function.class);
+        PlacesService service = new PlacesService(
+            FAKE_API_KEY, mockRestClient, destinationRepo, poiRepo, geocodingService, llmService, redirectResolver);
+
+        Optional<String> result = service.fetchPhotoUrl("Coliseu", "Roma");
+
+        assertTrue(result.isEmpty());
     }
 
     @SuppressWarnings("unchecked")

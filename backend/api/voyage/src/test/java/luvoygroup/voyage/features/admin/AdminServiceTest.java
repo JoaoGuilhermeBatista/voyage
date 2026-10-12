@@ -49,6 +49,7 @@ class AdminServiceTest {
     private PoiRepository poiRepo;
     private ItineraryTemplateService itineraryTemplateService;
     private UnusualPlaceService unusualPlaceService;
+    private luvoygroup.voyage.features.maps.PlacesService placesService;
 
     private AdminService service;
 
@@ -61,8 +62,9 @@ class AdminServiceTest {
         poiRepo = mock(PoiRepository.class);
         itineraryTemplateService = mock(ItineraryTemplateService.class);
         unusualPlaceService = mock(UnusualPlaceService.class);
+        placesService = mock(luvoygroup.voyage.features.maps.PlacesService.class);
 
-        service = new AdminService(llmService, destinationRepo, poiRepo, itineraryTemplateService, unusualPlaceService);
+        service = new AdminService(llmService, destinationRepo, poiRepo, itineraryTemplateService, unusualPlaceService, placesService);
 
         destination = Destination.builder()
             .id(UUID.randomUUID())
@@ -394,6 +396,118 @@ class AdminServiceTest {
             && p.isMustSee() && p.getCategory() == PoiCategory.LANDMARK));
         verify(poiRepo, never()).save(argThat(p -> p != null && p.getId().equals(torreDeBelem.getId())));
 
+        assertEquals(1, report.destinationsProcessed());
+        assertEquals(1, report.destinationsSkipped());
+        assertTrue(report.processedSlugs().contains("madrid"));
+        assertFalse(report.processedSlugs().contains("lisboa"));
+    }
+
+    // ─── enrichExistingPoisWithImages ─────────────────────────────────────────
+
+    @Test
+    void enrichExistingPoisWithImages_shouldFetchAndAppendPhoto_forEachPoiWithoutImages() {
+        Destination roma = Destination.builder()
+            .id(UUID.randomUUID()).slug("roma").name("Roma").city("Roma").country("Itália")
+            .active(true).build();
+
+        Poi coliseu = Poi.builder().id(UUID.randomUUID()).destination(roma)
+            .title("Coliseu").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .active(true).build();
+        Poi restaurante = Poi.builder().id(UUID.randomUUID()).destination(roma)
+            .title("Trattoria da Enzo").category(PoiCategory.RESTAURANT).budgetTier(BudgetTier.MODERATE)
+            .active(true).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(roma));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(roma.getId()))
+            .thenReturn(List.of(coliseu, restaurante));
+        when(placesService.fetchPhotoUrl("Coliseu", "Roma"))
+            .thenReturn(java.util.Optional.of("https://lh3.googleusercontent.com/coliseu"));
+        when(placesService.fetchPhotoUrl("Trattoria da Enzo", "Roma"))
+            .thenReturn(java.util.Optional.of("https://lh3.googleusercontent.com/trattoria"));
+        when(poiRepo.save(any(Poi.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PoiEnrichmentReport report = service.enrichExistingPoisWithImages();
+
+        assertTrue(coliseu.getImages().contains("https://lh3.googleusercontent.com/coliseu"));
+        assertTrue(restaurante.getImages().contains("https://lh3.googleusercontent.com/trattoria"));
+        assertEquals(1, report.destinationsProcessed());
+        assertEquals(0, report.destinationsSkipped());
+        assertEquals(2, report.totalPoisEnriched());
+    }
+
+    @Test
+    void enrichExistingPoisWithImages_shouldSkipDestination_whereEveryPoiAlreadyHasAnImage() {
+        Destination paris = Destination.builder()
+            .id(UUID.randomUUID()).slug("paris").name("Paris").city("Paris").country("França")
+            .active(true).build();
+
+        Poi torreEiffel = Poi.builder().id(UUID.randomUUID()).destination(paris)
+            .title("Torre Eiffel").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .active(true).images(new java.util.ArrayList<>(List.of("https://lh3.googleusercontent.com/existing")))
+            .build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(paris));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(paris.getId())).thenReturn(List.of(torreEiffel));
+
+        PoiEnrichmentReport report = service.enrichExistingPoisWithImages();
+
+        verifyNoInteractions(placesService);
+        verify(poiRepo, never()).save(any(Poi.class));
+        assertEquals(0, report.destinationsProcessed());
+        assertEquals(1, report.destinationsSkipped());
+    }
+
+    @Test
+    void enrichExistingPoisWithImages_shouldSkipPoi_withoutSaving_whenNoPhotoIsFound() {
+        Destination madrid = Destination.builder()
+            .id(UUID.randomUUID()).slug("madrid").name("Madrid").city("Madrid").country("Espanha")
+            .active(true).build();
+
+        Poi museuDoPrado = Poi.builder().id(UUID.randomUUID()).destination(madrid)
+            .title("Museu do Prado").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .active(true).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(madrid));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(madrid.getId())).thenReturn(List.of(museuDoPrado));
+        when(placesService.fetchPhotoUrl("Museu do Prado", "Madrid")).thenReturn(java.util.Optional.empty());
+
+        PoiEnrichmentReport report = service.enrichExistingPoisWithImages();
+
+        verify(poiRepo, never()).save(any(Poi.class));
+        assertTrue(museuDoPrado.getImages().isEmpty());
+        assertEquals(1, report.destinationsProcessed());
+        assertEquals(0, report.totalPoisEnriched());
+    }
+
+    @Test
+    void enrichExistingPoisWithImages_shouldNotStop_whenOneDestinationFails() {
+        Destination lisboa = Destination.builder()
+            .id(UUID.randomUUID()).slug("lisboa").name("Lisboa").city("Lisboa").country("Portugal")
+            .active(true).build();
+        Destination madrid = Destination.builder()
+            .id(UUID.randomUUID()).slug("madrid").name("Madrid").city("Madrid").country("Espanha")
+            .active(true).build();
+
+        Poi torreDeBelem = Poi.builder().id(UUID.randomUUID()).destination(lisboa)
+            .title("Torre de Belém").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .active(true).build();
+        Poi puertaDelSol = Poi.builder().id(UUID.randomUUID()).destination(madrid)
+            .title("Puerta del Sol").category(PoiCategory.PARK).budgetTier(BudgetTier.ECONOMY)
+            .active(true).build();
+
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(lisboa, madrid));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(lisboa.getId())).thenReturn(List.of(torreDeBelem));
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(madrid.getId())).thenReturn(List.of(puertaDelSol));
+        when(placesService.fetchPhotoUrl("Torre de Belém", "Lisboa"))
+            .thenThrow(new RuntimeException("Falha simulada no Google Places"));
+        when(placesService.fetchPhotoUrl("Puerta del Sol", "Madrid"))
+            .thenReturn(java.util.Optional.of("https://lh3.googleusercontent.com/puerta-del-sol"));
+        when(poiRepo.save(any(Poi.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PoiEnrichmentReport report = service.enrichExistingPoisWithImages();
+
+        verify(poiRepo).save(argThat(p -> p.getId().equals(puertaDelSol.getId())));
+        verify(poiRepo, never()).save(argThat(p -> p != null && p.getId().equals(torreDeBelem.getId())));
         assertEquals(1, report.destinationsProcessed());
         assertEquals(1, report.destinationsSkipped());
         assertTrue(report.processedSlugs().contains("madrid"));

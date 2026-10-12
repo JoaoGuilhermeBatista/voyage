@@ -104,6 +104,19 @@ public class AdminController {
         return ResponseEntity.ok(adminService.enrichExistingPoisWithNormalizedTitleLanguage());
     }
 
+    @PostMapping("/pois/enrich-images")
+    @Operation(summary = "Busca retroativamente, via Google Places (Find Place + Place Details + Place Photo), " +
+        "1 foto real para cada POI já cadastrado que ainda não tem nenhuma em Poi.images, atualizando IN PLACE " +
+        "(nunca cria ou deleta POIs). Pula destinos em que todos os POIs já têm foto.")
+    public ResponseEntity<PoiEnrichmentReport> enrichPoiImages(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.ok(adminService.enrichExistingPoisWithImages());
+    }
+
     @PostMapping("/destinations/{slug}/pois/generate")
     @Operation(summary = "Gera e ADICIONA POIs novos via GPT-4o a um destino que já existe (não sobrescreve " +
         "nem deleta os POIs já cadastrados) — usado para aprofundar destinos secundários com poucos POIs, " +

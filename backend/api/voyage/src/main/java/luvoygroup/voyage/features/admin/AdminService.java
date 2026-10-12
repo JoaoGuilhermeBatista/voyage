@@ -10,6 +10,7 @@ import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
 import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
 import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
+import luvoygroup.voyage.features.maps.PlacesService;
 import luvoygroup.voyage.features.unusualplaces.UnusualPlaceService;
 import luvoygroup.voyage.repository.DestinationRepository;
 import luvoygroup.voyage.repository.PoiRepository;
@@ -33,6 +34,7 @@ public class AdminService {
     private final PoiRepository poiRepo;
     private final ItineraryTemplateService itineraryTemplateService;
     private final UnusualPlaceService unusualPlaceService;
+    private final PlacesService placesService;
 
     @Transactional
     public DestinationSummaryDTO generateAndSaveDestination(GenerateDestinationRequest request) {
@@ -281,6 +283,57 @@ public class AdminService {
                 processed.add(destination.getSlug());
                 totalEnriched += enrichedForDestination;
                 log.info("✓ {} — {} POIs marcados como mustSee/LANDMARK", destination.getSlug(), enrichedForDestination);
+            } catch (Exception e) {
+                log.error("✗ Erro em {} — pulando destino: {}", destination.getSlug(), e.getMessage());
+                skipped++;
+            }
+        }
+
+        return new PoiEnrichmentReport(
+            processed.size(), skipped, totalEnriched, processed, null, null
+        );
+    }
+
+    /**
+     * Popula retroativamente, IN PLACE (mesmo id, sem deletar/recriar —
+     * POIs são referenciados por FK em atividades de itinerário, templates
+     * de itinerário e favoritos), {@code Poi.images} via
+     * {@link PlacesService#fetchPhotoUrl}, para os POIs que ainda não têm
+     * nenhuma foto. Destino sem nenhum POI sem foto é pulado (operação
+     * idempotente). Erro em um destino não interrompe os demais (mesmo
+     * padrão de enrichExistingPoisWithCatholicChurchFlag).
+     */
+    public PoiEnrichmentReport enrichExistingPoisWithImages() {
+        List<Destination> destinations = destinationRepo.findAllByActiveTrue();
+        log.info("Destinos ativos a verificar para enriquecimento de imagens: {}", destinations.size());
+
+        List<String> processed = new ArrayList<>();
+        int totalEnriched = 0;
+        int skipped = 0;
+
+        for (Destination destination : destinations) {
+            List<Poi> poisWithoutImages = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId()).stream()
+                .filter(p -> p.getImages().isEmpty())
+                .toList();
+            if (poisWithoutImages.isEmpty()) {
+                skipped++;
+                continue;
+            }
+
+            try {
+                int enrichedForDestination = 0;
+                for (Poi poi : poisWithoutImages) {
+                    var photoUrl = placesService.fetchPhotoUrl(poi.getTitle(), destination.getCity());
+                    if (photoUrl.isPresent()) {
+                        poi.getImages().add(photoUrl.get());
+                        poiRepo.save(poi);
+                        enrichedForDestination++;
+                    }
+                }
+
+                processed.add(destination.getSlug());
+                totalEnriched += enrichedForDestination;
+                log.info("✓ {} — {} POIs enriquecidos com imagem", destination.getSlug(), enrichedForDestination);
             } catch (Exception e) {
                 log.error("✗ Erro em {} — pulando destino: {}", destination.getSlug(), e.getMessage());
                 skipped++;
