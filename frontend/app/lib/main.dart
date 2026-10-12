@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +10,17 @@ import 'core/themes/app_theme.dart';
 /// Usado pelo DeeplinkService para mostrar feedback (ex: confirmação de
 /// pagamento) sem depender de um BuildContext de dentro da árvore de telas.
 final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+/// O ScrollBehavior padrão do Flutter só arrasta com toque/stylus — mouse
+/// (Linux/Windows/macOS desktop) fica sem drag-to-scroll nos carrosséis
+/// horizontais sem isso.
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    ...super.dragDevices,
+    PointerDeviceKind.mouse,
+  };
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +72,7 @@ class _LuvoyAppState extends ConsumerState<LuvoyApp> {
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       theme: AppTheme.lightTheme,
       routerConfig: router,
+      scrollBehavior: _AppScrollBehavior(),
       debugShowCheckedModeBanner: false,
     );
   }
