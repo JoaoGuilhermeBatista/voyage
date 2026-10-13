@@ -263,7 +263,7 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isPremium) {
       return Material(
-        color: AppTheme.ink,
+        color: AppTheme.luxy,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: onTapUpgrade,
@@ -301,7 +301,7 @@ class _PlanCard extends StatelessWidget {
                         style: GoogleFonts.jost(
                           fontSize: 12,
                           fontWeight: FontWeight.w300,
-                          color: AppTheme.ivory.withValues(alpha: 0.7),
+                          color: AppTheme.foreground.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -310,7 +310,7 @@ class _PlanCard extends StatelessWidget {
                 Icon(
                   Icons.chevron_right,
                   size: 20,
-                  color: AppTheme.ivory.withValues(alpha: 0.4),
+                  color: AppTheme.foreground.withValues(alpha: 0.4),
                 ),
               ],
             ),

@@ -47,7 +47,7 @@ class RecommendationsScreen extends ConsumerWidget {
     final user = userAsync.valueOrNull;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.solara,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [

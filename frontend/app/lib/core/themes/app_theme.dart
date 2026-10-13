@@ -32,6 +32,7 @@ class AppTheme {
   static const Color ring = Color(0xFF4896D3);
   static const Color coral = Color(0xFFF2B58C);
   static const Color coralSoft = Color(0xFFFDE2CE);
+  static const Color solara = Color(0xFFFEB261);
   static const Color overlay = Color(0xFF0C0806);
 
   /// Alias do azul forte — ponto ativo da nav, eyebrows claros, badges.
@@ -40,11 +41,16 @@ class AppTheme {
   static const Color goldSoft = accent;
 
   // ── Tokens "Noir" — só dentro de blocos com fundo `ink` ─────────────────
-  static const Color ink = Color(0xFF0E1217);
+  static const Color ink = Color(0xFF183966);
   static const Color navy = Color(0xFF192A3C);
   static const Color ivory = Color(0xFFFCF9F0);
   static const Color goldNoir = Color(0xFFDBB06B);
   static const Color goldSoftNoir = Color(0xFFF0DCB1);
+
+  /// Fundo do indicador de status premium (perfil e tela de planos) — texto
+  /// em cima dele usa `foreground` (escuro), não `ivory`: claro demais pra
+  /// ler sobre esse azul.
+  static const Color luxy = Color(0xFF73AEE6);
 
   // ── Aliases legados ──────────────────────────────────────────────────────
   // Mantidos com os MESMOS NOMES de antes do reskin — usados em ~280 pontos

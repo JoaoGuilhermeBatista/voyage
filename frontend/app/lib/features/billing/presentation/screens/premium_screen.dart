@@ -208,7 +208,7 @@ class _StatusBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
-        color: isPremium ? AppTheme.ink : AppTheme.card,
+        color: isPremium ? AppTheme.luxy : AppTheme.card,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isPremium
@@ -233,7 +233,7 @@ class _StatusBanner extends StatelessWidget {
                   style: GoogleFonts.jost(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: isPremium ? AppTheme.ivory : AppTheme.foreground,
+                    color: AppTheme.foreground,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -247,7 +247,7 @@ class _StatusBanner extends StatelessWidget {
                     fontSize: 12.5,
                     fontWeight: FontWeight.w300,
                     color: isPremium
-                        ? AppTheme.ivory.withValues(alpha: 0.7)
+                        ? AppTheme.foreground.withValues(alpha: 0.7)
                         : AppTheme.mutedForeground,
                   ),
                 ),
