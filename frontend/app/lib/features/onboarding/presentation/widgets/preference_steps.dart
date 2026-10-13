@@ -28,8 +28,8 @@ const rhythmOptions = [
 const groupTypeOptions = [
   Option(value: 'SOLO', label: 'Solo', icon: Icons.person_outline),
   Option(value: 'COUPLE', label: 'Casal', icon: Icons.favorite_border),
-  Option(value: 'GROUP', label: 'Amigos', icon: Icons.group_outlined),
-  Option(value: 'FAMILY', label: 'Família', icon: Icons.family_restroom_outlined),
+  Option(value: 'GROUP', label: 'Em grupo', icon: Icons.group_outlined),
+  Option(value: 'FAMILY', label: 'Família', icon: Icons.diversity_3_outlined),
 ];
 
 const interestOptions = [
@@ -249,7 +249,7 @@ class ReligionStep extends StatelessWidget {
       stepNumber: '05',
       showStepNumber: showStepNumber,
       scrollable: scrollable,
-      title: 'Sua fé importa\npra você?',
+      title: 'Qual a sua\nreligião?',
       subtitle:
           'Isso nos ajuda a personalizar sugestões de locais e experiências religiosas.',
       child: Column(
@@ -470,7 +470,7 @@ class SelectionCard extends StatelessWidget {
                 children: [
                   Icon(
                     option.icon,
-                    size: 28,
+                    size: 34,
                     color: isSelected
                         ? AppTheme.goldenOrange
                         : AppTheme.primaryBlue,

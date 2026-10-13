@@ -61,7 +61,7 @@ class DestinationScreen extends ConsumerWidget {
                         ),
                       );
                     },
-                    child: const Text('Gerar Roteiro'),
+                    child: const Text('Gerar roteiro'),
                   ),
                 ),
               ),

@@ -35,7 +35,7 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 40),
               _ActionCard(
                 icon: Icons.tune_outlined,
-                title: 'Minhas Preferências',
+                title: 'Minhas preferências',
                 subtitle: 'Estilos de viagem, gastronomia e clima',
                 onTap: () => context.push('/perfil/preferencias'),
               ),
