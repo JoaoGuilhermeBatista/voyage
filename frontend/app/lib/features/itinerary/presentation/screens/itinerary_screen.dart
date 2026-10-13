@@ -18,7 +18,32 @@ import '../providers/itinerary_provider.dart';
 
 class ItineraryScreen extends ConsumerWidget {
   final String id;
-  const ItineraryScreen({super.key, required this.id});
+
+  /// IDs e quantidade de dias de TODOS os trechos de uma viagem
+  /// multi-destino, na ordem cronológica, mais o índice deste trecho
+  /// dentro dela — repassados pela URL a cada navegação (trip_detail_screen
+  /// → trecho, e trecho → próximo trecho) pra dar numeração de dia contínua
+  /// (#14) e o botão "Próximo destino" (#15) sem precisar o backend saber
+  /// de trechos. Ambos ficam vazios/0 num roteiro avulso.
+  final List<String> legIds;
+  final List<int> legDayCounts;
+  final int legIndex;
+
+  const ItineraryScreen({
+    super.key,
+    required this.id,
+    this.legIds = const [],
+    this.legDayCounts = const [],
+    this.legIndex = 0,
+  });
+
+  int get _dayOffset => legDayCounts.take(legIndex).fold(0, (a, b) => a + b);
+
+  String? get _nextLegId =>
+      legIndex + 1 < legIds.length ? legIds[legIndex + 1] : null;
+
+  String get _nextRouteQuery =>
+      'legIds=${legIds.join(',')}&legDayCounts=${legDayCounts.join(',')}&legIndex=${legIndex + 1}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,7 +91,12 @@ class ItineraryScreen extends ConsumerWidget {
             ),
           ],
         ),
-        data: (itinerary) => _ItineraryBody(itinerary: itinerary),
+        data: (itinerary) => _ItineraryBody(
+          itinerary: itinerary,
+          dayOffset: _dayOffset,
+          nextLegId: _nextLegId,
+          nextRouteQuery: _nextRouteQuery,
+        ),
       ),
     );
   }
@@ -76,7 +106,15 @@ class ItineraryScreen extends ConsumerWidget {
 
 class _ItineraryBody extends StatelessWidget {
   final ItineraryModel itinerary;
-  const _ItineraryBody({required this.itinerary});
+  final int dayOffset;
+  final String? nextLegId;
+  final String nextRouteQuery;
+  const _ItineraryBody({
+    required this.itinerary,
+    this.dayOffset = 0,
+    this.nextLegId,
+    this.nextRouteQuery = '',
+  });
 
   static const _months = [
     '',
@@ -108,7 +146,7 @@ class _ItineraryBody extends StatelessWidget {
     final d = day.date;
     final weekday = _weekdays[d.weekday];
     final month = _months[d.month];
-    return 'Dia ${day.dayNumber} — $weekday, ${d.day} de $month';
+    return 'Dia ${day.dayNumber + dayOffset} — $weekday, ${d.day} de $month';
   }
 
   String _dateRange() {
@@ -171,6 +209,18 @@ class _ItineraryBody extends StatelessWidget {
                 activities: day.activitiesForSlot(slot),
               ),
         ],
+        if (nextLegId != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    context.push('/roteiro/$nextLegId?$nextRouteQuery'),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: const Text('Próximo destino'),
+              ),
+            ),
+          ),
         const SliverToBoxAdapter(child: SizedBox(height: 48)),
       ],
     );

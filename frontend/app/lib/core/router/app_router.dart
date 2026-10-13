@@ -109,8 +109,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/roteiro/:id',
-        builder: (context, state) =>
-            ItineraryScreen(id: state.pathParameters['id']!),
+        builder: (context, state) {
+          final legIdsParam = state.uri.queryParameters['legIds'];
+          final legDayCountsParam = state.uri.queryParameters['legDayCounts'];
+          return ItineraryScreen(
+            id: state.pathParameters['id']!,
+            legIds: legIdsParam == null || legIdsParam.isEmpty
+                ? const []
+                : legIdsParam.split(','),
+            legDayCounts: legDayCountsParam == null || legDayCountsParam.isEmpty
+                ? const []
+                : legDayCountsParam.split(',').map(int.parse).toList(),
+            legIndex:
+                int.tryParse(state.uri.queryParameters['legIndex'] ?? '') ?? 0,
+          );
+        },
       ),
       GoRoute(
         path: '/roteiros/nova-viagem',

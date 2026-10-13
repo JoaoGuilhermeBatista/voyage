@@ -71,7 +71,13 @@ class TripDetailScreen extends ConsumerWidget {
               for (int i = 0; i < trip.legs.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: _LegTile(index: i, leg: trip.legs[i]),
+                  child: _LegTile(
+                    index: i,
+                    leg: trip.legs[i],
+                    legIds: trip.legs.map((l) => l.id).join(','),
+                    legDayCounts:
+                        trip.legs.map((l) => l.dayCount).join(','),
+                  ),
                 ),
             ],
           ),
@@ -84,7 +90,14 @@ class TripDetailScreen extends ConsumerWidget {
 class _LegTile extends StatelessWidget {
   final int index;
   final ItinerarySummaryModel leg;
-  const _LegTile({required this.index, required this.leg});
+  final String legIds;
+  final String legDayCounts;
+  const _LegTile({
+    required this.index,
+    required this.leg,
+    required this.legIds,
+    required this.legDayCounts,
+  });
 
   static const _months = [
     '',
@@ -116,7 +129,9 @@ class _LegTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => context.push('/roteiro/${leg.id}'),
+        onTap: () => context.push(
+          '/roteiro/${leg.id}?legIds=$legIds&legDayCounts=$legDayCounts&legIndex=$index',
+        ),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
