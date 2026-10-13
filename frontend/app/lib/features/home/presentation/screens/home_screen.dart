@@ -28,6 +28,14 @@ List<Color> placeholderGradientFor(String slug) {
   return _placeholderGradients[index];
 }
 
+/// Número da semana do ano (0-based) — usado para o "destino da semana"
+/// trocar automaticamente toda semana, igual pra todo mundo, sem precisar
+/// de nenhuma flag no backend.
+int _weekOfYear(DateTime date) {
+  final startOfYear = DateTime(date.year, 1, 1);
+  return date.difference(startOfYear).inDays ~/ 7;
+}
+
 /// Embaralha `items` de forma determinística a partir de `seed` — mesma
 /// seed sempre produz a mesma ordem (estável entre rebuilds), mas seeds
 /// diferentes produzem ordens diferentes. Sem isso, cada seção temática
@@ -113,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildHero(List<DestinationSummaryModel> destinations) {
     if (destinations.isEmpty) return const SizedBox.shrink();
-    final featured = destinations.first;
+    final featured = destinations[_weekOfYear(DateTime.now()) % destinations.length];
     final topInset = MediaQuery.of(context).padding.top;
     final hasImage = featured.heroImageUrl.isNotEmpty;
     final gradient = placeholderGradientFor(featured.slug);
