@@ -734,11 +734,12 @@ class _VerticalDestinationCard extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
+                      Colors.black.withValues(alpha: 0.35),
                       Colors.transparent,
                       Colors.black.withValues(alpha: 0.2),
                       Colors.black.withValues(alpha: 0.75),
                     ],
-                    stops: const [0.3, 0.6, 1.0],
+                    stops: const [0.0, 0.3, 0.6, 1.0],
                   ),
                 ),
               ),
@@ -746,12 +747,21 @@ class _VerticalDestinationCard extends StatelessWidget {
               Positioned(
                 top: 16,
                 left: 18,
-                child: Text(
-                  destination.country.toUpperCase(),
-                  style: AppTheme.eyebrow(
-                    color: AppTheme.goldSoft,
-                    letterSpacing: 1.6,
-                  ).copyWith(fontSize: 10),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    child: Text(
+                      destination.country.toUpperCase(),
+                      style: AppTheme.eyebrow(
+                        color: AppTheme.goldSoft,
+                        letterSpacing: 1.6,
+                      ).copyWith(fontSize: 10),
+                    ),
+                  ),
                 ),
               ),
 
