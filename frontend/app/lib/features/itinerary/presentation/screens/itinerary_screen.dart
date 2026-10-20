@@ -160,6 +160,44 @@ class _ItineraryBody extends StatelessWidget {
     return '${s.day} ${_months[s.month]} – ${e.day} ${_months[e.month]} · $label';
   }
 
+  /// Uma `_SlotSection` por slot não-vazio do dia, com um conector de
+  /// deslocamento (`_RouteBetweenActivities`) entre o fim de um slot e o
+  /// começo do próximo — ex.: entre a última atividade da manhã e a
+  /// primeira da tarde. Dentro do mesmo slot, o conector já existe (ver
+  /// `_SlotSection`); aqui só cobre a transição ENTRE slots.
+  List<Widget> _buildDaySlots(String itineraryId, ItineraryDayModel day) {
+    const slots = ['MORNING', 'AFTERNOON', 'EVENING', 'FULL_DAY'];
+    final nonEmptySlots =
+        slots.where((s) => day.activitiesForSlot(s).isNotEmpty).toList();
+
+    final widgets = <Widget>[];
+    for (var i = 0; i < nonEmptySlots.length; i++) {
+      final slot = nonEmptySlots[i];
+      final activities = day.activitiesForSlot(slot);
+      widgets.add(_SlotSection(
+        itineraryId: itineraryId,
+        slot: slot,
+        activities: activities,
+      ));
+
+      if (i < nonEmptySlots.length - 1) {
+        final nextActivities = day.activitiesForSlot(nonEmptySlots[i + 1]);
+        widgets.add(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _RouteBetweenActivities(
+                from: activities.last.poi,
+                to: nextActivities.first.poi,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return widgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     final days =
@@ -201,13 +239,7 @@ class _ItineraryBody extends StatelessWidget {
         ),
         for (final day in days) ...[
           SliverToBoxAdapter(child: _DayHeader(label: _dayLabel(day))),
-          for (final slot in const ['MORNING', 'AFTERNOON', 'EVENING'])
-            if (day.activitiesForSlot(slot).isNotEmpty)
-              _SlotSection(
-                itineraryId: itinerary.id,
-                slot: slot,
-                activities: day.activitiesForSlot(slot),
-              ),
+          ..._buildDaySlots(itinerary.id, day),
         ],
         if (nextLegId != null)
           SliverToBoxAdapter(
@@ -306,7 +338,7 @@ class _HeroAppBar extends ConsumerWidget {
 
     try {
       await ref.read(itineraryRepositoryProvider).delete(itinerary.id);
-      ref.invalidate(itinerariesProvider);
+      ref.invalidate(tripsProvider);
       if (context.mounted) context.pop();
     } catch (_) {
       if (context.mounted) {
@@ -500,14 +532,16 @@ class _SlotSection extends StatelessWidget {
     'MORNING': 'Manhã',
     'AFTERNOON': 'Tarde',
     'EVENING': 'Noite',
+    'FULL_DAY': 'Dia inteiro',
   };
 
   // Glyphs tipográficos (spec §6) em vez de ícone Material — ☀︎ manhã, ◐
-  // tarde, ☾ noite.
+  // tarde, ☾ noite, ✦ dia inteiro (ex.: parques temáticos).
   static const _slotGlyphs = {
     'MORNING': '☀︎',
     'AFTERNOON': '◐',
     'EVENING': '☾',
+    'FULL_DAY': '✦',
   };
 
   @override
@@ -656,7 +690,7 @@ class _ActivityTile extends ConsumerWidget {
     'BEACH': 'Praia',
     'PARK': 'Parque',
     'SHOPPING': 'Shopping',
-    'NIGHTLIFE': 'Vida Noturna',
+    'NIGHTLIFE': 'Vida noturna',
   };
 
   static const _budgetLabels = {
@@ -1114,7 +1148,7 @@ class _AlternativeCard extends StatelessWidget {
     'BEACH': 'Praia',
     'PARK': 'Parque',
     'SHOPPING': 'Shopping',
-    'NIGHTLIFE': 'Vida Noturna',
+    'NIGHTLIFE': 'Vida noturna',
   };
 
   const _AlternativeCard({

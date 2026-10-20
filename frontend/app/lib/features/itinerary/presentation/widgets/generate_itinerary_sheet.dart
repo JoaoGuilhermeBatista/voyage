@@ -232,7 +232,7 @@ class _GenerateItinerarySheetState
 
     try {
       final itinerary = await _callGenerate(effectiveDestinationId);
-      ref.invalidate(itinerariesProvider);
+      ref.invalidate(tripsProvider);
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -587,7 +587,7 @@ class _NavRow extends StatelessWidget {
                         color: Colors.white,
                       ),
                     )
-                  : Text(isLast ? 'Gerar Roteiro' : 'Continuar'),
+                  : Text(isLast ? 'Gerar roteiro' : 'Continuar'),
             ),
           ),
         ),

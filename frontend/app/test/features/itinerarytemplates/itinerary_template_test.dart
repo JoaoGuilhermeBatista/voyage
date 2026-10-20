@@ -563,6 +563,7 @@ void main() {
           title: 'Viagem a Paris',
           destinationName: 'Paris',
           destinationHeroImageUrl: '',
+          destinationCountry: '',
           startDate: DateTime(2026, 9, 1),
           endDate: DateTime(2026, 9, 3),
           days: const [],
@@ -795,7 +796,7 @@ void main() {
         // A seção de templates curados fica abaixo do hero (320px) + header
         // do destino no CustomScrollView — no viewport padrão de teste
         // (800x600) ela nasce fora da área visível/tocável (atrás da
-        // bottomNavigationBar fixa "Gerar Roteiro"). Sem este scroll, o tap
+        // bottomNavigationBar fixa "Gerar roteiro"). Sem este scroll, o tap
         // abaixo acerta a bottomNavigationBar em vez do card (bug do teste
         // original, que faltava essa rolagem antes do tap).
         await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));

@@ -119,7 +119,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 : legIdsParam.split(','),
             legDayCounts: legDayCountsParam == null || legDayCountsParam.isEmpty
                 ? const []
-                : legDayCountsParam.split(',').map(int.parse).toList(),
+                : legDayCountsParam
+                      .split(',')
+                      .map((s) => int.tryParse(s) ?? 0)
+                      .toList(),
             legIndex:
                 int.tryParse(state.uri.queryParameters['legIndex'] ?? '') ?? 0,
           );

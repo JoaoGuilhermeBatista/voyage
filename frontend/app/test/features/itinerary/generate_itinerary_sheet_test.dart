@@ -56,6 +56,7 @@ void main() {
         title: 'Viagem',
         destinationName: 'Paris',
         destinationHeroImageUrl: '',
+        destinationCountry: '',
         startDate: DateTime(2026, 9, 1),
         endDate: DateTime(2026, 9, 4),
         days: const [],
@@ -212,7 +213,9 @@ void main() {
   }
 
   Future<void> tapGerarRoteiro(WidgetTester tester) async {
-    await tester.tap(find.text('Gerar Roteiro'));
+    await tester.tap(
+      find.widgetWithText(ElevatedButton, 'Gerar roteiro'),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -459,6 +462,7 @@ void main() {
           title: 'Viagem',
           destinationName: 'Paris',
           destinationHeroImageUrl: '',
+          destinationCountry: '',
           startDate: DateTime(2026, 9, 1),
           endDate: DateTime(2026, 9, 4),
           days: const [],
@@ -560,12 +564,12 @@ void main() {
       expect(find.text('Sozinho'), findsNothing);
 
       // "Com quem vai?" agora é a última etapa do wizard (Budget passou a
-      // vir antes de Área) — o botão de avançar mostra "Gerar Roteiro" em
+      // vir antes de Área) — o botão de avançar mostra "Gerar roteiro" em
       // vez de "Continuar" nesse ponto.
       final gerarRoteiroButton =
           tester.widget<ElevatedButton>(find.widgetWithText(
         ElevatedButton,
-        'Gerar Roteiro',
+        'Gerar roteiro',
       ));
       expect(gerarRoteiroButton.onPressed, isNull);
     },

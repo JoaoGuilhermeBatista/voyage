@@ -4,14 +4,16 @@
 // Contexto: RouteInfoBar (lib/features/maps/presentation/widgets/
 // route_info_bar.dart) e directionsProvider já têm cobertura própria em
 // test/features/maps/maps_test.dart (configured true/false, loading/erro) —
-// este arquivo cobre só a INTEGRAÇÃO: entre duas atividades consecutivas do
-// mesmo slot (_SlotSection em itinerary_screen.dart), mostrar a distância/
-// duração da rota entre os dois POIs, com fallback gracioso quando faltar
-// lat/lng em algum dos dois ou quando o slot tiver uma atividade só.
+// este arquivo cobre só a INTEGRAÇÃO: entre duas atividades consecutivas,
+// mostrar a distância/duração da rota entre os dois POIs, com fallback
+// gracioso quando faltar lat/lng em algum dos dois ou quando o slot tiver
+// uma atividade só.
 //
-// Decisão de escopo: a rota é mostrada entre atividades consecutivas DENTRO
-// do mesmo slot (manhã/tarde/noite) — não entre o fim de um slot e o início
-// do próximo, para não exigir reestruturar _ItineraryBody.
+// Escopo (item #19 do backlog — "tempo de deslocamento entre POIs"): a rota
+// aparece tanto DENTRO do mesmo slot (entre atividades consecutivas da
+// manhã, por ex.) quanto ENTRE slots diferentes (entre a última atividade
+// da manhã e a primeira da tarde) — ver _ItineraryBody._buildDaySlots em
+// itinerary_screen.dart.
 
 import 'package:app/features/currency/data/currency_rates_model.dart';
 import 'package:app/features/currency/presentation/providers/currency_provider.dart';
@@ -61,6 +63,7 @@ void main() {
       title: 'Viagem a São Paulo',
       destinationName: 'São Paulo',
       destinationHeroImageUrl: '',
+      destinationCountry: '',
       startDate: DateTime(2026, 9, 1),
       endDate: DateTime(2026, 9, 3),
       days: [
@@ -78,6 +81,16 @@ void main() {
     required ItineraryModel itinerary,
     List<Override> extraOverrides = const [],
   }) async {
+    // Viewport maior que o padrão do teste: com o conector de deslocamento
+    // ENTRE slots (#19), o conteúdo de um dia com 2+ atividades em slots
+    // diferentes fica alto o bastante pra o SliverList não materializar a
+    // última seção na viewport padrão (mesma causa-raiz já vista em
+    // about_dialog_test.dart com o botão "Sair").
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -230,6 +243,41 @@ void main() {
       expect(find.byType(RouteInfoBar), findsNWidgets(2));
       expect(find.text('1,5 km · 15 min'), findsOneWidget);
       expect(find.text('800 m · 8 min'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'com atividades em slots diferentes, mostra RouteInfoBar entre a última '
+    'atividade da manhã e a primeira da tarde',
+    (tester) async {
+      final itinerary = sampleItinerary([
+        const ItineraryActivityModel(
+            id: 'act-1', slot: 'MORNING', orderInSlot: 1, poi: museu),
+        const ItineraryActivityModel(
+            id: 'act-2', slot: 'AFTERNOON', orderInSlot: 1, poi: restaurante),
+      ]);
+
+      await pumpItineraryScreen(
+        tester,
+        itinerary: itinerary,
+        extraOverrides: [
+          directionsProvider((
+            museu.latitude!,
+            museu.longitude!,
+            restaurante.latitude!,
+            restaurante.longitude!,
+          )).overrideWith((ref) async => const DirectionsModel(
+                configured: true,
+                distanceMeters: 1500.0,
+                durationSeconds: 900,
+                distanceText: '1,5 km',
+                durationText: '15 min',
+              )),
+        ],
+      );
+
+      expect(find.byType(RouteInfoBar), findsOneWidget);
+      expect(find.text('1,5 km · 15 min'), findsOneWidget);
     },
   );
 }
