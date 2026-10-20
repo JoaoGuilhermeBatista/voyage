@@ -40,7 +40,7 @@ class _NavTab {
 
 const _tabs = [
   _NavTab('/home', Icons.explore_outlined, Icons.explore, 'Explorar'),
-  _NavTab('/para-voce', Icons.auto_awesome_outlined, Icons.auto_awesome, 'Para Você'),
+  _NavTab('/para-voce', Icons.auto_awesome_outlined, Icons.auto_awesome, 'Para você'),
   _NavTab('/roteiros', Icons.map_outlined, Icons.map, 'Roteiros'),
   _NavTab('/favoritos', Icons.favorite_border, Icons.favorite, 'Favoritos'),
   _NavTab('/perfil', Icons.person_outline, Icons.person, 'Perfil'),

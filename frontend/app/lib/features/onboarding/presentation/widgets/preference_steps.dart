@@ -51,9 +51,9 @@ const interestLabels = {
   'natureza': 'Natureza',
   'moda': 'Moda',
   'bem-estar': 'Bem-estar',
-  'vida-noturna': 'Vida Noturna',
-  'vida-local': 'Vida Local',
-  'musica': 'Música & Shows',
+  'vida-noturna': 'Vida noturna',
+  'vida-local': 'Vida local',
+  'musica': 'Música & shows',
   'vinhos': 'Vinhos',
   'neve': 'Neve',
 };
@@ -470,7 +470,7 @@ class SelectionCard extends StatelessWidget {
                 children: [
                   Icon(
                     option.icon,
-                    size: 34,
+                    size: 24,
                     color: isSelected
                         ? AppTheme.goldenOrange
                         : AppTheme.primaryBlue,

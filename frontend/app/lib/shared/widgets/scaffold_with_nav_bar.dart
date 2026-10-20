@@ -30,7 +30,7 @@ class _LuvoyNavBar extends StatelessWidget {
 
   static const _items = [
     _NavItemData(icon: Icons.explore_outlined, activeIcon: Icons.explore, label: 'Explorar'),
-    _NavItemData(icon: Icons.auto_awesome_outlined, activeIcon: Icons.auto_awesome, label: 'Para Você'),
+    _NavItemData(icon: Icons.auto_awesome_outlined, activeIcon: Icons.auto_awesome, label: 'Para você'),
     _NavItemData(icon: Icons.map_outlined, activeIcon: Icons.map, label: 'Roteiros'),
     _NavItemData(icon: Icons.favorite_border, activeIcon: Icons.favorite, label: 'Favoritos'),
     _NavItemData(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Perfil'),

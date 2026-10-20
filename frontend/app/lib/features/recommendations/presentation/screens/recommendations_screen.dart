@@ -7,20 +7,21 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../../shared/widgets/loading_shimmer.dart';
+import '../../../../shared/widgets/scroll_focus_blur.dart';
 import '../../../destinations/data/destination_summary_model.dart';
 import '../../../destinations/presentation/providers/destination_provider.dart';
 import '../../../profile/data/user_model.dart';
 import '../../../profile/presentation/providers/user_provider.dart';
 
 const _interestLabels = {
-  'cultura': 'Cultura & Arte',
+  'cultura': 'Cultura & arte',
   'gastronomia': 'Gastronomia',
   'natureza': 'Natureza',
-  'moda': 'Moda & Design',
+  'moda': 'Moda & design',
   'bem-estar': 'Bem-estar',
-  'vida-noturna': 'Vida Noturna',
-  'vida-local': 'Vida Local',
-  'musica': 'Música & Shows',
+  'vida-noturna': 'Vida noturna',
+  'vida-local': 'Vida local',
+  'musica': 'Música & shows',
 };
 
 /// Embaralha `items` de forma determinística a partir de `seed` — mesma
@@ -204,7 +205,9 @@ class RecommendationsScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   _SectionHeader(title: s.label),
                   const SizedBox(height: 12),
-                  _HorizontalCarousel(destinations: s.items),
+                  ScrollFocusBlur(
+                    child: _HorizontalCarousel(destinations: s.items),
+                  ),
                 ],
               ),
             ))

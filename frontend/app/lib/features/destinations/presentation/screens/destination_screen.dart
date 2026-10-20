@@ -15,19 +15,19 @@ import '../../data/destination_detail_model.dart';
 import '../providers/destination_provider.dart';
 
 const _sectionLabels = <String, String>{
-  'ROTEIRO': 'Roteiro Sugerido',
+  'ROTEIRO': 'Roteiro sugerido',
   'RESTAURANTES': 'Restaurantes',
   'CAFES': 'Cafés',
   'ATRACOES': 'Atrações',
   'EXPERIENCIAS': 'Experiências',
-  'RUAS': 'Ruas & Bairros',
+  'RUAS': 'Ruas & bairros',
   'INSTAGRAM': 'Para o Instagram',
   'LOJAS': 'Lojas',
-  'ESCONDIDOS': 'Joias Escondidas',
-  'ROOFTOPS': 'Rooftops & Bares',
-  'SKINCARE': 'Skincare & Bem-estar',
+  'ESCONDIDOS': 'Joias escondidas',
+  'ROOFTOPS': 'Rooftops & bares',
+  'SKINCARE': 'Skincare & bem-estar',
   'COMPRAS': 'Compras',
-  'PRATOS': 'Pratos Típicos',
+  'PRATOS': 'Pratos típicos',
   'MAPA': 'Mapa',
 };
 
