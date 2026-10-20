@@ -9,23 +9,25 @@ import '../../../itinerary/presentation/widgets/generate_itinerary_sheet.dart';
 import '../../../itinerarytemplates/data/itinerary_template_models.dart';
 import '../../../itinerarytemplates/presentation/providers/itinerary_template_provider.dart';
 import '../../../itinerarytemplates/presentation/screens/template_preview_screen.dart';
+import '../../../unusualplaces/data/unusual_place_models.dart';
+import '../../../unusualplaces/presentation/providers/unusual_place_provider.dart';
 import '../../data/destination_detail_model.dart';
 import '../providers/destination_provider.dart';
 
 const _sectionLabels = <String, String>{
-  'ROTEIRO': 'Roteiro Sugerido',
+  'ROTEIRO': 'Roteiro sugerido',
   'RESTAURANTES': 'Restaurantes',
   'CAFES': 'Cafés',
   'ATRACOES': 'Atrações',
   'EXPERIENCIAS': 'Experiências',
-  'RUAS': 'Ruas & Bairros',
+  'RUAS': 'Ruas & bairros',
   'INSTAGRAM': 'Para o Instagram',
   'LOJAS': 'Lojas',
-  'ESCONDIDOS': 'Joias Escondidas',
-  'ROOFTOPS': 'Rooftops & Bares',
-  'SKINCARE': 'Skincare & Bem-estar',
+  'ESCONDIDOS': 'Joias escondidas',
+  'ROOFTOPS': 'Rooftops & bares',
+  'SKINCARE': 'Skincare & bem-estar',
   'COMPRAS': 'Compras',
-  'PRATOS': 'Pratos Típicos',
+  'PRATOS': 'Pratos típicos',
   'MAPA': 'Mapa',
 };
 
@@ -59,7 +61,7 @@ class DestinationScreen extends ConsumerWidget {
                         ),
                       );
                     },
-                    child: const Text('Gerar Roteiro'),
+                    child: const Text('Gerar roteiro'),
                   ),
                 ),
               ),
@@ -136,6 +138,7 @@ class _DestinationBody extends StatelessWidget {
             destination.description!.isNotEmpty)
           _DescriptionSliver(description: destination.description!),
         _CuratedTemplatesSliver(slug: destination.slug),
+        _UnusualPlacesSliver(slug: destination.slug),
         for (final section in sections) _SectionSliver(section: section),
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
@@ -582,6 +585,181 @@ class _CuratedTemplateCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Lugares Incomuns — feature premium (escopo definido na implementação, ver
+// resumo entregue ao usuário; não é spec oficial da contratante)
+// ---------------------------------------------------------------------------
+//
+// Mesmo padrão gracioso de _CuratedTemplatesSliver: loading/error/lista
+// vazia encolhem pra SizedBox.shrink() em vez de quebrar a tela do destino.
+
+class _UnusualPlacesSliver extends ConsumerWidget {
+  final String slug;
+  const _UnusualPlacesSliver({required this.slug});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncPlaces = ref.watch(unusualPlacesForDestinationProvider(slug));
+
+    return asyncPlaces.when(
+      loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
+      error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
+      data: (places) {
+        if (places.isEmpty) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+        return SliverToBoxAdapter(
+          child: _UnusualPlacesSection(places: places),
+        );
+      },
+    );
+  }
+}
+
+class _UnusualPlacesSection extends StatelessWidget {
+  final List<UnusualPlaceModel> places;
+  const _UnusualPlacesSection({required this.places});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Divider(),
+          const SizedBox(height: 20),
+          Text(
+            'LUGARES INCOMUNS',
+            style: GoogleFonts.jost(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
+              color: AppTheme.goldenOrange,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Fora do roteiro óbvio — recomendação de quem conhece a cidade.',
+            style: GoogleFonts.jost(
+              fontSize: 13,
+              color: AppTheme.mutedForeground,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (int i = 0; i < places.length; i++) ...[
+            if (i > 0) const Divider(thickness: 0.5),
+            _UnusualPlaceTile(place: places[i]),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnusualPlaceTile extends StatelessWidget {
+  final UnusualPlaceModel place;
+  const _UnusualPlaceTile({required this.place});
+
+  @override
+  Widget build(BuildContext context) {
+    if (place.locked) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 16,
+              color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                place.title,
+                style: GoogleFonts.jost(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.mutedForeground,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => context.push('/premium'),
+              child: Text(
+                'Desbloquear',
+                style: GoogleFonts.jost(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.goldenOrange,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  place.title,
+                  style: GoogleFonts.jost(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.softBlack,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              if (place.category != null && place.category!.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.goldenOrange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    place.category!,
+                    style: GoogleFonts.jost(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.goldenOrange,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (place.description != null && place.description!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              place.description!,
+              style: GoogleFonts.jost(
+                fontSize: 13,
+                color: AppTheme.mutedForeground,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

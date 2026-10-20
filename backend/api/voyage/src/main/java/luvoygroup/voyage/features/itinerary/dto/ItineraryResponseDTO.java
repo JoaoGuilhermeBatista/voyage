@@ -10,6 +10,7 @@ public record ItineraryResponseDTO(
     UUID destinationId,
     String destinationName,
     String destinationHeroImageUrl,
+    String destinationCountry,
     LocalDate startDate,
     LocalDate endDate,
     List<DayDTO> days

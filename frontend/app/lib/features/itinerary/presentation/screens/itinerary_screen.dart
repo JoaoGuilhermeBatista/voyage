@@ -18,7 +18,32 @@ import '../providers/itinerary_provider.dart';
 
 class ItineraryScreen extends ConsumerWidget {
   final String id;
-  const ItineraryScreen({super.key, required this.id});
+
+  /// IDs e quantidade de dias de TODOS os trechos de uma viagem
+  /// multi-destino, na ordem cronológica, mais o índice deste trecho
+  /// dentro dela — repassados pela URL a cada navegação (trip_detail_screen
+  /// → trecho, e trecho → próximo trecho) pra dar numeração de dia contínua
+  /// (#14) e o botão "Próximo destino" (#15) sem precisar o backend saber
+  /// de trechos. Ambos ficam vazios/0 num roteiro avulso.
+  final List<String> legIds;
+  final List<int> legDayCounts;
+  final int legIndex;
+
+  const ItineraryScreen({
+    super.key,
+    required this.id,
+    this.legIds = const [],
+    this.legDayCounts = const [],
+    this.legIndex = 0,
+  });
+
+  int get _dayOffset => legDayCounts.take(legIndex).fold(0, (a, b) => a + b);
+
+  String? get _nextLegId =>
+      legIndex + 1 < legIds.length ? legIds[legIndex + 1] : null;
+
+  String get _nextRouteQuery =>
+      'legIds=${legIds.join(',')}&legDayCounts=${legDayCounts.join(',')}&legIndex=${legIndex + 1}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,7 +91,12 @@ class ItineraryScreen extends ConsumerWidget {
             ),
           ],
         ),
-        data: (itinerary) => _ItineraryBody(itinerary: itinerary),
+        data: (itinerary) => _ItineraryBody(
+          itinerary: itinerary,
+          dayOffset: _dayOffset,
+          nextLegId: _nextLegId,
+          nextRouteQuery: _nextRouteQuery,
+        ),
       ),
     );
   }
@@ -76,7 +106,15 @@ class ItineraryScreen extends ConsumerWidget {
 
 class _ItineraryBody extends StatelessWidget {
   final ItineraryModel itinerary;
-  const _ItineraryBody({required this.itinerary});
+  final int dayOffset;
+  final String? nextLegId;
+  final String nextRouteQuery;
+  const _ItineraryBody({
+    required this.itinerary,
+    this.dayOffset = 0,
+    this.nextLegId,
+    this.nextRouteQuery = '',
+  });
 
   static const _months = [
     '',
@@ -108,7 +146,7 @@ class _ItineraryBody extends StatelessWidget {
     final d = day.date;
     final weekday = _weekdays[d.weekday];
     final month = _months[d.month];
-    return 'Dia ${day.dayNumber} — $weekday, ${d.day} de $month';
+    return 'Dia ${day.dayNumber + dayOffset} — $weekday, ${d.day} de $month';
   }
 
   String _dateRange() {
@@ -120,6 +158,44 @@ class _ItineraryBody extends StatelessWidget {
       return '${s.day}–${e.day} ${_months[s.month]} · $label';
     }
     return '${s.day} ${_months[s.month]} – ${e.day} ${_months[e.month]} · $label';
+  }
+
+  /// Uma `_SlotSection` por slot não-vazio do dia, com um conector de
+  /// deslocamento (`_RouteBetweenActivities`) entre o fim de um slot e o
+  /// começo do próximo — ex.: entre a última atividade da manhã e a
+  /// primeira da tarde. Dentro do mesmo slot, o conector já existe (ver
+  /// `_SlotSection`); aqui só cobre a transição ENTRE slots.
+  List<Widget> _buildDaySlots(String itineraryId, ItineraryDayModel day) {
+    const slots = ['MORNING', 'AFTERNOON', 'EVENING', 'FULL_DAY'];
+    final nonEmptySlots =
+        slots.where((s) => day.activitiesForSlot(s).isNotEmpty).toList();
+
+    final widgets = <Widget>[];
+    for (var i = 0; i < nonEmptySlots.length; i++) {
+      final slot = nonEmptySlots[i];
+      final activities = day.activitiesForSlot(slot);
+      widgets.add(_SlotSection(
+        itineraryId: itineraryId,
+        slot: slot,
+        activities: activities,
+      ));
+
+      if (i < nonEmptySlots.length - 1) {
+        final nextActivities = day.activitiesForSlot(nonEmptySlots[i + 1]);
+        widgets.add(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: _RouteBetweenActivities(
+                from: activities.last.poi,
+                to: nextActivities.first.poi,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+    return widgets;
   }
 
   @override
@@ -163,14 +239,20 @@ class _ItineraryBody extends StatelessWidget {
         ),
         for (final day in days) ...[
           SliverToBoxAdapter(child: _DayHeader(label: _dayLabel(day))),
-          for (final slot in const ['MORNING', 'AFTERNOON', 'EVENING'])
-            if (day.activitiesForSlot(slot).isNotEmpty)
-              _SlotSection(
-                itineraryId: itinerary.id,
-                slot: slot,
-                activities: day.activitiesForSlot(slot),
-              ),
+          ..._buildDaySlots(itinerary.id, day),
         ],
+        if (nextLegId != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              child: OutlinedButton.icon(
+                onPressed: () =>
+                    context.push('/roteiro/$nextLegId?$nextRouteQuery'),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: const Text('Próximo destino'),
+              ),
+            ),
+          ),
         const SliverToBoxAdapter(child: SizedBox(height: 48)),
       ],
     );
@@ -256,7 +338,7 @@ class _HeroAppBar extends ConsumerWidget {
 
     try {
       await ref.read(itineraryRepositoryProvider).delete(itinerary.id);
-      ref.invalidate(itinerariesProvider);
+      ref.invalidate(tripsProvider);
       if (context.mounted) context.pop();
     } catch (_) {
       if (context.mounted) {
@@ -450,14 +532,16 @@ class _SlotSection extends StatelessWidget {
     'MORNING': 'Manhã',
     'AFTERNOON': 'Tarde',
     'EVENING': 'Noite',
+    'FULL_DAY': 'Dia inteiro',
   };
 
   // Glyphs tipográficos (spec §6) em vez de ícone Material — ☀︎ manhã, ◐
-  // tarde, ☾ noite.
+  // tarde, ☾ noite, ✦ dia inteiro (ex.: parques temáticos).
   static const _slotGlyphs = {
     'MORNING': '☀︎',
     'AFTERNOON': '◐',
     'EVENING': '☾',
+    'FULL_DAY': '✦',
   };
 
   @override
@@ -606,7 +690,7 @@ class _ActivityTile extends ConsumerWidget {
     'BEACH': 'Praia',
     'PARK': 'Parque',
     'SHOPPING': 'Shopping',
-    'NIGHTLIFE': 'Vida Noturna',
+    'NIGHTLIFE': 'Vida noturna',
   };
 
   static const _budgetLabels = {
@@ -1064,7 +1148,7 @@ class _AlternativeCard extends StatelessWidget {
     'BEACH': 'Praia',
     'PARK': 'Parque',
     'SHOPPING': 'Shopping',
-    'NIGHTLIFE': 'Vida Noturna',
+    'NIGHTLIFE': 'Vida noturna',
   };
 
   const _AlternativeCard({

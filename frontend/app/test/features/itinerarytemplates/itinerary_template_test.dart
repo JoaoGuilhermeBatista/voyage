@@ -52,6 +52,7 @@ import 'package:app/features/itinerarytemplates/data/itinerary_template_models.d
 import 'package:app/features/itinerarytemplates/data/itinerary_template_repository.dart';
 import 'package:app/features/itinerarytemplates/presentation/providers/itinerary_template_provider.dart';
 import 'package:app/features/itinerarytemplates/presentation/screens/template_preview_screen.dart';
+import 'package:app/features/unusualplaces/presentation/providers/unusual_place_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -562,6 +563,7 @@ void main() {
           title: 'Viagem a Paris',
           destinationName: 'Paris',
           destinationHeroImageUrl: '',
+          destinationCountry: '',
           startDate: DateTime(2026, 9, 1),
           endDate: DateTime(2026, 9, 3),
           days: const [],
@@ -690,6 +692,13 @@ void main() {
           // Supabase.instance, que não está inicializado neste ambiente de
           // teste (não faz parte desta feature) — fixado para evitar isso.
           favoritesProvider.overrideWith(() => _FakeFavoriteNotifier()),
+          // _UnusualPlacesSliver (feature "Lugares Incomuns") observa
+          // unusualPlacesForDestinationProvider -> UnusualPlaceRepository ->
+          // apiClientProvider -> Supabase.instance, mesmo motivo do
+          // favoritesProvider acima — fixado aqui para não quebrar os testes
+          // desta seção, que não são sobre essa feature.
+          unusualPlacesForDestinationProvider(destination.slug)
+              .overrideWith((ref) async => const []),
           ...extraOverrides,
         ],
         child: MaterialApp(home: DestinationScreen(slug: destination.slug)),
@@ -787,7 +796,7 @@ void main() {
         // A seção de templates curados fica abaixo do hero (320px) + header
         // do destino no CustomScrollView — no viewport padrão de teste
         // (800x600) ela nasce fora da área visível/tocável (atrás da
-        // bottomNavigationBar fixa "Gerar Roteiro"). Sem este scroll, o tap
+        // bottomNavigationBar fixa "Gerar roteiro"). Sem este scroll, o tap
         // abaixo acerta a bottomNavigationBar em vez do card (bug do teste
         // original, que faltava essa rolagem antes do tap).
         await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));

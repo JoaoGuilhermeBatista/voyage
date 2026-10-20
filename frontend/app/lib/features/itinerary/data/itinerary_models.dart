@@ -62,6 +62,7 @@ class TripLegInput {
 class ItinerarySummaryModel {
   final String id;
   final String title;
+  final String destinationId;
   final String destinationName;
   final String destinationHeroImageUrl;
   final DateTime startDate;
@@ -71,6 +72,7 @@ class ItinerarySummaryModel {
   const ItinerarySummaryModel({
     required this.id,
     required this.title,
+    required this.destinationId,
     required this.destinationName,
     required this.destinationHeroImageUrl,
     required this.startDate,
@@ -82,6 +84,7 @@ class ItinerarySummaryModel {
     return ItinerarySummaryModel(
       id: json['id'] as String,
       title: json['title'] as String,
+      destinationId: json['destinationId'] as String,
       destinationName: json['destinationName'] as String,
       destinationHeroImageUrl: json['destinationHeroImageUrl'] as String? ?? '',
       startDate: DateTime.parse(json['startDate'] as String),
@@ -96,6 +99,7 @@ class ItineraryModel {
   final String title;
   final String destinationName;
   final String destinationHeroImageUrl;
+  final String destinationCountry;
   final DateTime startDate;
   final DateTime endDate;
   final List<ItineraryDayModel> days;
@@ -105,6 +109,7 @@ class ItineraryModel {
     required this.title,
     required this.destinationName,
     required this.destinationHeroImageUrl,
+    required this.destinationCountry,
     required this.startDate,
     required this.endDate,
     required this.days,
@@ -116,6 +121,7 @@ class ItineraryModel {
       title: json['title'] as String,
       destinationName: json['destinationName'] as String,
       destinationHeroImageUrl: json['destinationHeroImageUrl'] as String? ?? '',
+      destinationCountry: json['destinationCountry'] as String? ?? '',
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
       days: (json['days'] as List<dynamic>)

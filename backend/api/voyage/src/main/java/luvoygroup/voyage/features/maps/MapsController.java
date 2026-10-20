@@ -51,6 +51,15 @@ public class MapsController {
         return mapsService.getDirections(oLat, oLng, dLat, dLng);
     }
 
+    @GetMapping("/directions-between-destinations")
+    @Operation(summary = "Rota entre as CIDADES de dois destinos (ex.: trechos de uma viagem multi-destino)")
+    public DirectionsResponseDTO getDirectionsBetweenDestinations(
+        @RequestParam UUID originDestinationId,
+        @RequestParam UUID destDestinationId
+    ) {
+        return mapsService.getDirectionsBetweenDestinations(originDestinationId, destDestinationId);
+    }
+
     @GetMapping("/embed-url")
     @Operation(summary = "URL embutível do Google Maps para um ponto (lat/lng)")
     public EmbedUrlResponseDTO getEmbedUrl(

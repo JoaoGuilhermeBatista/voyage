@@ -1,14 +1,22 @@
 package luvoygroup.voyage.features.maps;
 
+import luvoygroup.voyage.domain.Destination;
+import luvoygroup.voyage.exception.ResourceNotFoundException;
 import luvoygroup.voyage.features.maps.dto.DirectionsResponseDTO;
 import luvoygroup.voyage.features.maps.dto.EmbedUrlResponseDTO;
+import luvoygroup.voyage.features.maps.dto.LatLng;
+import luvoygroup.voyage.repository.DestinationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
+import java.util.Optional;
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -67,17 +75,21 @@ class MapsServiceTest {
         """;
 
     private RestClient mockRestClient;
+    private GeocodingService mockGeocodingService;
+    private DestinationRepository mockDestinationRepo;
 
     @BeforeEach
     void setUp() {
         mockRestClient = mock(RestClient.class);
+        mockGeocodingService = mock(GeocodingService.class);
+        mockDestinationRepo = mock(DestinationRepository.class);
     }
 
     // ─── (a) getDirections — api-key não configurada → configured=false, sem chamada HTTP ─
 
     @Test
     void getDirections_shouldReturnNotConfigured_andNeverCallRestClient_whenApiKeyIsBlank() {
-        MapsService service = new MapsService("not-configured", mockRestClient);
+        MapsService service = new MapsService("not-configured", mockRestClient, mockGeocodingService, mockDestinationRepo);
 
         DirectionsResponseDTO result = service.getDirections(-23.5505, -46.6333, -22.9068, -43.1729);
 
@@ -109,7 +121,7 @@ class MapsServiceTest {
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.body(String.class)).thenReturn(SAMPLE_DIRECTIONS_JSON);
 
-        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient);
+        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient, mockGeocodingService, mockDestinationRepo);
 
         DirectionsResponseDTO result = service.getDirections(-23.5505, -46.6333, -22.9068, -43.1729);
 
@@ -124,7 +136,7 @@ class MapsServiceTest {
 
     @Test
     void getEmbedUrl_shouldReturnNotConfigured_andNeverCallRestClient_whenApiKeyIsBlank() {
-        MapsService service = new MapsService("not-configured", mockRestClient);
+        MapsService service = new MapsService("not-configured", mockRestClient, mockGeocodingService, mockDestinationRepo);
 
         EmbedUrlResponseDTO result = service.getEmbedUrl(-23.5505, -46.6333);
 
@@ -142,7 +154,7 @@ class MapsServiceTest {
 
     @Test
     void getEmbedUrl_shouldBuildUrlWithKeyLatLng_whenApiKeyIsConfigured() {
-        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient);
+        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient, mockGeocodingService, mockDestinationRepo);
 
         EmbedUrlResponseDTO result = service.getEmbedUrl(-23.5505, -46.6333);
 
@@ -157,7 +169,7 @@ class MapsServiceTest {
 
     @Test
     void getDirectionsEmbedUrl_shouldReturnNotConfigured_andNeverCallRestClient_whenApiKeyIsBlank() {
-        MapsService service = new MapsService("not-configured", mockRestClient);
+        MapsService service = new MapsService("not-configured", mockRestClient, mockGeocodingService, mockDestinationRepo);
 
         EmbedUrlResponseDTO result = service.getDirectionsEmbedUrl(-23.5505, -46.6333, -22.9068, -43.1729);
 
@@ -170,7 +182,7 @@ class MapsServiceTest {
 
     @Test
     void getDirectionsEmbedUrl_shouldBuildUrlWithKeyOriginDestination_whenApiKeyIsConfigured() {
-        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient);
+        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient, mockGeocodingService, mockDestinationRepo);
 
         EmbedUrlResponseDTO result = service.getDirectionsEmbedUrl(-23.5505, -46.6333, -22.9068, -43.1729);
 
@@ -178,6 +190,93 @@ class MapsServiceTest {
         assertTrue(result.embedUrl() != null && result.embedUrl().contains(FAKE_API_KEY));
         assertTrue(result.embedUrl() != null && result.embedUrl().contains("origin=-23.5505,-46.6333"));
         assertTrue(result.embedUrl() != null && result.embedUrl().contains("destination=-22.9068,-43.1729"));
+    }
+
+    // ─── (g) getDirectionsBetweenDestinations — api-key não configurada → configured=false, sem tocar repo/geocoding ─
+
+    @Test
+    void getDirectionsBetweenDestinations_shouldReturnNotConfigured_withoutTouchingRepoOrGeocoding_whenApiKeyIsBlank() {
+        MapsService service = new MapsService("not-configured", mockRestClient, mockGeocodingService, mockDestinationRepo);
+
+        DirectionsResponseDTO result =
+            service.getDirectionsBetweenDestinations(UUID.randomUUID(), UUID.randomUUID());
+
+        assertFalse(result.configured());
+        assertNull(result.distanceMeters());
+        verifyNoInteractions(mockDestinationRepo);
+        verifyNoInteractions(mockGeocodingService);
+    }
+
+    // ─── (h) getDirectionsBetweenDestinations — destino inexistente → ResourceNotFoundException ─
+
+    @Test
+    void getDirectionsBetweenDestinations_shouldThrowResourceNotFound_whenEitherDestinationDoesNotExist() {
+        UUID originId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        when(mockDestinationRepo.findById(originId)).thenReturn(Optional.empty());
+
+        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient, mockGeocodingService, mockDestinationRepo);
+
+        assertThrows(ResourceNotFoundException.class,
+            () -> service.getDirectionsBetweenDestinations(originId, destId));
+    }
+
+    // ─── (i) getDirectionsBetweenDestinations — geocode falha pra algum dos dois → configured=true, nulls ─
+
+    @Test
+    void getDirectionsBetweenDestinations_shouldReturnConfiguredWithNulls_whenGeocodingFailsForEitherCity() {
+        UUID originId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        Destination origin = Destination.builder().id(originId).slug("paris").name("Paris")
+            .city("Paris").country("França").tagline("").active(true).build();
+        Destination destination = Destination.builder().id(destId).slug("roma").name("Roma")
+            .city("Roma").country("Itália").tagline("").active(true).build();
+
+        when(mockDestinationRepo.findById(originId)).thenReturn(Optional.of(origin));
+        when(mockDestinationRepo.findById(destId)).thenReturn(Optional.of(destination));
+        when(mockGeocodingService.geocode("Paris, França")).thenReturn(Optional.of(new LatLng(48.8566, 2.3522)));
+        when(mockGeocodingService.geocode("Roma, Itália")).thenReturn(Optional.empty());
+
+        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient, mockGeocodingService, mockDestinationRepo);
+
+        DirectionsResponseDTO result = service.getDirectionsBetweenDestinations(originId, destId);
+
+        assertTrue(result.configured());
+        assertNull(result.distanceMeters());
         verifyNoInteractions(mockRestClient);
+    }
+
+    // ─── (j) getDirectionsBetweenDestinations — fluxo completo: geocodifica os 2 e busca a rota ─
+
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void getDirectionsBetweenDestinations_shouldGeocodeBothCities_andReturnDirections_whenBothResolve() {
+        UUID originId = UUID.randomUUID();
+        UUID destId = UUID.randomUUID();
+        Destination origin = Destination.builder().id(originId).slug("paris").name("Paris")
+            .city("Paris").country("França").tagline("").active(true).build();
+        Destination destination = Destination.builder().id(destId).slug("roma").name("Roma")
+            .city("Roma").country("Itália").tagline("").active(true).build();
+
+        when(mockDestinationRepo.findById(originId)).thenReturn(Optional.of(origin));
+        when(mockDestinationRepo.findById(destId)).thenReturn(Optional.of(destination));
+        when(mockGeocodingService.geocode("Paris, França")).thenReturn(Optional.of(new LatLng(48.8566, 2.3522)));
+        when(mockGeocodingService.geocode("Roma, Itália")).thenReturn(Optional.of(new LatLng(41.9028, 12.4964)));
+
+        RestClient.RequestHeadersUriSpec uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+        RestClient.RequestHeadersSpec headersSpec = mock(RestClient.RequestHeadersSpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        when(mockRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), any(Object[].class))).thenReturn(headersSpec);
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(String.class)).thenReturn(SAMPLE_DIRECTIONS_JSON);
+
+        MapsService service = new MapsService(FAKE_API_KEY, mockRestClient, mockGeocodingService, mockDestinationRepo);
+
+        DirectionsResponseDTO result = service.getDirectionsBetweenDestinations(originId, destId);
+
+        assertTrue(result.configured());
+        assertEquals("5.2 km", result.distanceText());
+        assertEquals("12 mins", result.durationText());
     }
 }

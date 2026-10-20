@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/constants/deeplink_constants.dart';
+
 final supabaseProvider = Provider<SupabaseClient>(
   (ref) => Supabase.instance.client,
 );
@@ -29,7 +31,11 @@ class AuthNotifier extends AsyncNotifier<void> {
   Future<void> signUp(String email, String password) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => _supabase.auth.signUp(email: email, password: password),
+      () => _supabase.auth.signUp(
+        email: email,
+        password: password,
+        emailRedirectTo: DeeplinkConstants.authCallback,
+      ),
     );
   }
 

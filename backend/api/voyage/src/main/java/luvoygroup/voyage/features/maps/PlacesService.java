@@ -16,10 +16,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * Proxy do backend para a Google Places API (Nearby Search) + Google
@@ -56,7 +64,27 @@ public class PlacesService {
     private static final String NEARBY_SEARCH_URL_TEMPLATE =
         "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={lat},{lng}&radius=6000&type=lodging&key={apiKey}";
 
+    private static final String FIND_PLACE_URL_TEMPLATE =
+        "https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input={input}&inputtype=textquery&fields=place_id&key={apiKey}";
+
+    private static final String PLACE_DETAILS_URL_TEMPLATE =
+        "https://maps.googleapis.com/maps/api/place/details/json?place_id={placeId}&fields=photos&key={apiKey}";
+
+    private static final String PLACE_PHOTO_URL_TEMPLATE =
+        "https://maps.googleapis.com/maps/api/place/photo?maxwidth=1200&photo_reference=%s&key=%s";
+
     private static final int MAX_LODGING_RESULTS_TO_GEOCODE = 10;
+
+    /**
+     * Resolve a URL final (sem api-key) de uma foto do Google Places,
+     * seguindo manualmente o redirect 302 que o endpoint Place Photo
+     * devolve em vez de deixar o cliente HTTP seguir automaticamente — só
+     * assim dá pra capturar a URL de destino (lh3.googleusercontent.com)
+     * sem baixar a imagem inteira. Trocável nos testes (ver construtor de
+     * 7 argumentos); a implementação real usa java.net.http.HttpClient
+     * puro porque RestClient não expõe esse controle de redirect.
+     */
+    private final Function<String, Optional<String>> redirectResolver;
 
     /**
      * Cache de descoberta de bairros reais, por destinationId apenas (SEM
@@ -98,12 +126,31 @@ public class PlacesService {
         GeocodingService geocodingService,
         LlmService llmService
     ) {
+        this(apiKey, restClient, destinationRepo, poiRepo, geocodingService, llmService,
+            PlacesService::resolvePhotoRedirectReal);
+    }
+
+    /**
+     * Construtor package-private com {@link #redirectResolver} explícito —
+     * usado pelos testes de {@link #fetchPhotoUrl} para mockar a resolução
+     * do redirect sem fazer chamada HTTP de verdade.
+     */
+    PlacesService(
+        String apiKey,
+        RestClient restClient,
+        DestinationRepository destinationRepo,
+        PoiRepository poiRepo,
+        GeocodingService geocodingService,
+        LlmService llmService,
+        Function<String, Optional<String>> redirectResolver
+    ) {
         this.apiKey = apiKey;
         this.restClient = restClient;
         this.destinationRepo = destinationRepo;
         this.poiRepo = poiRepo;
         this.geocodingService = geocodingService;
         this.llmService = llmService;
+        this.redirectResolver = redirectResolver;
     }
 
     public NeighborhoodSuggestionsDTO suggestNeighborhoods(UUID destinationId, BudgetTier budgetTier) {
@@ -255,5 +302,83 @@ public class PlacesService {
 
     private boolean isConfigured() {
         return apiKey != null && !apiKey.isBlank() && !"not-configured".equals(apiKey);
+    }
+
+    /**
+     * Busca 1 foto real no Google Places para um POI, a partir do nome e da
+     * cidade do destino — usado por
+     * {@code AdminService#enrichExistingPoisWithImages} para popular
+     * {@code Poi.images} retroativamente. Fluxo: Find Place From Text (nome
+     * + cidade → place_id) → Place Details (place_id → photo_reference) →
+     * Place Photo (segue o redirect 302 e devolve a URL final do CDN do
+     * Google, sem api-key embutida). Nunca lança exceção — qualquer falha
+     * (api-key ausente, lugar não encontrado, sem fotos, erro de rede) vira
+     * {@code Optional.empty()}, logado como warning.
+     */
+    public Optional<String> fetchPhotoUrl(String title, String city) {
+        if (!isConfigured()) {
+            return Optional.empty();
+        }
+
+        try {
+            String findPlaceJson = restClient.get()
+                .uri(FIND_PLACE_URL_TEMPLATE, title + ", " + city, apiKey)
+                .retrieve()
+                .body(String.class);
+
+            com.fasterxml.jackson.databind.JsonNode findPlaceRoot = objectMapper.readTree(findPlaceJson);
+            if (!"OK".equals(findPlaceRoot.path("status").asText())) {
+                return Optional.empty();
+            }
+            com.fasterxml.jackson.databind.JsonNode candidates = findPlaceRoot.path("candidates");
+            if (!candidates.isArray() || candidates.isEmpty()) {
+                return Optional.empty();
+            }
+            String placeId = candidates.get(0).path("place_id").asText(null);
+            if (placeId == null) {
+                return Optional.empty();
+            }
+
+            String detailsJson = restClient.get()
+                .uri(PLACE_DETAILS_URL_TEMPLATE, placeId, apiKey)
+                .retrieve()
+                .body(String.class);
+
+            com.fasterxml.jackson.databind.JsonNode detailsRoot = objectMapper.readTree(detailsJson);
+            if (!"OK".equals(detailsRoot.path("status").asText())) {
+                return Optional.empty();
+            }
+            com.fasterxml.jackson.databind.JsonNode photos = detailsRoot.path("result").path("photos");
+            if (!photos.isArray() || photos.isEmpty()) {
+                return Optional.empty();
+            }
+            String photoReference = photos.get(0).path("photo_reference").asText(null);
+            if (photoReference == null) {
+                return Optional.empty();
+            }
+
+            String photoUrl = PLACE_PHOTO_URL_TEMPLATE.formatted(
+                URLEncoder.encode(photoReference, StandardCharsets.UTF_8), apiKey);
+            return redirectResolver.apply(photoUrl);
+        } catch (Exception e) {
+            log.warn("Erro ao buscar foto no Google Places para '{}' ({})", title, city, e);
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<String> resolvePhotoRedirectReal(String url) {
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
+            HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
+            if (response.statusCode() == 301 || response.statusCode() == 302) {
+                return response.headers().firstValue("Location");
+            }
+            return Optional.empty();
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 }

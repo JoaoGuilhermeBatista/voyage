@@ -1,0 +1,13 @@
+[
+  {
+    "action": "destination_and_pois",
+    "city": "Orlando",
+    "country": "Estados Unidos",
+    "slug": "orlando"
+  },
+  {
+    "action": "pois",
+    "slug": "paris",
+    "focusCategory": "LANDMARK"
+  }
+]

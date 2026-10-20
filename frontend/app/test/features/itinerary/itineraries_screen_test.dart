@@ -29,6 +29,7 @@ void main() {
   ItinerarySummaryModel sampleItinerary() => ItinerarySummaryModel(
     id: 'itin-1',
     title: 'Viagem a Paris',
+    destinationId: 'dest-paris',
     destinationName: 'Paris',
     destinationHeroImageUrl: '',
     startDate: DateTime(2026, 9, 1),

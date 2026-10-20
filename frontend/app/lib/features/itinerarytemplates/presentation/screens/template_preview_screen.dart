@@ -235,11 +235,12 @@ class _TemplateDaySection extends StatelessWidget {
   final TemplateDayModel day;
   const _TemplateDaySection({required this.day});
 
-  static const _slotOrder = ['MORNING', 'AFTERNOON', 'EVENING'];
+  static const _slotOrder = ['MORNING', 'AFTERNOON', 'EVENING', 'FULL_DAY'];
   static const _slotLabels = {
     'MORNING': 'Manhã',
     'AFTERNOON': 'Tarde',
     'EVENING': 'Noite',
+    'FULL_DAY': 'Dia inteiro',
   };
 
   @override

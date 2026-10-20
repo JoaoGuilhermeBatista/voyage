@@ -64,6 +64,7 @@ void main() {
       title: 'Viagem a São Paulo',
       destinationName: 'São Paulo',
       destinationHeroImageUrl: '',
+      destinationCountry: '',
       startDate: DateTime(2026, 9, 1),
       endDate: DateTime(2026, 9, 2),
       days: [

@@ -9,6 +9,7 @@ import luvoygroup.voyage.features.admin.dto.PoiTitleNormalization;
 import luvoygroup.voyage.features.admin.dto.PoisWrapper;
 import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendation;
 import luvoygroup.voyage.features.maps.dto.NeighborhoodRecommendationList;
+import luvoygroup.voyage.features.unusualplaces.dto.UnusualPlacesWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -52,7 +53,24 @@ public class LlmService {
     }
 
     public PoisWrapper generatePois(String city, String country) {
-        log.info("Gerando POIs via LLM para {}, {}", city, country);
+        return generatePois(city, country, null, List.of());
+    }
+
+    public PoisWrapper generatePois(String city, String country, String focusCategory, List<String> existingTitles) {
+        log.info("Gerando POIs via LLM para {}, {}{}", city, country,
+            focusCategory == null ? "" : " (foco: " + focusCategory + ")");
+
+        String focusInstruction = focusCategory == null ? "" : """
+
+            ATENÇÃO — reforço de categoria: priorize fortemente a categoria %s (pelo menos 12 dos 20 pontos
+            devem ser dessa categoria), mantendo só uma pequena variedade das demais para realismo.
+            """.formatted(focusCategory);
+
+        String existingList = existingTitles.isEmpty()
+            ? ""
+            : "\nLugares JÁ cadastrados no catálogo deste destino (NÃO repita nenhum destes, nem variações " +
+                "óbvias do mesmo local):\n" +
+                existingTitles.stream().map(t -> "- " + t).collect(java.util.stream.Collectors.joining("\n")) + "\n";
 
         String prompt = """
             Você é um especialista em turismo europeu. Gere 20 pontos de interesse reais e populares para %s, %s.
@@ -78,7 +96,8 @@ public class LlmService {
                   "closingTime": "18:00",
                   "tags": ["cultura", "historia"],
                   "mustSee": false,
-                  "catholicChurch": false
+                  "catholicChurch": false,
+                  "fullDayActivity": false
                 }
               ]
             }
@@ -98,7 +117,12 @@ public class LlmService {
               incluindo templos, igrejas, sinagogas, mesquitas ou locais de culto de outras religiões ou
               denominações cristãs não-católicas (ex: protestante, evangélica, ortodoxa), e também para
               marcos históricos/culturais em geral que não sejam especificamente um templo católico
-            """.formatted(city, country);
+            - fullDayActivity: marque true SOMENTE para parques temáticos de dia inteiro de verdade
+              (ex: Disneyland, Universal Studios, Europa-Park) — um local que ocupa o dia inteiro da
+              viagem sozinho, sem espaço pra outra atividade de manhã/tarde/noite no mesmo dia. Marque
+              false para TODOS os demais locais, incluindo parques comuns, museus grandes e outras
+              atrações que não tomam o dia inteiro
+            %s%s""".formatted(city, country, focusInstruction, existingList);
 
         return chatClient.prompt()
             .user(prompt)
@@ -380,5 +404,57 @@ public class LlmService {
                 return valid;
             })
             .toList();
+    }
+
+    /**
+     * Feature premium "Lugares Incomuns" (escopo definido pelo agente que
+     * implementou isso, não spec oficial da contratante — ver resumo da
+     * sessão). Gera 4 a 6 lugares editoriais fora do roteiro turístico óbvio
+     * do destino, passando o catálogo de POIs JÁ cadastrados como contexto
+     * NEGATIVO (pra não duplicar o que já está no app como ponto turístico
+     * principal). Conteúdo é salvo uma vez via endpoint admin
+     * (ver {@code UnusualPlaceService#generateForDestination}) e servido
+     * depois sem custo de LLM por requisição.
+     */
+    public UnusualPlacesWrapper generateUnusualPlaces(String city, String country, List<String> existingPoiTitles) {
+        log.info("Gerando lugares incomuns via LLM para {}, {}", city, country);
+
+        String existingList = existingPoiTitles.isEmpty()
+            ? "(nenhum cadastrado ainda)"
+            : existingPoiTitles.stream().map(t -> "- " + t).collect(java.util.stream.Collectors.joining("\n"));
+
+        String prompt = """
+            Você é um morador local e guia especializado em %s, %s — alguém que conhece a cidade de
+            verdade, não um guia turístico genérico. Gere de 4 a 6 lugares incomuns, fora do roteiro
+            turístico óbvio, que um morador recomendaria a um amigo visitando.
+
+            Lugares turísticos JÁ cadastrados no catálogo do app (NÃO repita nenhum destes, nem
+            variações óbvias do mesmo local):
+            %s
+
+            Responda SOMENTE com JSON válido, sem markdown, sem explicações.
+
+            Formato exato:
+            {
+              "places": [
+                {
+                  "title": "Nome do lugar",
+                  "description": "2 a 3 frases explicando por que é especial/incomum e o que faz dele uma recomendação de morador local",
+                  "category": "Categoria livre curta, ex: Bar escondido, Mirante local, Ritual de bairro"
+                }
+              ]
+            }
+
+            Regras:
+            - NUNCA inclua pontos turísticos de massa, marcos famosos mundialmente conhecidos, ou
+              qualquer item (ou variação óbvia dele) que já esteja na lista de lugares já cadastrados.
+            - Prefira lugares reais e verificáveis (existe de verdade), mesmo que pouco conhecidos.
+            - category é um rótulo livre curto (não precisa seguir um enum fixo).
+            """.formatted(city, country, existingList);
+
+        return chatClient.prompt()
+            .user(prompt)
+            .call()
+            .entity(UnusualPlacesWrapper.class);
     }
 }

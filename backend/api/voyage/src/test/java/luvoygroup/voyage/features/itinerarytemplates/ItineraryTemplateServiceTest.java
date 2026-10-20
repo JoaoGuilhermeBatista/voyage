@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.client.ChatClient;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -424,5 +425,140 @@ class ItineraryTemplateServiceTest {
         assertTrue(prompt.contains(destination.getName()),
             "O prompt deve interpolar o nome real do destino (destination.getName()), provando que a " +
             "instrução é parametrizada por destino e não um boilerplate genérico");
+    }
+
+    // ─── (g) generateForDestination — o catálogo do prompt é dividido em seções
+    // por dia, agrupando POIs por proximidade geográfica real (lat/lng), não
+    // só por instrução de texto ──────────────────────────────────────────────
+    //
+    // Contrato (clusterPoisByDay): k-means determinístico sobre lat/lng, com
+    // sementes escolhidas por ordenação de latitude — o grupo de latitude mais
+    // baixa sempre vira a seção "Dia 1". Achado real que motivou isso:
+    // comparação manual contra um roteiro de referência da contratante mostrou
+    // a LLM escolhendo POIs a ~10km de distância dos outros do mesmo dia,
+    // mesmo com instrução explícita de proximidade só em texto — por isso o
+    // agrupamento agora é estrutural (o catálogo já vem pré-filtrado por dia),
+    // não apenas sugerido.
+    @Test
+    @SuppressWarnings("unchecked")
+    void generateForDestination_shouldPartitionPoiCatalogByGeographicProximity_intoPerDaySections() {
+        Destination destination = Destination.builder().id(destinationId).slug("paris").name("Paris").build();
+        when(destinationRepo.findBySlug("paris")).thenReturn(Optional.of(destination));
+
+        // Grupo A — região de latitude mais baixa, 2 POIs a ~150m um do outro.
+        Poi poiA1 = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("Torre Sul A").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .latitude(BigDecimal.valueOf(48.800)).longitude(BigDecimal.valueOf(2.300)).mustSee(true).build();
+        Poi poiA2 = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("Museu Sul A").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .latitude(BigDecimal.valueOf(48.801)).longitude(BigDecimal.valueOf(2.301)).mustSee(false).build();
+
+        // Grupo B — região de latitude bem mais alta (~17km de distância do
+        // grupo A), 2 POIs a ~150m um do outro.
+        Poi poiB1 = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("Torre Norte B").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .latitude(BigDecimal.valueOf(48.950)).longitude(BigDecimal.valueOf(2.500)).mustSee(true).build();
+        Poi poiB2 = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("Museu Norte B").category(PoiCategory.MUSEUM).budgetTier(BudgetTier.MODERATE)
+            .latitude(BigDecimal.valueOf(48.951)).longitude(BigDecimal.valueOf(2.501)).mustSee(false).build();
+
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(destinationId))
+            .thenReturn(List.of(poiA1, poiA2, poiB1, poiB2));
+
+        GeneratedTemplateContent llmResponse = new GeneratedTemplateContent("Paris 2 Dias", "desc", List.of());
+
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(promptCaptor.capture())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(GeneratedTemplateContent.class)).thenReturn(llmResponse);
+
+        service.generateForDestination("paris", 2, BudgetTier.MODERATE);
+
+        String prompt = promptCaptor.getValue();
+        String day1Section = extractSection(prompt, "Dia 1", "Dia 2");
+        String day2Section = extractSection(prompt, "Dia 2", null);
+
+        assertTrue(day1Section.contains("Torre Sul A") && day1Section.contains("Museu Sul A"),
+            "A seção \"Dia 1\" do catálogo deve conter os dois POIs do grupo geográfico de latitude mais baixa");
+        assertFalse(day1Section.contains("Torre Norte B") || day1Section.contains("Museu Norte B"),
+            "A seção \"Dia 1\" não deve conter POIs do outro grupo geográfico (~17km de distância)");
+
+        assertTrue(day2Section.contains("Torre Norte B") && day2Section.contains("Museu Norte B"),
+            "A seção \"Dia 2\" do catálogo deve conter os dois POIs do grupo geográfico de latitude mais alta");
+        assertFalse(day2Section.contains("Torre Sul A") || day2Section.contains("Museu Sul A"),
+            "A seção \"Dia 2\" não deve conter POIs do outro grupo geográfico");
+    }
+
+    // ─── (h) generateForDestination — o dayNumber devolvido pela LLM é
+    // SOBRESCRITO pelo cluster geográfico real, nunca aceito cegamente ───────
+    //
+    // Mesmo cenário geográfico do teste (g), mas aqui a LLM "mente": devolve
+    // um poiId do grupo B (latitude alta, cluster/"Dia 2") marcado com
+    // dayNumber: 1. O template salvo deve corrigir isso e colocar a atividade
+    // no dia 2 de verdade — a divisão geográfica é a fonte de verdade, não o
+    // campo dayNumber que a LLM escreveu.
+    @Test
+    @SuppressWarnings("unchecked")
+    void generateForDestination_shouldOverrideLlmDayNumber_withRealGeographicCluster() {
+        Destination destination = Destination.builder().id(destinationId).slug("paris").name("Paris").build();
+        when(destinationRepo.findBySlug("paris")).thenReturn(Optional.of(destination));
+
+        Poi poiA1 = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("Torre Sul A").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .latitude(BigDecimal.valueOf(48.800)).longitude(BigDecimal.valueOf(2.300)).mustSee(true).build();
+        Poi poiB1 = Poi.builder().id(UUID.randomUUID()).destination(destination)
+            .title("Torre Norte B").category(PoiCategory.LANDMARK).budgetTier(BudgetTier.MODERATE)
+            .latitude(BigDecimal.valueOf(48.950)).longitude(BigDecimal.valueOf(2.500)).mustSee(true).build();
+
+        when(poiRepo.findAllByDestinationIdAndActiveTrue(destinationId)).thenReturn(List.of(poiA1, poiB1));
+
+        // LLM devolve o POI do grupo B (geograficamente "Dia 2") marcado
+        // erroneamente como dayNumber: 1 — deliberado, é exatamente o tipo de
+        // erro observado na comparação manual que motivou essa mudança.
+        GeneratedTemplateActivity misclassified = new GeneratedTemplateActivity(poiB1.getId().toString(), 1, "MORNING", 0);
+        GeneratedTemplateContent llmResponse = new GeneratedTemplateContent(
+            "Paris 2 Dias", "desc", List.of(misclassified)
+        );
+
+        ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
+        ChatClient.CallResponseSpec callResponseSpec = mock(ChatClient.CallResponseSpec.class);
+        when(chatClient.prompt()).thenReturn(requestSpec);
+        when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.call()).thenReturn(callResponseSpec);
+        when(callResponseSpec.entity(GeneratedTemplateContent.class)).thenReturn(llmResponse);
+
+        ArgumentCaptor<ItineraryTemplate> templateCaptor = ArgumentCaptor.forClass(ItineraryTemplate.class);
+
+        service.generateForDestination("paris", 2, BudgetTier.MODERATE);
+
+        verify(templateRepo).save(templateCaptor.capture());
+        ItineraryTemplate saved = templateCaptor.getValue();
+
+        boolean poiBFoundInDay2 = saved.getDays().stream()
+            .filter(d -> d.getDayNumber() == 2)
+            .flatMap(d -> d.getActivities().stream())
+            .anyMatch(a -> a.getPoi().getId().equals(poiB1.getId()));
+        boolean poiBFoundInDay1 = saved.getDays().stream()
+            .filter(d -> d.getDayNumber() == 1)
+            .flatMap(d -> d.getActivities().stream())
+            .anyMatch(a -> a.getPoi().getId().equals(poiB1.getId()));
+
+        assertTrue(poiBFoundInDay2,
+            "O POI do grupo geográfico de latitude alta deve acabar no dia 2 (cluster real), mesmo a " +
+            "LLM tendo devolvido dayNumber: 1 pra ele");
+        assertFalse(poiBFoundInDay1,
+            "O POI não deve ficar no dia 1 só porque a LLM devolveu esse dayNumber — o cluster geográfico " +
+            "prevalece");
+    }
+
+    private String extractSection(String prompt, String startMarker, String endMarker) {
+        int start = prompt.indexOf(startMarker);
+        int end = endMarker == null ? prompt.indexOf("\n\n", start) : prompt.indexOf(endMarker, start);
+        if (end == -1) end = prompt.length();
+        return prompt.substring(start, end);
     }
 }

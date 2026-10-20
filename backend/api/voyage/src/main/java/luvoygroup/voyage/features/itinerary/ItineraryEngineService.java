@@ -38,6 +38,18 @@ public class ItineraryEngineService {
 
     @Transactional
     public ItineraryResponseDTO generate(UUID userId, ItineraryRequest request) {
+        return generate(userId, request, new TripSaturationLedger());
+    }
+
+    /**
+     * Mesma geração de {@link #generate(UUID, ItineraryRequest)}, mas
+     * recebendo um {@link TripSaturationLedger} de fora — usado por
+     * {@link ItineraryService#generateTrip} pra acumular saturação de
+     * categoria/mustSee ao longo de TODOS os trechos de uma viagem
+     * multi-destino, em vez de cada trecho começar do zero.
+     */
+    @Transactional
+    ItineraryResponseDTO generate(UUID userId, ItineraryRequest request, TripSaturationLedger ledger) {
         // Step 1: Validate dates
         if (request.startDate().isBefore(LocalDate.now()))
             throw new InvalidDateRangeException("A data de início não pode ser no passado");
@@ -77,14 +89,13 @@ public class ItineraryEngineService {
             throw new InsufficientContentException(
                 "O destino ainda não tem POIs suficientes para gerar um roteiro. Mínimo: 8.");
 
-        // Steps 4 & 5: Score and sort
+        // Steps 4 & 5: pontuação acontece dentro de pickPois, por slot — não
+        // dá mais pra ordenar uma vez só no início, porque o ledger de
+        // saturação muda a cada POI escolhido (ver TripSaturationLedger).
         LatLng effectiveStayAreaLocation = stayAreaLocation;
-        List<Poi> ranked = candidates.stream()
-            .sorted(Comparator.comparingInt((Poi p) -> scoreFor(p, effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation)).reversed())
-            .collect(Collectors.toCollection(ArrayList::new));
 
         log.info("Engine: {} POIs candidatos para {} dias em {} [budget={}, group={}, vibe={}]",
-            ranked.size(), dayCount, destination.getName(), effectiveBudget, effectiveGroup, tripVibe);
+            candidates.size(), dayCount, destination.getName(), effectiveBudget, effectiveGroup, tripVibe);
 
         // Step 6, 7, 8: Distribute, order by proximity, persist
         String title = destination.getName() + " — " + dayCount + (dayCount == 1 ? " dia" : " dias");
@@ -111,19 +122,40 @@ public class ItineraryEngineService {
 
             List<ActivityDTO> activityDTOs = new ArrayList<>();
 
-            for (SlotSpec spec : slotSpecs) {
-                List<Poi> slotPois = pickPois(ranked, usedIds, spec.slot(), spec.count());
-                List<Poi> ordered = nearestNeighbor(slotPois);
+            Optional<Poi> fullDayPoi = pickFullDayPoi(candidates, usedIds,
+                effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation, ledger);
 
-                for (int i = 0; i < ordered.size(); i++) {
-                    Poi poi = ordered.get(i);
-                    ItineraryActivity saved = itineraryActivityRepo.save(ItineraryActivity.builder()
-                        .itineraryDay(day)
-                        .poi(poi)
-                        .slot(spec.slot())
-                        .orderInSlot(i)
-                        .build());
-                    activityDTOs.add(new ActivityDTO(saved.getId(), spec.slot(), i, PoiDetailDTO.from(poi)));
+            if (fullDayPoi.isPresent()) {
+                // Dia inteiro: ex. parques temáticos (Disney em Orlando/Paris)
+                // não dividem o dia em manhã/tarde/noite com POIs diferentes —
+                // esse POI sozinho é a única atividade do dia.
+                Poi poi = fullDayPoi.get();
+                usedIds.add(poi.getId());
+                ledger.record(poi);
+                ItineraryActivity saved = itineraryActivityRepo.save(ItineraryActivity.builder()
+                    .itineraryDay(day)
+                    .poi(poi)
+                    .slot(ItinerarySlot.FULL_DAY)
+                    .orderInSlot(0)
+                    .build());
+                activityDTOs.add(new ActivityDTO(saved.getId(), ItinerarySlot.FULL_DAY, 0, PoiDetailDTO.from(poi)));
+            } else {
+                for (SlotSpec spec : slotSpecs) {
+                    List<Poi> slotPois = pickPois(candidates, usedIds, spec.slot(), spec.count(),
+                        effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation, ledger);
+                    List<Poi> ordered = nearestNeighbor(slotPois);
+
+                    for (int i = 0; i < ordered.size(); i++) {
+                        Poi poi = ordered.get(i);
+                        ledger.record(poi);
+                        ItineraryActivity saved = itineraryActivityRepo.save(ItineraryActivity.builder()
+                            .itineraryDay(day)
+                            .poi(poi)
+                            .slot(spec.slot())
+                            .orderInSlot(i)
+                            .build());
+                        activityDTOs.add(new ActivityDTO(saved.getId(), spec.slot(), i, PoiDetailDTO.from(poi)));
+                    }
                 }
             }
 
@@ -135,29 +167,42 @@ public class ItineraryEngineService {
         return new ItineraryResponseDTO(
             itinerary.getId(), title,
             destination.getId(), destination.getName(), destination.getHeroImageUrl(),
+            destination.getCountry(),
             request.startDate(), request.endDate(),
             dayDTOs
         );
     }
 
-    private List<Poi> pickPois(List<Poi> ranked, Set<UUID> usedIds, ItinerarySlot slot, int count) {
+    private List<Poi> pickPois(
+        List<Poi> candidates, Set<UUID> usedIds, ItinerarySlot slot, int count,
+        List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation, TripSaturationLedger ledger
+    ) {
+        // Pontuação ao vivo (não um ranking fixo pré-calculado) porque o
+        // ledger de saturação muda a cada POI escolhido — reordenar a cada
+        // slot é o que permite ao motor reagir ao que já foi usado em dias
+        // anteriores da mesma viagem, não só evitar repetir o mesmo POI.
+        Comparator<Poi> byLiveScoreDesc = Comparator.comparingInt(
+            (Poi p) -> scoreFor(p, interests, group, vibe, stayAreaLocation, ledger)).reversed();
+
         List<Poi> result = new ArrayList<>();
-        // First pass: prefer unused POIs
-        for (Poi poi : ranked) {
-            if (result.size() >= count) break;
-            if (usedIds.contains(poi.getId())) continue;
-            if (!isCompatible(poi, slot)) continue;
-            result.add(poi);
-            usedIds.add(poi.getId());
-        }
+        // First pass: prefer unused POIs, ranked pela pontuação atual
+        candidates.stream()
+            .filter(p -> !usedIds.contains(p.getId()))
+            .filter(p -> !p.isFullDayActivity())
+            .filter(p -> isCompatible(p, slot))
+            .sorted(byLiveScoreDesc)
+            .limit(count)
+            .forEach(p -> { result.add(p); usedIds.add(p.getId()); });
+
         // Second pass: reuse in insertion order (oldest used first = max gap between repeats)
         if (result.size() < count) {
-            Map<UUID, Poi> byId = ranked.stream().collect(Collectors.toMap(Poi::getId, p -> p));
+            Map<UUID, Poi> byId = candidates.stream().collect(Collectors.toMap(Poi::getId, p -> p));
             List<UUID> toRefresh = new ArrayList<>();
             for (UUID id : new ArrayList<>(usedIds)) {
                 if (result.size() >= count) break;
                 Poi poi = byId.get(id);
                 if (poi == null || result.contains(poi)) continue;
+                if (poi.isFullDayActivity()) continue;
                 if (!isCompatible(poi, slot)) continue;
                 result.add(poi);
                 toRefresh.add(id);
@@ -171,16 +216,36 @@ public class ItineraryEngineService {
         return result;
     }
 
+    /**
+     * Melhor POI de dia inteiro (ex.: parque temático) ainda não usado, se
+     * houver — esse POI sozinho vira a única atividade do dia, sem dividir
+     * em manhã/tarde/noite com POIs diferentes. {@code Optional.empty()}
+     * quando não há nenhum POI com essa flag no destino, ou todos já foram
+     * usados (nunca repete o mesmo POI de dia inteiro na mesma viagem).
+     */
+    private Optional<Poi> pickFullDayPoi(
+        List<Poi> candidates, Set<UUID> usedIds,
+        List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation, TripSaturationLedger ledger
+    ) {
+        return candidates.stream()
+            .filter(Poi::isFullDayActivity)
+            .filter(p -> !usedIds.contains(p.getId()))
+            .max(Comparator.comparingInt(p -> scoreFor(p, interests, group, vibe, stayAreaLocation, ledger)));
+    }
+
     private boolean isCompatible(Poi poi, ItinerarySlot slot) {
         if (poi.getOpeningTime() == null) return true;
         return switch (slot) {
             case MORNING -> !poi.getOpeningTime().isAfter(java.time.LocalTime.of(9, 0));
             case AFTERNOON -> !poi.getOpeningTime().isAfter(java.time.LocalTime.of(13, 0));
             case EVENING -> !poi.getOpeningTime().isAfter(java.time.LocalTime.of(18, 0));
+            case FULL_DAY -> true; // nunca passa por aqui (pickFullDayPoi não chama isCompatible)
         };
     }
 
-    private int scoreFor(Poi poi, List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation) {
+    private int scoreFor(
+        Poi poi, List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation, TripSaturationLedger ledger
+    ) {
         int score = 0;
         for (String interest : interests) {
             if (poi.getTags().contains(interest)) score += 10;
@@ -197,6 +262,12 @@ public class ItineraryEngineService {
             else if (distKm <= 3) score += 3;
             else if (distKm <= 6) score += 1;
         }
+        // Variedade ao longo da viagem inteira (não só do dia): categoria já
+        // muito repetida perde pontos aos poucos, e depois que a viagem fica
+        // saturada de mustSee, POIs não-mustSee ganham um empurrão — nunca o
+        // suficiente pra superar um mustSee de verdade (+20).
+        score -= ledger.categoryPenalty(poi.getCategory());
+        if (ledger.isMustSeeSaturated() && !poi.isMustSee()) score += 8;
         return score;
     }
 

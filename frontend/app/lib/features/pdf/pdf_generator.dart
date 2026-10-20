@@ -39,8 +39,9 @@ class ItineraryPdfGenerator {
     'MORNING': 'Manhã',
     'AFTERNOON': 'Tarde',
     'EVENING': 'Noite',
+    'FULL_DAY': 'Dia inteiro',
   };
-  static const _slotOrder = ['MORNING', 'AFTERNOON', 'EVENING'];
+  static const _slotOrder = ['MORNING', 'AFTERNOON', 'EVENING', 'FULL_DAY'];
 
   static String _dayLabel(ItineraryDayModel day) {
     final d = day.date;

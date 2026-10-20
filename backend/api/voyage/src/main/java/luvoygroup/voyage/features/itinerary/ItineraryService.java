@@ -91,6 +91,12 @@ public class ItineraryService {
      * lista de trechos. Valida que os trechos não se sobrepõem em data
      * ANTES de gerar qualquer coisa (spec: "Permitir folga, proibir
      * sobreposição") — a ordem da lista é a ordem cronológica pretendida.
+     *
+     * Um único {@link TripSaturationLedger} é compartilhado entre todos os
+     * trechos (criado uma vez, antes do loop) pra que a variedade de
+     * categoria/mustSee seja avaliada pra viagem inteira — visitar muitos
+     * museus no trecho 1 (ex: Paris) desencoraja museu de novo no trecho 2
+     * (ex: Roma), em vez de cada trecho recomeçar do zero.
      */
     @Transactional
     public TripSummaryDTO generateTrip(UUID userId, CreateTripRequest request) {
@@ -100,9 +106,10 @@ public class ItineraryService {
 
         UUID tripGroupId = UUID.randomUUID();
         List<Itinerary> createdLegs = new ArrayList<>();
+        TripSaturationLedger sharedLedger = new TripSaturationLedger();
 
         for (int i = 0; i < legs.size(); i++) {
-            ItineraryResponseDTO generated = engineService.generate(userId, legs.get(i));
+            ItineraryResponseDTO generated = engineService.generate(userId, legs.get(i), sharedLedger);
             Itinerary itinerary = itineraryRepo.findById(generated.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Roteiro recém-gerado não encontrado"));
             itinerary.setTripGroupId(tripGroupId);
@@ -188,6 +195,7 @@ public class ItineraryService {
             itinerary.getDestination().getId(),
             itinerary.getDestination().getName(),
             itinerary.getDestination().getHeroImageUrl(),
+            itinerary.getDestination().getCountry(),
             itinerary.getStartDate(),
             itinerary.getEndDate(),
             days

@@ -2,12 +2,21 @@ package luvoygroup.voyage.features.maps;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import luvoygroup.voyage.domain.Destination;
+import luvoygroup.voyage.exception.ResourceNotFoundException;
 import luvoygroup.voyage.features.maps.dto.DirectionsResponseDTO;
 import luvoygroup.voyage.features.maps.dto.EmbedUrlResponseDTO;
+import luvoygroup.voyage.features.maps.dto.LatLng;
+import luvoygroup.voyage.repository.DestinationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Proxy do backend para o Google Maps Platform (Directions + Embed).
@@ -21,6 +30,7 @@ import org.springframework.web.client.RestClient;
  * </ul>
  */
 @Service
+@Slf4j
 public class MapsService {
 
     private static final String DIRECTIONS_URL =
@@ -28,20 +38,33 @@ public class MapsService {
 
     private final RestClient restClient;
     private final String apiKey;
+    private final GeocodingService geocodingService;
+    private final DestinationRepository destinationRepo;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
-    public MapsService(@Value("${google.maps.api-key:not-configured}") String apiKey) {
-        this(apiKey, RestClient.create());
+    public MapsService(
+        @Value("${google.maps.api-key:not-configured}") String apiKey,
+        GeocodingService geocodingService,
+        DestinationRepository destinationRepo
+    ) {
+        this(apiKey, RestClient.create(), geocodingService, destinationRepo);
     }
 
     /**
      * Construtor package-private, usado pelos testes para injetar um
      * {@link RestClient} mockado sem precisar subir o contexto Spring.
      */
-    MapsService(String apiKey, RestClient restClient) {
+    MapsService(
+        String apiKey,
+        RestClient restClient,
+        GeocodingService geocodingService,
+        DestinationRepository destinationRepo
+    ) {
         this.apiKey = apiKey;
         this.restClient = restClient;
+        this.geocodingService = geocodingService;
+        this.destinationRepo = destinationRepo;
     }
 
     public DirectionsResponseDTO getDirections(double originLat, double originLng, double destLat, double destLng) {
@@ -68,6 +91,45 @@ public class MapsService {
             return new DirectionsResponseDTO(true, distanceMeters, durationSeconds, distanceText, durationText);
         } catch (Exception e) {
             throw new IllegalStateException("Resposta inválida da Google Directions API", e);
+        }
+    }
+
+    /**
+     * Distância/duração de deslocamento entre as CIDADES de dois destinos
+     * (ex.: trechos consecutivos de uma viagem multi-destino) — diferente
+     * de {@link #getDirections}, que já recebe lat/lng prontos (POIs, que
+     * sempre têm coordenada própria). {@code Destination} não guarda
+     * coordenada própria, então geocodifica "cidade, país" de cada um sob
+     * demanda (cacheado por par de destino, 24h, mesma anotação do
+     * câmbio/vizinhança). {@code configured=true} com os demais campos
+     * nulos quando algum dos dois destinos não geocodifica (ex.: Directions
+     * não tem rota terrestre entre eles) — o app esconde a UI graciosamente,
+     * nunca lança erro pro usuário por essa causa.
+     */
+    @Cacheable("directions-between-destinations")
+    public DirectionsResponseDTO getDirectionsBetweenDestinations(UUID originDestinationId, UUID destDestinationId) {
+        if (!isConfigured()) {
+            return new DirectionsResponseDTO(false, null, null, null, null);
+        }
+
+        Destination origin = destinationRepo.findById(originDestinationId)
+            .orElseThrow(() -> new ResourceNotFoundException("Destino não encontrado"));
+        Destination destination = destinationRepo.findById(destDestinationId)
+            .orElseThrow(() -> new ResourceNotFoundException("Destino não encontrado"));
+
+        Optional<LatLng> originLatLng = geocodingService.geocode(origin.getCity() + ", " + origin.getCountry());
+        Optional<LatLng> destLatLng = geocodingService.geocode(destination.getCity() + ", " + destination.getCountry());
+        if (originLatLng.isEmpty() || destLatLng.isEmpty()) {
+            return new DirectionsResponseDTO(true, null, null, null, null);
+        }
+
+        try {
+            return getDirections(
+                originLatLng.get().lat(), originLatLng.get().lng(),
+                destLatLng.get().lat(), destLatLng.get().lng());
+        } catch (Exception e) {
+            log.warn("Erro ao buscar rota entre {} e {}", origin.getSlug(), destination.getSlug(), e);
+            return new DirectionsResponseDTO(true, null, null, null, null);
         }
     }
 

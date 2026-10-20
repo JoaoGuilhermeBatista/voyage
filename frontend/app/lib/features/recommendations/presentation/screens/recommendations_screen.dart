@@ -7,20 +7,21 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../../shared/widgets/loading_shimmer.dart';
+import '../../../../shared/widgets/scroll_focus_blur.dart';
 import '../../../destinations/data/destination_summary_model.dart';
 import '../../../destinations/presentation/providers/destination_provider.dart';
 import '../../../profile/data/user_model.dart';
 import '../../../profile/presentation/providers/user_provider.dart';
 
 const _interestLabels = {
-  'cultura': 'Cultura & Arte',
+  'cultura': 'Cultura & arte',
   'gastronomia': 'Gastronomia',
   'natureza': 'Natureza',
-  'moda': 'Moda & Design',
+  'moda': 'Moda & design',
   'bem-estar': 'Bem-estar',
-  'vida-noturna': 'Vida Noturna',
-  'vida-local': 'Vida Local',
-  'musica': 'Música & Shows',
+  'vida-noturna': 'Vida noturna',
+  'vida-local': 'Vida local',
+  'musica': 'Música & shows',
 };
 
 /// Embaralha `items` de forma determinística a partir de `seed` — mesma
@@ -47,7 +48,7 @@ class RecommendationsScreen extends ConsumerWidget {
     final user = userAsync.valueOrNull;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.solara,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -204,7 +205,9 @@ class RecommendationsScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   _SectionHeader(title: s.label),
                   const SizedBox(height: 12),
-                  _HorizontalCarousel(destinations: s.items),
+                  ScrollFocusBlur(
+                    child: _HorizontalCarousel(destinations: s.items),
+                  ),
                 ],
               ),
             ))
@@ -428,11 +431,12 @@ class _CarouselCard extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
+                    Colors.black.withValues(alpha: 0.35),
                     Colors.transparent,
                     Colors.black.withValues(alpha: 0.15),
                     Colors.black.withValues(alpha: 0.78),
                   ],
-                  stops: const [0.35, 0.6, 1.0],
+                  stops: const [0.0, 0.35, 0.6, 1.0],
                 ),
               ),
             ),
@@ -440,10 +444,19 @@ class _CarouselCard extends StatelessWidget {
             Positioned(
               top: 14,
               left: 14,
-              child: Text(
-                destination.country.toUpperCase(),
-                style: AppTheme.eyebrow(color: AppTheme.goldSoft, letterSpacing: 1.6)
-                    .copyWith(fontSize: 9),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  child: Text(
+                    destination.country.toUpperCase(),
+                    style: AppTheme.eyebrow(color: AppTheme.goldSoft, letterSpacing: 1.6)
+                        .copyWith(fontSize: 9),
+                  ),
+                ),
               ),
             ),
 

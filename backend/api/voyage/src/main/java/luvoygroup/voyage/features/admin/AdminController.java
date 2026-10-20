@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import luvoygroup.voyage.features.admin.dto.BatchGenerationReport;
 import luvoygroup.voyage.features.admin.dto.GenerateDestinationRequest;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentReport;
+import luvoygroup.voyage.features.admin.dto.PoiTopUpReport;
 import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
 import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
@@ -101,5 +102,50 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithNormalizedTitleLanguage());
+    }
+
+    @PostMapping("/pois/enrich-images")
+    @Operation(summary = "Busca retroativamente, via Google Places (Find Place + Place Details + Place Photo), " +
+        "1 foto real para cada POI já cadastrado que ainda não tem nenhuma em Poi.images, atualizando IN PLACE " +
+        "(nunca cria ou deleta POIs). Pula destinos em que todos os POIs já têm foto.")
+    public ResponseEntity<PoiEnrichmentReport> enrichPoiImages(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.ok(adminService.enrichExistingPoisWithImages());
+    }
+
+    @PostMapping("/destinations/{slug}/pois/generate")
+    @Operation(summary = "Gera e ADICIONA POIs novos via GPT-4o a um destino que já existe (não sobrescreve " +
+        "nem deleta os POIs já cadastrados) — usado para aprofundar destinos secundários com poucos POIs, " +
+        "diferente de /pois/generate-batch que só processa destinos com ZERO POIs")
+    public ResponseEntity<PoiTopUpReport> generatePoisForExistingDestination(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token,
+        @PathVariable String slug,
+        @RequestParam(required = false) String focusCategory
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        if (focusCategory == null)
+            return ResponseEntity.ok(adminService.generatePoisForExistingDestination(slug));
+
+        var category = luvoygroup.voyage.domain.enums.PoiCategory.valueOf(focusCategory.toUpperCase());
+        return ResponseEntity.ok(adminService.generatePoisForExistingDestination(slug, category));
+    }
+
+    @PostMapping("/destinations/{slug}/unusual-places/generate")
+    @Operation(summary = "Gera (ou regenera do zero) a lista de 'Lugares Incomuns' de um destino via GPT-4o " +
+        "— feature premium, conteúdo editorial fora do catálogo de POIs já cadastrado")
+    public ResponseEntity<Integer> generateUnusualPlaces(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token,
+        @PathVariable String slug
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.generateUnusualPlaces(slug));
     }
 }

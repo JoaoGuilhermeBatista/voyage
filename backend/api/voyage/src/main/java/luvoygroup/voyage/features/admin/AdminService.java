@@ -4,11 +4,14 @@ import luvoygroup.voyage.domain.Destination;
 import luvoygroup.voyage.domain.Poi;
 import luvoygroup.voyage.domain.enums.BudgetTier;
 import luvoygroup.voyage.domain.enums.PoiCategory;
+import luvoygroup.voyage.exception.ResourceNotFoundException;
 import luvoygroup.voyage.features.admin.dto.*;
 import luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO;
 import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
 import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
+import luvoygroup.voyage.features.maps.PlacesService;
+import luvoygroup.voyage.features.unusualplaces.UnusualPlaceService;
 import luvoygroup.voyage.repository.DestinationRepository;
 import luvoygroup.voyage.repository.PoiRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,8 @@ public class AdminService {
     private final DestinationRepository destinationRepo;
     private final PoiRepository poiRepo;
     private final ItineraryTemplateService itineraryTemplateService;
+    private final UnusualPlaceService unusualPlaceService;
+    private final PlacesService placesService;
 
     @Transactional
     public DestinationSummaryDTO generateAndSaveDestination(GenerateDestinationRequest request) {
@@ -89,7 +94,18 @@ public class AdminService {
     @Transactional
     public int generateAndSavePoisForDestination(Destination destination) {
         PoisWrapper wrapper = llmService.generatePois(destination.getCity(), destination.getCountry());
+        return saveGeneratedPois(wrapper, destination);
+    }
 
+    @Transactional
+    public int generateAndSavePoisForDestination(Destination destination, String focusCategory, List<String> existingTitles) {
+        PoisWrapper wrapper = llmService.generatePois(
+            destination.getCity(), destination.getCountry(), focusCategory, existingTitles
+        );
+        return saveGeneratedPois(wrapper, destination);
+    }
+
+    private int saveGeneratedPois(PoisWrapper wrapper, Destination destination) {
         if (wrapper == null || wrapper.pois() == null || wrapper.pois().isEmpty())
             throw new IllegalStateException("GPT não retornou POIs para " + destination.getSlug());
 
@@ -123,6 +139,7 @@ public class AdminService {
                 .active(true)
                 .mustSee(Boolean.TRUE.equals(gp.mustSee()))
                 .catholicChurch(Boolean.TRUE.equals(gp.catholicChurch()))
+                .fullDayActivity(Boolean.TRUE.equals(gp.fullDayActivity()))
                 .build();
         } catch (Exception e) {
             log.warn("POI ignorado (dados inválidos): {} — {}", gp.title(), e.getMessage());
@@ -132,6 +149,10 @@ public class AdminService {
 
     public ItineraryTemplateDTO generateItineraryTemplate(String slug, GenerateTemplateRequest request) {
         return itineraryTemplateService.generateForDestination(slug, request.durationDays(), request.budgetTier());
+    }
+
+    public int generateUnusualPlaces(String slug) {
+        return unusualPlaceService.generateForDestination(slug);
     }
 
     /**
@@ -275,6 +296,58 @@ public class AdminService {
     }
 
     /**
+     * Popula retroativamente, IN PLACE (mesmo id, sem deletar/recriar —
+     * POIs são referenciados por FK em atividades de itinerário, templates
+     * de itinerário e favoritos), {@code Poi.images} via
+     * {@link PlacesService#fetchPhotoUrl}, para os POIs que ainda não têm
+     * nenhuma foto. Destino sem nenhum POI sem foto é pulado (operação
+     * idempotente). Erro em um destino não interrompe os demais (mesmo
+     * padrão de enrichExistingPoisWithCatholicChurchFlag).
+     */
+    public PoiEnrichmentReport enrichExistingPoisWithImages() {
+        List<Destination> destinations = destinationRepo.findAllByActiveTrue();
+        log.info("Destinos ativos a verificar para enriquecimento de imagens: {}", destinations.size());
+
+        List<String> processed = new ArrayList<>();
+        int totalEnriched = 0;
+        int skipped = 0;
+
+        for (Destination destination : destinations) {
+            List<Poi> poisWithoutImages = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId()).stream()
+                .filter(p -> p.getImages().isEmpty())
+                .toList();
+            if (poisWithoutImages.isEmpty()) {
+                skipped++;
+                continue;
+            }
+
+            int enrichedForDestination = 0;
+            try {
+                for (Poi poi : poisWithoutImages) {
+                    var photoUrl = placesService.fetchPhotoUrl(poi.getTitle(), destination.getCity());
+                    if (photoUrl.isPresent()) {
+                        poi.getImages().add(photoUrl.get());
+                        poiRepo.save(poi);
+                        enrichedForDestination++;
+                        totalEnriched++;
+                    }
+                }
+
+                processed.add(destination.getSlug());
+                log.info("✓ {} — {} POIs enriquecidos com imagem", destination.getSlug(), enrichedForDestination);
+            } catch (Exception e) {
+                log.error("✗ Erro em {} — {} POIs ja enriquecidos antes da falha: {}",
+                    destination.getSlug(), enrichedForDestination, e.getMessage());
+                skipped++;
+            }
+        }
+
+        return new PoiEnrichmentReport(
+            processed.size(), skipped, totalEnriched, processed, null, null
+        );
+    }
+
+    /**
      * Normaliza retroativamente, IN PLACE (mesmo id, sem deletar/recriar —
      * POIs são referenciados por FK em atividades de itinerário, templates
      * de itinerário e favoritos), o idioma do título de POIs já existentes:
@@ -345,6 +418,40 @@ public class AdminService {
         return new PoiEnrichmentReport(
             processed.size(), skipped, totalEnriched, processed, null, null
         );
+    }
+
+    /**
+     * Gera e ADICIONA POIs novos a um destino que já existe (diferente de
+     * generatePoisBatch, que só processa destinos com ZERO POIs) — usado
+     * para aprofundar destinos secundários que ficaram com poucos POIs na
+     * geração inicial. Não sobrescreve nem deleta os POIs já existentes.
+     */
+    @Transactional
+    public PoiTopUpReport generatePoisForExistingDestination(String slug) {
+        return generatePoisForExistingDestination(slug, (PoiCategory) null);
+    }
+
+    /**
+     * Mesmo comportamento acima, mas permite focar o reforço numa categoria
+     * específica (ex: RESTAURANT, NIGHTLIFE) quando o destino está com
+     * cobertura fraca nela — pede pro LLM priorizar essa categoria e evita
+     * repetir os POIs já cadastrados (mesmo padrão de contexto negativo
+     * usado em UnusualPlaceService).
+     */
+    @Transactional
+    public PoiTopUpReport generatePoisForExistingDestination(String slug, PoiCategory focusCategory) {
+        Destination destination = destinationRepo.findBySlug(slug)
+            .orElseThrow(ResourceNotFoundException::new);
+
+        List<String> existingTitles = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId())
+            .stream().map(Poi::getTitle).toList();
+
+        int count = generateAndSavePoisForDestination(
+            destination,
+            focusCategory == null ? null : focusCategory.name(),
+            existingTitles
+        );
+        return new PoiTopUpReport(slug, count);
     }
 
     private LocalTime parseTime(String time) {

@@ -30,6 +30,23 @@ class MapsRepository {
     return DirectionsModel.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Rota entre as CIDADES de dois destinos (ex.: trechos consecutivos de
+  /// uma viagem multi-destino) — diferente de [getDirections], que recebe
+  /// lat/lng prontos (POIs).
+  Future<DirectionsModel> getDirectionsBetweenDestinations({
+    required String originDestinationId,
+    required String destDestinationId,
+  }) async {
+    final response = await _apiClient.dio.get(
+      '/maps/directions-between-destinations',
+      queryParameters: {
+        'originDestinationId': originDestinationId,
+        'destDestinationId': destDestinationId,
+      },
+    );
+    return DirectionsModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<EmbedUrlModel> getEmbedUrl({
     required double lat,
     required double lng,

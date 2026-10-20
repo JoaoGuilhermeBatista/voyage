@@ -24,6 +24,20 @@ final directionsProvider = FutureProvider.family<
   },
 );
 
+/// Rota entre as CIDADES de dois destinos via GET
+/// /api/v1/maps/directions-between-destinations. Chave da family é
+/// (originDestinationId, destDestinationId).
+final directionsBetweenDestinationsProvider = FutureProvider.family<
+    DirectionsModel, (String originDestinationId, String destDestinationId)>(
+  (ref, ids) async {
+    final repository = ref.watch(mapsRepositoryProvider);
+    return repository.getDirectionsBetweenDestinations(
+      originDestinationId: ids.$1,
+      destDestinationId: ids.$2,
+    );
+  },
+);
+
 /// URL de embed para um ponto via GET /api/v1/maps/embed-url. Chave da
 /// family é (lat, lng).
 final embedUrlProvider =
