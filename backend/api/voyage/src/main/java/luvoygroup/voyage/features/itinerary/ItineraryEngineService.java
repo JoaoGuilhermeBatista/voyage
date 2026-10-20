@@ -122,21 +122,40 @@ public class ItineraryEngineService {
 
             List<ActivityDTO> activityDTOs = new ArrayList<>();
 
-            for (SlotSpec spec : slotSpecs) {
-                List<Poi> slotPois = pickPois(candidates, usedIds, spec.slot(), spec.count(),
-                    effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation, ledger);
-                List<Poi> ordered = nearestNeighbor(slotPois);
+            Optional<Poi> fullDayPoi = pickFullDayPoi(candidates, usedIds,
+                effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation, ledger);
 
-                for (int i = 0; i < ordered.size(); i++) {
-                    Poi poi = ordered.get(i);
-                    ledger.record(poi);
-                    ItineraryActivity saved = itineraryActivityRepo.save(ItineraryActivity.builder()
-                        .itineraryDay(day)
-                        .poi(poi)
-                        .slot(spec.slot())
-                        .orderInSlot(i)
-                        .build());
-                    activityDTOs.add(new ActivityDTO(saved.getId(), spec.slot(), i, PoiDetailDTO.from(poi)));
+            if (fullDayPoi.isPresent()) {
+                // Dia inteiro: ex. parques temáticos (Disney em Orlando/Paris)
+                // não dividem o dia em manhã/tarde/noite com POIs diferentes —
+                // esse POI sozinho é a única atividade do dia.
+                Poi poi = fullDayPoi.get();
+                usedIds.add(poi.getId());
+                ledger.record(poi);
+                ItineraryActivity saved = itineraryActivityRepo.save(ItineraryActivity.builder()
+                    .itineraryDay(day)
+                    .poi(poi)
+                    .slot(ItinerarySlot.FULL_DAY)
+                    .orderInSlot(0)
+                    .build());
+                activityDTOs.add(new ActivityDTO(saved.getId(), ItinerarySlot.FULL_DAY, 0, PoiDetailDTO.from(poi)));
+            } else {
+                for (SlotSpec spec : slotSpecs) {
+                    List<Poi> slotPois = pickPois(candidates, usedIds, spec.slot(), spec.count(),
+                        effectiveInterests, effectiveGroup, tripVibe, effectiveStayAreaLocation, ledger);
+                    List<Poi> ordered = nearestNeighbor(slotPois);
+
+                    for (int i = 0; i < ordered.size(); i++) {
+                        Poi poi = ordered.get(i);
+                        ledger.record(poi);
+                        ItineraryActivity saved = itineraryActivityRepo.save(ItineraryActivity.builder()
+                            .itineraryDay(day)
+                            .poi(poi)
+                            .slot(spec.slot())
+                            .orderInSlot(i)
+                            .build());
+                        activityDTOs.add(new ActivityDTO(saved.getId(), spec.slot(), i, PoiDetailDTO.from(poi)));
+                    }
                 }
             }
 
@@ -148,6 +167,7 @@ public class ItineraryEngineService {
         return new ItineraryResponseDTO(
             itinerary.getId(), title,
             destination.getId(), destination.getName(), destination.getHeroImageUrl(),
+            destination.getCountry(),
             request.startDate(), request.endDate(),
             dayDTOs
         );
@@ -168,6 +188,7 @@ public class ItineraryEngineService {
         // First pass: prefer unused POIs, ranked pela pontuação atual
         candidates.stream()
             .filter(p -> !usedIds.contains(p.getId()))
+            .filter(p -> !p.isFullDayActivity())
             .filter(p -> isCompatible(p, slot))
             .sorted(byLiveScoreDesc)
             .limit(count)
@@ -181,6 +202,7 @@ public class ItineraryEngineService {
                 if (result.size() >= count) break;
                 Poi poi = byId.get(id);
                 if (poi == null || result.contains(poi)) continue;
+                if (poi.isFullDayActivity()) continue;
                 if (!isCompatible(poi, slot)) continue;
                 result.add(poi);
                 toRefresh.add(id);
@@ -194,12 +216,30 @@ public class ItineraryEngineService {
         return result;
     }
 
+    /**
+     * Melhor POI de dia inteiro (ex.: parque temático) ainda não usado, se
+     * houver — esse POI sozinho vira a única atividade do dia, sem dividir
+     * em manhã/tarde/noite com POIs diferentes. {@code Optional.empty()}
+     * quando não há nenhum POI com essa flag no destino, ou todos já foram
+     * usados (nunca repete o mesmo POI de dia inteiro na mesma viagem).
+     */
+    private Optional<Poi> pickFullDayPoi(
+        List<Poi> candidates, Set<UUID> usedIds,
+        List<String> interests, GroupType group, TripVibe vibe, LatLng stayAreaLocation, TripSaturationLedger ledger
+    ) {
+        return candidates.stream()
+            .filter(Poi::isFullDayActivity)
+            .filter(p -> !usedIds.contains(p.getId()))
+            .max(Comparator.comparingInt(p -> scoreFor(p, interests, group, vibe, stayAreaLocation, ledger)));
+    }
+
     private boolean isCompatible(Poi poi, ItinerarySlot slot) {
         if (poi.getOpeningTime() == null) return true;
         return switch (slot) {
             case MORNING -> !poi.getOpeningTime().isAfter(java.time.LocalTime.of(9, 0));
             case AFTERNOON -> !poi.getOpeningTime().isAfter(java.time.LocalTime.of(13, 0));
             case EVENING -> !poi.getOpeningTime().isAfter(java.time.LocalTime.of(18, 0));
+            case FULL_DAY -> true; // nunca passa por aqui (pickFullDayPoi não chama isCompatible)
         };
     }
 

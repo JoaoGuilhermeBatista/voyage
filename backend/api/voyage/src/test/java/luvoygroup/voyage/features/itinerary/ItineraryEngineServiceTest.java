@@ -876,6 +876,61 @@ class ItineraryEngineServiceTest {
             "não implementado em scoreFor/TripSaturationLedger)");
     }
 
+    // ─── Dia inteiro (fullDayActivity) ─────────────────────────────────────
+
+    @Test
+    void testeFullDay_shouldBecomeTheOnlyActivityOfTheDay_whenAFullDayPoiIsAvailable() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        Poi themePark = makeFullDayPoi();
+        List<Poi> candidates = new ArrayList<>(makePoiList(10, BudgetTier.MODERATE));
+        candidates.add(themePark);
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate start = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, start, start, null, null, null, null, null, null); // 1 dia, MODERATE (normalmente 3 slots)
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        List<luvoygroup.voyage.features.itinerary.dto.ActivityDTO> activities = result.days().get(0).activities();
+        assertEquals(1, activities.size(),
+            "Dia com POI de dia inteiro disponível deve ter 1 única atividade, não os 3 slots normais");
+        assertEquals(ItinerarySlot.FULL_DAY, activities.get(0).slot());
+        assertEquals(themePark.getId(), activities.get(0).poi().id());
+    }
+
+    @Test
+    void testeFullDay_shouldNeverLeakIntoRegularSlots_onOtherDays_onceAlreadyUsed() {
+        when(prefsRepo.findByUserId(userId)).thenReturn(Optional.of(prefs));
+        when(destinationRepo.findById(destinationId)).thenReturn(Optional.of(destination));
+
+        Poi themePark = makeFullDayPoi();
+        List<Poi> candidates = new ArrayList<>(makePoiList(10, BudgetTier.MODERATE));
+        candidates.add(themePark);
+        when(poiRepo.findActiveByDestinationAndBudget(eq(destinationId), anyList()))
+            .thenReturn(candidates);
+
+        LocalDate start = LocalDate.now().plusDays(1);
+        ItineraryRequest request = new ItineraryRequest(
+            destinationId, start, start.plusDays(1), null, null, null, null, null, null); // 2 dias, MODERATE
+
+        ItineraryResponseDTO result = engineService.generate(userId, request);
+
+        // Dia 1 consome o POI de dia inteiro; dia 2 volta ao fluxo normal de
+        // 3 slots, e o POI de dia inteiro nunca deve reaparecer (nem no
+        // segundo passe de reuso de pickPois, que existe pra viagens longas).
+        assertEquals(1, result.days().get(0).activities().size());
+        assertEquals(ItinerarySlot.FULL_DAY, result.days().get(0).activities().get(0).slot());
+
+        List<luvoygroup.voyage.features.itinerary.dto.ActivityDTO> day2Activities = result.days().get(1).activities();
+        assertEquals(3, day2Activities.size(), "Dia 2 sem POI de dia inteiro disponível segue o fluxo normal (3 slots)");
+        assertTrue(day2Activities.stream().noneMatch(a -> a.poi().id().equals(themePark.getId())),
+            "POI de dia inteiro já usado não pode reaparecer num slot normal (manhã/tarde/noite)");
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Poi makePoiWithCategoryMustSeeAndTags(PoiCategory category, boolean mustSee, List<String> tags) {
@@ -966,6 +1021,22 @@ class ItineraryEngineServiceTest {
             .latitude(BigDecimal.valueOf(48.8 + Math.random() * 0.1))
             .longitude(BigDecimal.valueOf(2.3 + Math.random() * 0.1))
             .averageDurationMinutes(90)
+            .build();
+    }
+
+    private Poi makeFullDayPoi() {
+        return Poi.builder()
+            .id(UUID.randomUUID())
+            .destination(destination)
+            .title("Parque Temático de Teste")
+            .category(PoiCategory.PARK)
+            .budgetTier(BudgetTier.MODERATE)
+            .tags(List.of())
+            .active(true)
+            .fullDayActivity(true)
+            .latitude(BigDecimal.valueOf(48.8))
+            .longitude(BigDecimal.valueOf(2.3))
+            .averageDurationMinutes(480)
             .build();
     }
 

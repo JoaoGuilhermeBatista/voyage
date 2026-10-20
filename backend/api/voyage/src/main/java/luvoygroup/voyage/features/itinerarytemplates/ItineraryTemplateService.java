@@ -242,6 +242,7 @@ public class ItineraryTemplateService {
             destination.getId(),
             destination.getName(),
             destination.getHeroImageUrl(),
+            destination.getCountry(),
             itinerary.getStartDate(),
             itinerary.getEndDate(),
             dayDTOs

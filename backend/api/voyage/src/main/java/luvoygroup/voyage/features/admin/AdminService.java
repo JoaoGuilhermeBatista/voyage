@@ -139,6 +139,7 @@ public class AdminService {
                 .active(true)
                 .mustSee(Boolean.TRUE.equals(gp.mustSee()))
                 .catholicChurch(Boolean.TRUE.equals(gp.catholicChurch()))
+                .fullDayActivity(Boolean.TRUE.equals(gp.fullDayActivity()))
                 .build();
         } catch (Exception e) {
             log.warn("POI ignorado (dados inválidos): {} — {}", gp.title(), e.getMessage());
@@ -320,22 +321,23 @@ public class AdminService {
                 continue;
             }
 
+            int enrichedForDestination = 0;
             try {
-                int enrichedForDestination = 0;
                 for (Poi poi : poisWithoutImages) {
                     var photoUrl = placesService.fetchPhotoUrl(poi.getTitle(), destination.getCity());
                     if (photoUrl.isPresent()) {
                         poi.getImages().add(photoUrl.get());
                         poiRepo.save(poi);
                         enrichedForDestination++;
+                        totalEnriched++;
                     }
                 }
 
                 processed.add(destination.getSlug());
-                totalEnriched += enrichedForDestination;
                 log.info("✓ {} — {} POIs enriquecidos com imagem", destination.getSlug(), enrichedForDestination);
             } catch (Exception e) {
-                log.error("✗ Erro em {} — pulando destino: {}", destination.getSlug(), e.getMessage());
+                log.error("✗ Erro em {} — {} POIs ja enriquecidos antes da falha: {}",
+                    destination.getSlug(), enrichedForDestination, e.getMessage());
                 skipped++;
             }
         }
@@ -426,11 +428,7 @@ public class AdminService {
      */
     @Transactional
     public PoiTopUpReport generatePoisForExistingDestination(String slug) {
-        Destination destination = destinationRepo.findBySlug(slug)
-            .orElseThrow(ResourceNotFoundException::new);
-
-        int count = generateAndSavePoisForDestination(destination);
-        return new PoiTopUpReport(slug, count);
+        return generatePoisForExistingDestination(slug, (PoiCategory) null);
     }
 
     /**

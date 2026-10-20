@@ -195,6 +195,7 @@ public class ItineraryService {
             itinerary.getDestination().getId(),
             itinerary.getDestination().getName(),
             itinerary.getDestination().getHeroImageUrl(),
+            itinerary.getDestination().getCountry(),
             itinerary.getStartDate(),
             itinerary.getEndDate(),
             days

@@ -109,9 +109,9 @@ class ItineraryServiceTest {
         Itinerary itineraryAmsterdam = itineraryWith(legIdAmsterdam, amsterdam, legAmsterdam.startDate(), legAmsterdam.endDate(), "Amsterdã");
 
         when(engineService.generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class)))
-            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", "Teste", legParis.startDate(), legParis.endDate(), List.of()));
         when(engineService.generate(eq(USER_ID), eq(legAmsterdam), any(TripSaturationLedger.class)))
-            .thenReturn(new ItineraryResponseDTO(legIdAmsterdam, "Amsterdã", amsterdam.getId(), "Amsterdã", "", legAmsterdam.startDate(), legAmsterdam.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(legIdAmsterdam, "Amsterdã", amsterdam.getId(), "Amsterdã", "", "Teste", legAmsterdam.startDate(), legAmsterdam.endDate(), List.of()));
 
         when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
         when(itineraryRepo.findById(legIdAmsterdam)).thenReturn(Optional.of(itineraryAmsterdam));
@@ -148,9 +148,9 @@ class ItineraryServiceTest {
         Itinerary itineraryRoma = itineraryWith(legIdRoma, roma, legRoma.startDate(), legRoma.endDate(), "Roma");
 
         when(engineService.generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class)))
-            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", "Teste", legParis.startDate(), legParis.endDate(), List.of()));
         when(engineService.generate(eq(USER_ID), eq(legRoma), any(TripSaturationLedger.class)))
-            .thenReturn(new ItineraryResponseDTO(legIdRoma, "Roma", roma.getId(), "Roma", "", legRoma.startDate(), legRoma.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(legIdRoma, "Roma", roma.getId(), "Roma", "", "Teste", legRoma.startDate(), legRoma.endDate(), List.of()));
         when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
         when(itineraryRepo.findById(legIdRoma)).thenReturn(Optional.of(itineraryRoma));
         when(itineraryRepo.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -297,7 +297,7 @@ class ItineraryServiceTest {
     void generate_shouldSucceed_whenFreeUserHasNoItineraryThisMonth() {
         ItineraryRequest request = requestFor(UUID.randomUUID(), LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
         when(engineService.generate(USER_ID, request))
-            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", request.startDate(), request.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", "Teste", request.startDate(), request.endDate(), List.of()));
 
         assertDoesNotThrow(() -> service.generate(USER_ID, request));
         verify(engineService).generate(USER_ID, request);
@@ -328,7 +328,7 @@ class ItineraryServiceTest {
 
         ItineraryRequest request = requestFor(UUID.randomUUID(), LocalDate.of(2027, 9, 1), LocalDate.of(2027, 9, 4));
         when(engineService.generate(USER_ID, request))
-            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", request.startDate(), request.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", "Teste", request.startDate(), request.endDate(), List.of()));
 
         assertDoesNotThrow(() -> service.generate(USER_ID, request));
     }
@@ -345,7 +345,7 @@ class ItineraryServiceTest {
 
         ItineraryRequest request = requestFor(UUID.randomUUID(), LocalDate.of(2027, 9, 10), LocalDate.of(2027, 9, 12));
         when(engineService.generate(USER_ID, request))
-            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", request.startDate(), request.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(UUID.randomUUID(), "Roteiro", request.destinationId(), "Destino", "", "Teste", request.startDate(), request.endDate(), List.of()));
 
         assertDoesNotThrow(() -> service.generate(USER_ID, request));
     }
@@ -380,9 +380,9 @@ class ItineraryServiceTest {
         Itinerary itineraryAmsterdam = itineraryWith(legIdAmsterdam, amsterdam, legAmsterdam.startDate(), legAmsterdam.endDate(), "Amsterdã");
 
         when(engineService.generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class)))
-            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", "Teste", legParis.startDate(), legParis.endDate(), List.of()));
         when(engineService.generate(eq(USER_ID), eq(legAmsterdam), any(TripSaturationLedger.class)))
-            .thenReturn(new ItineraryResponseDTO(legIdAmsterdam, "Amsterdã", amsterdam.getId(), "Amsterdã", "", legAmsterdam.startDate(), legAmsterdam.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(legIdAmsterdam, "Amsterdã", amsterdam.getId(), "Amsterdã", "", "Teste", legAmsterdam.startDate(), legAmsterdam.endDate(), List.of()));
         when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
         when(itineraryRepo.findById(legIdAmsterdam)).thenReturn(Optional.of(itineraryAmsterdam));
         when(itineraryRepo.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -412,9 +412,9 @@ class ItineraryServiceTest {
         Itinerary itineraryRoma = itineraryWith(legIdRoma, roma, legRoma.startDate(), legRoma.endDate(), "Roma");
 
         when(engineService.generate(eq(USER_ID), eq(legParis), any(TripSaturationLedger.class)))
-            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", legParis.startDate(), legParis.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(legIdParis, "Paris", paris.getId(), "Paris", "", "Teste", legParis.startDate(), legParis.endDate(), List.of()));
         when(engineService.generate(eq(USER_ID), eq(legRoma), any(TripSaturationLedger.class)))
-            .thenReturn(new ItineraryResponseDTO(legIdRoma, "Roma", roma.getId(), "Roma", "", legRoma.startDate(), legRoma.endDate(), List.of()));
+            .thenReturn(new ItineraryResponseDTO(legIdRoma, "Roma", roma.getId(), "Roma", "", "Teste", legRoma.startDate(), legRoma.endDate(), List.of()));
         when(itineraryRepo.findById(legIdParis)).thenReturn(Optional.of(itineraryParis));
         when(itineraryRepo.findById(legIdRoma)).thenReturn(Optional.of(itineraryRoma));
         when(itineraryRepo.save(any(Itinerary.class))).thenAnswer(inv -> inv.getArgument(0));

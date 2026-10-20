@@ -96,7 +96,8 @@ public class LlmService {
                   "closingTime": "18:00",
                   "tags": ["cultura", "historia"],
                   "mustSee": false,
-                  "catholicChurch": false
+                  "catholicChurch": false,
+                  "fullDayActivity": false
                 }
               ]
             }
@@ -116,6 +117,11 @@ public class LlmService {
               incluindo templos, igrejas, sinagogas, mesquitas ou locais de culto de outras religiões ou
               denominações cristãs não-católicas (ex: protestante, evangélica, ortodoxa), e também para
               marcos históricos/culturais em geral que não sejam especificamente um templo católico
+            - fullDayActivity: marque true SOMENTE para parques temáticos de dia inteiro de verdade
+              (ex: Disneyland, Universal Studios, Europa-Park) — um local que ocupa o dia inteiro da
+              viagem sozinho, sem espaço pra outra atividade de manhã/tarde/noite no mesmo dia. Marque
+              false para TODOS os demais locais, incluindo parques comuns, museus grandes e outras
+              atrações que não tomam o dia inteiro
             %s%s""".formatted(city, country, focusInstruction, existingList);
 
         return chatClient.prompt()

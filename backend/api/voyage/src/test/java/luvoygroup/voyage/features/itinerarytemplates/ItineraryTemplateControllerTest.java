@@ -144,6 +144,7 @@ class ItineraryTemplateControllerTest {
         LocalDate startDate = LocalDate.of(2026, 9, 1);
         ItineraryResponseDTO response = new ItineraryResponseDTO(
             UUID.randomUUID(), "Lisboa Clássica", destinationId, "Lisboa", "https://img.example/lisboa.jpg",
+            "Portugal",
             startDate, startDate.plusDays(2), List.of()
         );
         when(itineraryTemplateService.adopt(eq(templateId), eq(TestJwtFactory.TEST_USER_ID), eq(startDate)))
