@@ -125,6 +125,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       .toList(),
             legIndex:
                 int.tryParse(state.uri.queryParameters['legIndex'] ?? '') ?? 0,
+            tripGroupId: state.uri.queryParameters['tripGroupId'],
           );
         },
       ),

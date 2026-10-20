@@ -29,12 +29,19 @@ class ItineraryScreen extends ConsumerWidget {
   final List<int> legDayCounts;
   final int legIndex;
 
+  /// Id da viagem multi-destino (null num roteiro avulso) — usado só pelo
+  /// botão "Encerrar viagem" (#14/#15, continuação) pra voltar direto pra
+  /// visão geral da viagem em vez de forçar o usuário a voltar trecho por
+  /// trecho pela pilha de navegação.
+  final String? tripGroupId;
+
   const ItineraryScreen({
     super.key,
     required this.id,
     this.legIds = const [],
     this.legDayCounts = const [],
     this.legIndex = 0,
+    this.tripGroupId,
   });
 
   int get _dayOffset => legDayCounts.take(legIndex).fold(0, (a, b) => a + b);
@@ -43,7 +50,8 @@ class ItineraryScreen extends ConsumerWidget {
       legIndex + 1 < legIds.length ? legIds[legIndex + 1] : null;
 
   String get _nextRouteQuery =>
-      'legIds=${legIds.join(',')}&legDayCounts=${legDayCounts.join(',')}&legIndex=${legIndex + 1}';
+      'legIds=${legIds.join(',')}&legDayCounts=${legDayCounts.join(',')}&legIndex=${legIndex + 1}'
+      '${tripGroupId != null ? '&tripGroupId=$tripGroupId' : ''}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,6 +104,8 @@ class ItineraryScreen extends ConsumerWidget {
           dayOffset: _dayOffset,
           nextLegId: _nextLegId,
           nextRouteQuery: _nextRouteQuery,
+          isMultiDestino: legIds.isNotEmpty,
+          tripGroupId: tripGroupId,
         ),
       ),
     );
@@ -109,11 +119,15 @@ class _ItineraryBody extends StatelessWidget {
   final int dayOffset;
   final String? nextLegId;
   final String nextRouteQuery;
+  final bool isMultiDestino;
+  final String? tripGroupId;
   const _ItineraryBody({
     required this.itinerary,
     this.dayOffset = 0,
     this.nextLegId,
     this.nextRouteQuery = '',
+    this.isMultiDestino = false,
+    this.tripGroupId,
   });
 
   static const _months = [
@@ -165,6 +179,19 @@ class _ItineraryBody extends StatelessWidget {
   /// começo do próximo — ex.: entre a última atividade da manhã e a
   /// primeira da tarde. Dentro do mesmo slot, o conector já existe (ver
   /// `_SlotSection`); aqui só cobre a transição ENTRE slots.
+  /// Sai da viagem multi-destino direto pra visão geral dela (ou pra lista
+  /// de roteiros, se por algum motivo o tripGroupId não vier), em vez de
+  /// forçar o usuário a voltar trecho por trecho pela pilha de navegação
+  /// — `go` em vez de `push` pra substituir toda a pilha acumulada pelos
+  /// "Próximo destino" anteriores.
+  void _exitTrip(BuildContext context) {
+    if (tripGroupId != null) {
+      context.go('/roteiros/viagem/$tripGroupId');
+    } else {
+      context.go('/roteiros');
+    }
+  }
+
   List<Widget> _buildDaySlots(String itineraryId, ItineraryDayModel day) {
     const slots = ['MORNING', 'AFTERNOON', 'EVENING', 'FULL_DAY'];
     final nonEmptySlots =
@@ -245,11 +272,30 @@ class _ItineraryBody extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+              child: Column(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        context.push('/roteiro/$nextLegId?$nextRouteQuery'),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                    label: const Text('Próximo destino'),
+                  ),
+                  TextButton(
+                    onPressed: () => _exitTrip(context),
+                    child: const Text('Encerrar viagem'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (isMultiDestino)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
               child: OutlinedButton.icon(
-                onPressed: () =>
-                    context.push('/roteiro/$nextLegId?$nextRouteQuery'),
-                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                label: const Text('Próximo destino'),
+                onPressed: () => _exitTrip(context),
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: const Text('Encerrar viagem'),
               ),
             ),
           ),

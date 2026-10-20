@@ -78,6 +78,7 @@ class TripDetailScreen extends ConsumerWidget {
                     legIds: trip.legs.map((l) => l.id).join(','),
                     legDayCounts:
                         trip.legs.map((l) => l.dayCount).join(','),
+                    tripGroupId: tripGroupId,
                   ),
                 ),
                 if (i < trip.legs.length - 1)
@@ -153,11 +154,13 @@ class _LegTile extends StatelessWidget {
   final ItinerarySummaryModel leg;
   final String legIds;
   final String legDayCounts;
+  final String tripGroupId;
   const _LegTile({
     required this.index,
     required this.leg,
     required this.legIds,
     required this.legDayCounts,
+    required this.tripGroupId,
   });
 
   static const _months = [
@@ -191,7 +194,8 @@ class _LegTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => context.push(
-          '/roteiro/${leg.id}?legIds=$legIds&legDayCounts=$legDayCounts&legIndex=$index',
+          '/roteiro/${leg.id}?legIds=$legIds&legDayCounts=$legDayCounts'
+          '&legIndex=$index&tripGroupId=$tripGroupId',
         ),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
