@@ -50,13 +50,13 @@ class ItineraryScreen extends ConsumerWidget {
     final asyncValue = ref.watch(itineraryDetailProvider(id));
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.colors.background,
       body: asyncValue.when(
-        loading: () => const CustomScrollView(
+        loading: () => CustomScrollView(
           slivers: [
             SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(color: AppTheme.primaryBlue),
+                child: CircularProgressIndicator(color: context.colors.primary),
               ),
             ),
           ],
@@ -75,7 +75,7 @@ class ItineraryScreen extends ConsumerWidget {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.jost(
                           fontSize: 15,
-                          color: AppTheme.softBlack,
+                          color: context.colors.foreground,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -220,7 +220,7 @@ class _ItineraryBody extends StatelessWidget {
                   style: GoogleFonts.cormorantGaramond(
                     fontSize: 32,
                     fontWeight: FontWeight.w500,
-                    color: AppTheme.softBlack,
+                    color: context.colors.foreground,
                     height: 1.2,
                   ),
                 ),
@@ -228,11 +228,11 @@ class _ItineraryBody extends StatelessWidget {
                 Text(
                   _dateRange(),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.5),
+                    color: context.colors.foreground.withValues(alpha: 0.5),
                   ),
                 ),
                 const SizedBox(height: 12),
-                const _CurrencyRatesBar(),
+                _CurrencyRatesBar(country: itinerary.destinationCountry),
               ],
             ),
           ),
@@ -261,39 +261,42 @@ class _ItineraryBody extends StatelessWidget {
 
 // ── Currency rates bar ───────────────────────────────────────────────────────
 //
-// Indicador discreto do câmbio do dia (EUR/USD/GBP → BRL), útil para
-// orçamento de viagem. Fallback gracioso: enquanto carrega ou se a chamada
-// falhar, a seção simplesmente não aparece — nunca quebra a tela.
+// Indicador discreto do câmbio de hoje na moeda local do destino do
+// roteiro, útil para orçamento de viagem. Fallback gracioso: enquanto
+// carrega, se a chamada falhar, ou se o país não tiver moeda local pra
+// mostrar (ex.: roteiro no Brasil), a seção simplesmente não aparece —
+// nunca quebra a tela.
 
 class _CurrencyRatesBar extends ConsumerWidget {
-  const _CurrencyRatesBar();
+  final String country;
+  const _CurrencyRatesBar({required this.country});
 
   String _fmt(double value) => value.toStringAsFixed(2).replaceAll('.', ',');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ratesAsync = ref.watch(currencyRatesProvider);
+    final rateAsync = ref.watch(localCurrencyRateProvider(country));
 
-    return ratesAsync.when(
+    return rateAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
-      data: (rates) {
+      data: (rate) {
+        if (rate == null) return const SizedBox.shrink();
+
         final style = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: AppTheme.softBlack.withValues(alpha: 0.5),
+          color: context.colors.foreground.withValues(alpha: 0.5),
         );
         return Row(
           children: [
             Icon(
               Icons.currency_exchange,
               size: 13,
-              color: AppTheme.softBlack.withValues(alpha: 0.35),
+              color: context.colors.foreground.withValues(alpha: 0.35),
             ),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Câmbio hoje: 1 EUR = R\$ ${_fmt(rates.eurToBrl)} · '
-                '1 USD = R\$ ${_fmt(rates.usdToBrl)} · '
-                '1 GBP = R\$ ${_fmt(rates.gbpToBrl)}',
+                'Câmbio hoje: 1 ${rate.currencyCode} = R\$ ${_fmt(rate.rateToBrl)}',
                 style: style,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -389,7 +392,7 @@ class _HeroAppBar extends ConsumerWidget {
     return SliverAppBar(
       expandedHeight: 240,
       pinned: true,
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.colors.background,
       elevation: 0,
       scrolledUnderElevation: 0,
       leading: Padding(
@@ -411,7 +414,7 @@ class _HeroAppBar extends ConsumerWidget {
             child: PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
               padding: EdgeInsets.zero,
-              color: AppTheme.background,
+              color: context.colors.background,
               onSelected: (value) {
                 if (value == 'delete') _confirmDelete(context, ref);
                 if (value == 'export') _exportPdf(context, ref);
@@ -472,8 +475,8 @@ class _HeroAppBar extends ConsumerWidget {
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      AppTheme.background,
-                      AppTheme.background.withValues(alpha: 0),
+                      context.colors.background,
+                      context.colors.background.withValues(alpha: 0),
                     ],
                   ),
                 ),
@@ -504,7 +507,7 @@ class _DayHeader extends StatelessWidget {
             style: GoogleFonts.cormorantGaramond(
               fontSize: 24,
               fontWeight: FontWeight.w500,
-              color: AppTheme.foreground,
+              color: context.colors.foreground,
               height: 1.2,
             ),
           ),
@@ -550,11 +553,11 @@ class _SlotSection extends StatelessWidget {
     // — mesmo padrão do spec de design (§6): os 3 períodos usam o mesmo
     // "bloco com borda", só a Noite inverte pra bg-ink/gold-noir.
     final isNoir = slot == 'EVENING';
-    final bg = isNoir ? AppTheme.ink : AppTheme.card;
+    final bg = isNoir ? AppTheme.ink : context.colors.card;
     final borderColor = isNoir
         ? AppTheme.goldNoir.withValues(alpha: 0.25)
-        : AppTheme.border;
-    final labelColor = isNoir ? AppTheme.goldNoir : AppTheme.mutedForeground;
+        : context.colors.border;
+    final labelColor = isNoir ? AppTheme.goldNoir : context.colors.mutedForeground;
 
     return SliverToBoxAdapter(
       child: Padding(
@@ -661,7 +664,7 @@ class _RouteBetweenActivities extends StatelessWidget {
               destLat: destLat,
               destLng: destLng,
             ),
-            mutedColor: AppTheme.softBlack.withValues(alpha: 0.5),
+            mutedColor: context.colors.foreground.withValues(alpha: 0.5),
             collapsedLabel: 'Ver rota no mapa',
             expandedLabel: 'Ocultar rota',
           ),
@@ -703,7 +706,7 @@ class _ActivityTile extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.colors.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -724,14 +727,14 @@ class _ActivityTile extends ConsumerWidget {
     // Paleta local: dentro do bloco "Noite" (Noir), tudo inverte pra
     // fundo escuro/texto ivory/acento dourado de verdade — fora dele
     // (Manhã/Tarde), segue o tema claro normal.
-    final accent = isNoir ? AppTheme.goldNoir : AppTheme.primary;
-    final textColor = isNoir ? AppTheme.ivory : AppTheme.foreground;
+    final accent = isNoir ? AppTheme.goldNoir : context.colors.primary;
+    final textColor = isNoir ? AppTheme.ivory : context.colors.foreground;
     final mutedColor = isNoir
         ? AppTheme.ivory.withValues(alpha: 0.5)
-        : AppTheme.mutedForeground;
+        : context.colors.mutedForeground;
     final faintColor = isNoir
         ? AppTheme.ivory.withValues(alpha: 0.35)
-        : AppTheme.mutedForeground.withValues(alpha: 0.7);
+        : context.colors.mutedForeground.withValues(alpha: 0.7);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -1064,7 +1067,7 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
               style: GoogleFonts.cormorantGaramond(
                 fontSize: 24,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.softBlack,
+                color: context.colors.foreground,
               ),
             ),
             const SizedBox(height: 16),
@@ -1077,10 +1080,10 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
 
   Widget _buildContent(BuildContext context) {
     if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
         child: Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryBlue),
+          child: CircularProgressIndicator(color: context.colors.primary),
         ),
       );
     }
@@ -1094,7 +1097,7 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
             Text(
               _error!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.jost(fontSize: 15, color: AppTheme.softBlack),
+              style: GoogleFonts.jost(fontSize: 15, color: context.colors.foreground),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -1114,7 +1117,7 @@ class _AlternativesSheetState extends ConsumerState<_AlternativesSheet> {
           textAlign: TextAlign.center,
           style: GoogleFonts.jost(
             fontSize: 15,
-            color: AppTheme.softBlack.withValues(alpha: 0.6),
+            color: context.colors.foreground.withValues(alpha: 0.6),
           ),
         ),
       );
@@ -1165,7 +1168,7 @@ class _AlternativeCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: AppTheme.softBlack.withValues(alpha: 0.03),
+        color: context.colors.foreground.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -1195,7 +1198,7 @@ class _AlternativeCard extends StatelessWidget {
                                 height: 56,
                                 child: Icon(
                                   Icons.image_outlined,
-                                  color: AppTheme.softBlack.withValues(
+                                  color: context.colors.foreground.withValues(
                                     alpha: 0.3,
                                   ),
                                 ),
@@ -1209,7 +1212,7 @@ class _AlternativeCard extends StatelessWidget {
                               height: 56,
                               child: Icon(
                                 Icons.image_outlined,
-                                color: AppTheme.softBlack.withValues(
+                                color: context.colors.foreground.withValues(
                                   alpha: 0.3,
                                 ),
                               ),
@@ -1226,7 +1229,7 @@ class _AlternativeCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.softBlack,
+                                color: context.colors.foreground,
                               ),
                         ),
                         const SizedBox(height: 4),
@@ -1234,7 +1237,7 @@ class _AlternativeCard extends StatelessWidget {
                           categoryLabel,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
-                                color: AppTheme.softBlack.withValues(
+                                color: context.colors.foreground.withValues(
                                   alpha: 0.5,
                                 ),
                               ),
@@ -1243,12 +1246,12 @@ class _AlternativeCard extends StatelessWidget {
                     ),
                   ),
                   if (isSubstituting)
-                    const SizedBox(
+                    SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppTheme.primaryBlue,
+                        color: context.colors.primary,
                       ),
                     ),
                 ],

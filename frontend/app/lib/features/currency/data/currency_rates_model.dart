@@ -1,19 +1,16 @@
-class CurrencyRatesModel {
-  final double eurToBrl;
-  final double gbpToBrl;
-  final double usdToBrl;
+class LocalCurrencyRateModel {
+  final String currencyCode;
+  final double rateToBrl;
 
-  const CurrencyRatesModel({
-    required this.eurToBrl,
-    required this.gbpToBrl,
-    required this.usdToBrl,
+  const LocalCurrencyRateModel({
+    required this.currencyCode,
+    required this.rateToBrl,
   });
 
-  factory CurrencyRatesModel.fromJson(Map<String, dynamic> json) {
-    return CurrencyRatesModel(
-      eurToBrl: (json['eurToBrl'] as num).toDouble(),
-      gbpToBrl: (json['gbpToBrl'] as num).toDouble(),
-      usdToBrl: (json['usdToBrl'] as num).toDouble(),
+  factory LocalCurrencyRateModel.fromJson(Map<String, dynamic> json) {
+    return LocalCurrencyRateModel(
+      currencyCode: json['currencyCode'] as String,
+      rateToBrl: (json['rateToBrl'] as num).toDouble(),
     );
   }
 }

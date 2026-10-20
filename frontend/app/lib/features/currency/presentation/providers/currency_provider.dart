@@ -7,11 +7,11 @@ final currencyRepositoryProvider = Provider<CurrencyRepository>((ref) {
   return CurrencyRepository(ref.watch(apiClientProvider));
 });
 
-/// Busca o câmbio do dia via GET /api/v1/currency/rates (público, cache de
-/// 24h no backend). FutureProvider já cacheia o Future por padrão enquanto
-/// o container/listener estiver vivo, então uma segunda leitura não dispara
-/// uma nova chamada HTTP.
-final currencyRatesProvider = FutureProvider<CurrencyRatesModel>((ref) async {
+/// Busca a moeda local de [country] via GET /api/v1/currency/rates?country=
+/// (público, cache de 24h no backend). `.family` cacheia por país — abrir o
+/// mesmo roteiro de novo não dispara uma nova chamada HTTP.
+final localCurrencyRateProvider =
+    FutureProvider.family<LocalCurrencyRateModel?, String>((ref, country) async {
   final repository = ref.watch(currencyRepositoryProvider);
-  return repository.getRates();
+  return repository.getLocalRate(country);
 });

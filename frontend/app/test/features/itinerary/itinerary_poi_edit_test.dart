@@ -134,11 +134,10 @@ void main() {
           itineraryRepositoryProvider.overrideWithValue(mockRepo),
           itineraryDetailProvider(itinerary.id)
               .overrideWith((ref) async => itinerary),
-          currencyRatesProvider.overrideWith(
-            (ref) async => const CurrencyRatesModel(
-              eurToBrl: 5.90,
-              gbpToBrl: 6.85,
-              usdToBrl: 5.55,
+          localCurrencyRateProvider.overrideWith(
+            (ref, country) async => const LocalCurrencyRateModel(
+              currencyCode: 'EUR',
+              rateToBrl: 5.90,
             ),
           ),
         ],
@@ -502,11 +501,10 @@ void main() {
               itineraryRepositoryProvider.overrideWithValue(mockRepo),
               itineraryDetailProvider(itinerary.id)
                   .overrideWith((ref) async => itinerary),
-              currencyRatesProvider.overrideWith(
-                (ref) async => const CurrencyRatesModel(
-                  eurToBrl: 5.90,
-                  gbpToBrl: 6.85,
-                  usdToBrl: 5.55,
+              localCurrencyRateProvider.overrideWith(
+                (ref, country) async => const LocalCurrencyRateModel(
+                  currencyCode: 'EUR',
+                  rateToBrl: 5.90,
                 ),
               ),
             ],
@@ -536,11 +534,10 @@ void main() {
               itineraryRepositoryProvider.overrideWithValue(mockRepo),
               itineraryDetailProvider(itinerary.id)
                   .overrideWith((ref) async => itinerary),
-              currencyRatesProvider.overrideWith(
-                (ref) async => const CurrencyRatesModel(
-                  eurToBrl: 5.90,
-                  gbpToBrl: 6.85,
-                  usdToBrl: 5.55,
+              localCurrencyRateProvider.overrideWith(
+                (ref, country) async => const LocalCurrencyRateModel(
+                  currencyCode: 'EUR',
+                  rateToBrl: 5.90,
                 ),
               ),
             ],

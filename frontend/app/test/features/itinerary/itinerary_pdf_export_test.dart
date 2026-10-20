@@ -100,8 +100,8 @@ void main() {
           ).overrideWith((ref) async => itinerary),
           // Câmbio não importa pra este teste — erro é tratado
           // graciosamente por _CurrencyRatesBar (não renderiza nada).
-          currencyRatesProvider.overrideWith(
-            (ref) async => throw Exception('não usado neste teste'),
+          localCurrencyRateProvider.overrideWith(
+            (ref, country) async => throw Exception('não usado neste teste'),
           ),
         ],
         child: MaterialApp.router(

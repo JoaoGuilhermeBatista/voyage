@@ -130,8 +130,8 @@ void main() {
           itineraryDetailProvider(
             itinerary.id,
           ).overrideWith((ref) async => itinerary),
-          currencyRatesProvider.overrideWith(
-            (ref) async => throw Exception('não usado neste teste'),
+          localCurrencyRateProvider.overrideWith(
+            (ref, country) async => throw Exception('não usado neste teste'),
           ),
           ...extraOverrides,
         ],
