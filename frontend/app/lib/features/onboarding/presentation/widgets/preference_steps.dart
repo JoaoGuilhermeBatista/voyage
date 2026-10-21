@@ -15,12 +15,19 @@ import '../../../../core/themes/app_theme.dart';
 const budgetOptions = [
   Option(value: 'ECONOMY', label: 'Econômico', icon: Icons.savings_outlined),
   Option(
-      value: 'MODERATE', label: 'Moderado', icon: Icons.account_balance_wallet_outlined),
+    value: 'MODERATE',
+    label: 'Moderado',
+    icon: Icons.account_balance_wallet_outlined,
+  ),
   Option(value: 'LUXURY', label: 'Luxo', icon: Icons.diamond_outlined),
 ];
 
 const rhythmOptions = [
-  Option(value: 'RELAXED', label: 'Tranquilo', icon: Icons.self_improvement_outlined),
+  Option(
+    value: 'RELAXED',
+    label: 'Tranquilo',
+    icon: Icons.self_improvement_outlined,
+  ),
   Option(value: 'MODERATE', label: 'Equilibrado', icon: Icons.balance_outlined),
   Option(value: 'INTENSE', label: 'Intenso', icon: Icons.bolt_outlined),
 ];
@@ -43,6 +50,8 @@ const interestOptions = [
   'musica',
   'vinhos',
   'neve',
+  'arquitetura',
+  'praia',
 ];
 
 const interestLabels = {
@@ -56,6 +65,8 @@ const interestLabels = {
   'musica': 'Música & shows',
   'vinhos': 'Vinhos',
   'neve': 'Neve',
+  'arquitetura': 'Arquitetura',
+  'praia': 'Praia',
 };
 
 const interestIcons = {
@@ -69,20 +80,27 @@ const interestIcons = {
   'musica': Icons.music_note_outlined,
   'vinhos': Icons.wine_bar_outlined,
   'neve': Icons.ac_unit_outlined,
+  'arquitetura': Icons.account_balance_outlined,
+  'praia': Icons.beach_access_outlined,
 };
 
 const religionOptions = [
   Option(value: 'CATHOLIC', label: 'Católica', icon: Icons.church_outlined),
   Option(
-      value: 'EVANGELICAL', label: 'Evangélica', icon: Icons.menu_book_outlined),
+    value: 'EVANGELICAL',
+    label: 'Evangélica',
+    icon: Icons.menu_book_outlined,
+  ),
   Option(
-      value: 'OTHER_OR_NONE',
-      label: 'Outra ou sem religião',
-      icon: Icons.public_outlined),
+    value: 'OTHER_OR_NONE',
+    label: 'Outra ou sem religião',
+    icon: Icons.public_outlined,
+  ),
   Option(
-      value: 'PREFER_NOT_TO_SAY',
-      label: 'Prefiro não informar',
-      icon: Icons.visibility_off_outlined),
+    value: 'PREFER_NOT_TO_SAY',
+    label: 'Prefiro não informar',
+    icon: Icons.visibility_off_outlined,
+  ),
 ];
 
 // ---------------------------------------------------------------------------
@@ -94,11 +112,7 @@ class Option {
   final String label;
   final IconData icon;
 
-  const Option({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
+  const Option({required this.value, required this.label, required this.icon});
 }
 
 // ---------------------------------------------------------------------------
@@ -129,11 +143,13 @@ class BudgetStep extends StatelessWidget {
       subtitle: 'Nos ajude a personalizar os melhores destinos para você.',
       child: Column(
         children: budgetOptions
-            .map((opt) => SelectionCard(
-                  option: opt,
-                  isSelected: selected == opt.value,
-                  onTap: () => onSelected(opt.value),
-                ))
+            .map(
+              (opt) => SelectionCard(
+                option: opt,
+                isSelected: selected == opt.value,
+                onTap: () => onSelected(opt.value),
+              ),
+            )
             .toList(),
       ),
     );
@@ -168,11 +184,13 @@ class RhythmStep extends StatelessWidget {
       subtitle: 'Defina o ritmo ideal para as suas aventuras.',
       child: Column(
         children: rhythmOptions
-            .map((opt) => SelectionCard(
-                  option: opt,
-                  isSelected: selected == opt.value,
-                  onTap: () => onSelected(opt.value),
-                ))
+            .map(
+              (opt) => SelectionCard(
+                option: opt,
+                isSelected: selected == opt.value,
+                onTap: () => onSelected(opt.value),
+              ),
+            )
             .toList(),
       ),
     );
@@ -213,12 +231,14 @@ class GroupTypeStep extends StatelessWidget {
         crossAxisSpacing: 12,
         childAspectRatio: 1.3,
         children: groupTypeOptions
-            .map((opt) => SelectionCard(
-                  option: opt,
-                  isSelected: selected == opt.value,
-                  onTap: () => onSelected(opt.value),
-                  isCompact: true,
-                ))
+            .map(
+              (opt) => SelectionCard(
+                option: opt,
+                isSelected: selected == opt.value,
+                onTap: () => onSelected(opt.value),
+                isCompact: true,
+              ),
+            )
             .toList(),
       ),
     );
@@ -254,11 +274,13 @@ class ReligionStep extends StatelessWidget {
           'Isso nos ajuda a personalizar sugestões de locais e experiências religiosas.',
       child: Column(
         children: religionOptions
-            .map((opt) => SelectionCard(
-                  option: opt,
-                  isSelected: selected == opt.value,
-                  onTap: () => onSelected(opt.value),
-                ))
+            .map(
+              (opt) => SelectionCard(
+                option: opt,
+                isSelected: selected == opt.value,
+                onTap: () => onSelected(opt.value),
+              ),
+            )
             .toList(),
       ),
     );
@@ -302,10 +324,14 @@ class InterestsStep extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.goldenOrange.withAlpha(26) : AppTheme.softWhite,
+                color: isSelected
+                    ? AppTheme.goldenOrange.withAlpha(26)
+                    : AppTheme.softWhite,
                 borderRadius: BorderRadius.circular(32),
                 border: Border.all(
-                  color: isSelected ? AppTheme.goldenOrange : const Color(0xFFE8E4DC),
+                  color: isSelected
+                      ? AppTheme.goldenOrange
+                      : const Color(0xFFE8E4DC),
                   width: isSelected ? 2 : 1,
                 ),
               ),
@@ -315,15 +341,21 @@ class InterestsStep extends StatelessWidget {
                   Icon(
                     interestIcons[interest] ?? Icons.star_outline,
                     size: 16,
-                    color: isSelected ? AppTheme.goldenOrange : AppTheme.softBlack,
+                    color: isSelected
+                        ? AppTheme.goldenOrange
+                        : AppTheme.softBlack,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     interestLabels[interest] ?? interest,
                     style: GoogleFonts.jost(
                       fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                      color: isSelected ? AppTheme.goldenOrange : AppTheme.softBlack,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: isSelected
+                          ? AppTheme.goldenOrange
+                          : AppTheme.softBlack,
                     ),
                   ),
                 ],
@@ -447,9 +479,7 @@ class SelectionCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: double.infinity,
-        margin: isCompact
-            ? EdgeInsets.zero
-            : const EdgeInsets.only(bottom: 12),
+        margin: isCompact ? EdgeInsets.zero : const EdgeInsets.only(bottom: 12),
         padding: EdgeInsets.symmetric(
           horizontal: isCompact ? 12 : 20,
           vertical: isCompact ? 12 : 16,
