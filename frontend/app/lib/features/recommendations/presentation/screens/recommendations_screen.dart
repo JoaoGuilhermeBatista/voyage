@@ -10,19 +10,31 @@ import '../../../../shared/widgets/loading_shimmer.dart';
 import '../../../../shared/widgets/scroll_focus_blur.dart';
 import '../../../destinations/data/destination_summary_model.dart';
 import '../../../destinations/presentation/providers/destination_provider.dart';
+import '../../../onboarding/presentation/widgets/preference_steps.dart'
+    show interestOptions, interestLabels;
 import '../../../profile/data/user_model.dart';
 import '../../../profile/presentation/providers/user_provider.dart';
 
-const _interestLabels = {
+// Rótulos específicos desta tela (mais descritivos que o texto curto usado
+// no onboarding, ex. "Cultura & arte" em vez de só "Cultura") — sempre a
+// partir das mesmas chaves de interestOptions, nunca uma lista à parte,
+// senão reintroduz o mesmo tipo de divergência que já causou a tela
+// mostrar seções como "arquitetura"/"praia" cruas (valores de interesse
+// antigos que não existem mais em interestOptions).
+const _interestLabelOverrides = {
   'cultura': 'Cultura & arte',
-  'gastronomia': 'Gastronomia',
-  'natureza': 'Natureza',
   'moda': 'Moda & design',
-  'bem-estar': 'Bem-estar',
-  'vida-noturna': 'Vida noturna',
-  'vida-local': 'Vida local',
   'musica': 'Música & shows',
 };
+
+String _interestLabel(String interest) =>
+    _interestLabelOverrides[interest] ?? interestLabels[interest] ?? interest;
+
+/// Só os interesses que ainda existem no onboarding atual — descarta valores
+/// legados (ex. de uma versão antiga da lista de interesses) que não têm
+/// mais rótulo nem ícone definidos, em vez de mostrá-los crus na tela.
+List<String> _validInterests(List<String> interests) =>
+    interests.where(interestOptions.contains).toList();
 
 /// Embaralha `items` de forma determinística a partir de `seed` — mesma
 /// seed sempre produz a mesma ordem (estável entre rebuilds), mas seeds
@@ -46,6 +58,7 @@ class RecommendationsScreen extends ConsumerWidget {
     final destinationsAsync = ref.watch(destinationsProvider);
     final userAsync = ref.watch(userProvider);
     final user = userAsync.valueOrNull;
+    final validInterests = _validInterests(user?.interests ?? const []);
 
     return Scaffold(
       backgroundColor: AppTheme.solara,
@@ -53,19 +66,25 @@ class RecommendationsScreen extends ConsumerWidget {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(context, user)),
-            if (user != null && user.interests.isNotEmpty)
+            if (validInterests.isNotEmpty)
               SliverToBoxAdapter(
-                  child: _buildInterestChips(context, user.interests)),
+                child: _buildInterestChips(context, validInterests),
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
             ...destinationsAsync.when(
               loading: () => [_buildShimmerCarousels()],
               error: (e, _) => [_buildError(context, ref)],
               data: (destinations) {
-                final hasInterests = user != null &&
+                final hasInterests =
+                    user != null &&
                     user.onboardingCompleted &&
-                    user.interests.isNotEmpty;
+                    validInterests.isNotEmpty;
                 if (!hasInterests) return [_buildEmptyState(context)];
-                return _buildCategorySections(context, destinations, user);
+                return _buildCategorySections(
+                  context,
+                  destinations,
+                  validInterests,
+                );
               },
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -98,9 +117,9 @@ class RecommendationsScreen extends ConsumerWidget {
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.mutedForeground,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
           ),
         ],
       ),
@@ -121,18 +140,18 @@ class RecommendationsScreen extends ConsumerWidget {
   }
 
   String _budgetLabel(String budget) => switch (budget) {
-        'ECONOMY' => 'econômico',
-        'MODERATE' => 'moderado',
-        'LUXURY' => 'de luxo',
-        _ => budget.toLowerCase(),
-      };
+    'ECONOMY' => 'econômico',
+    'MODERATE' => 'moderado',
+    'LUXURY' => 'de luxo',
+    _ => budget.toLowerCase(),
+  };
 
   String _rhythmLabel(String rhythm) => switch (rhythm) {
-        'RELAXED' => 'relaxado',
-        'MODERATE' => 'moderado',
-        'INTENSE' => 'intenso',
-        _ => rhythm.toLowerCase(),
-      };
+    'RELAXED' => 'relaxado',
+    'MODERATE' => 'moderado',
+    'INTENSE' => 'intenso',
+    _ => rhythm.toLowerCase(),
+  };
 
   // ── Interest chips ──────────────────────────────────────────────────────────
 
@@ -145,17 +164,16 @@ class RecommendationsScreen extends ConsumerWidget {
           Text(
             'SEUS INTERESSES',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppTheme.softBlack.withValues(alpha: 0.4),
-                  letterSpacing: 1.2,
-                ),
+              color: AppTheme.softBlack.withValues(alpha: 0.4),
+              letterSpacing: 1.2,
+            ),
           ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: interests
-                .map((i) => _InterestChip(
-                    label: _interestLabels[i] ?? i))
+                .map((i) => _InterestChip(label: _interestLabel(i)))
                 .toList(),
           ),
         ],
@@ -168,7 +186,7 @@ class RecommendationsScreen extends ConsumerWidget {
   List<Widget> _buildCategorySections(
     BuildContext context,
     List<DestinationSummaryModel> destinations,
-    UserModel user,
+    List<String> interests,
   ) {
     // Uma seção por interesse do usuário, cada uma buscando na lista
     // COMPLETA de destinos (não num top-10 combinado de todos os
@@ -177,14 +195,14 @@ class RecommendationsScreen extends ConsumerWidget {
     // bastante frente aos outros interesses do mesmo perfil, mesmo havendo
     // destinos reais com aquela tag.
     final sections = <({String label, List<DestinationSummaryModel> items})>[];
-    for (final interest in user.interests) {
+    for (final interest in interests) {
       final key = interest.toLowerCase();
       final matching = destinations
           .where((d) => d.tags.any((t) => t.toLowerCase().contains(key)))
           .toList();
       if (matching.isNotEmpty) {
         sections.add((
-          label: _interestLabels[interest] ?? interest,
+          label: _interestLabel(interest),
           // Embaralho de forma ESTÁVEL (mesma semente = mesma ordem em
           // todo rebuild) por seção, pra cada interesse não repetir a
           // mesma sequência de destinos que as outras seções mostram —
@@ -198,19 +216,21 @@ class RecommendationsScreen extends ConsumerWidget {
     if (sections.isEmpty) return [_buildEmptyState(context)];
 
     return sections
-        .map((s) => SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  _SectionHeader(title: s.label),
-                  const SizedBox(height: 12),
-                  ScrollFocusBlur(
-                    child: _HorizontalCarousel(destinations: s.items),
-                  ),
-                ],
-              ),
-            ))
+        .map(
+          (s) => SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 24),
+                _SectionHeader(title: s.label),
+                const SizedBox(height: 12),
+                ScrollFocusBlur(
+                  child: _HorizontalCarousel(destinations: s.items),
+                ),
+              ],
+            ),
+          ),
+        )
         .toList();
   }
 
@@ -250,9 +270,9 @@ class RecommendationsScreen extends ConsumerWidget {
             Text(
               'Complete seu perfil de viajante para receber sugestões personalizadas baseadas nos seus gostos.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.5),
-                    height: 1.6,
-                  ),
+                color: AppTheme.softBlack.withValues(alpha: 0.5),
+                height: 1.6,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -297,10 +317,8 @@ class RecommendationsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   itemCount: 3,
                   separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (_, _) => const SizedBox(
-                    width: 200,
-                    child: CardShimmer(),
-                  ),
+                  itemBuilder: (_, _) =>
+                      const SizedBox(width: 200, child: CardShimmer()),
                 ),
               ),
             ],
@@ -318,14 +336,17 @@ class RecommendationsScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
         child: Column(
           children: [
-            Icon(Icons.wifi_off_rounded,
-                size: 40, color: AppTheme.softBlack.withValues(alpha: 0.3)),
+            Icon(
+              Icons.wifi_off_rounded,
+              size: 40,
+              color: AppTheme.softBlack.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               'Não foi possível carregar os destinos',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.softBlack.withValues(alpha: 0.5),
-                  ),
+                color: AppTheme.softBlack.withValues(alpha: 0.5),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -404,7 +425,7 @@ class _CarouselCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorIndex =
         destination.slug.codeUnits.fold(0, (a, b) => a + b) %
-            _placeholders.length;
+        _placeholders.length;
     final placeholder = _placeholders[colorIndex];
     final hasImage = destination.heroImageUrl.isNotEmpty;
 
@@ -450,11 +471,16 @@ class _CarouselCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   child: Text(
                     destination.country.toUpperCase(),
-                    style: AppTheme.eyebrow(color: AppTheme.goldSoft, letterSpacing: 1.6)
-                        .copyWith(fontSize: 9),
+                    style: AppTheme.eyebrow(
+                      color: AppTheme.goldSoft,
+                      letterSpacing: 1.6,
+                    ).copyWith(fontSize: 9),
                   ),
                 ),
               ),
@@ -516,8 +542,10 @@ class _InterestChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
-        border:
-            Border.all(color: AppTheme.primary.withValues(alpha: 0.25), width: 1),
+        border: Border.all(
+          color: AppTheme.primary.withValues(alpha: 0.25),
+          width: 1,
+        ),
       ),
       child: Text(
         label,

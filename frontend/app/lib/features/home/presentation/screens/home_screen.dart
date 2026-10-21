@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/themes/app_theme.dart';
 import '../../../../shared/widgets/loading_shimmer.dart';
+import '../../../../shared/widgets/scroll_focus_blur.dart';
 import '../../../collections/presentation/providers/collection_provider.dart';
 import '../../../destinations/data/destination_summary_model.dart';
 import '../../../destinations/presentation/providers/destination_provider.dart';
@@ -121,7 +122,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildHero(List<DestinationSummaryModel> destinations) {
     if (destinations.isEmpty) return const SizedBox.shrink();
-    final featured = destinations[_weekOfYear(DateTime.now()) % destinations.length];
+    final featured =
+        destinations[_weekOfYear(DateTime.now()) % destinations.length];
     final topInset = MediaQuery.of(context).padding.top;
     final hasImage = featured.heroImageUrl.isNotEmpty;
     final gradient = placeholderGradientFor(featured.slug);
@@ -325,7 +327,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 16),
           _SectionHeader(eyebrow: 'Curadoria', title: 'Destinos'),
           const SizedBox(height: 12),
-          _HorizontalCarousel(destinations: featured, overlayStyle: false),
+          ScrollFocusBlur(
+            child: _HorizontalCarousel(
+              destinations: featured,
+              overlayStyle: false,
+            ),
+          ),
 
           for (final collection in collections)
             if (collection.destinations.isNotEmpty) ...[
@@ -336,7 +343,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 italic: true,
               ),
               const SizedBox(height: 12),
-              _HorizontalCarousel(destinations: collection.destinations),
+              ScrollFocusBlur(
+                child: _HorizontalCarousel(
+                  destinations: collection.destinations,
+                ),
+              ),
             ],
 
           const SizedBox(height: 40),
@@ -761,7 +772,10 @@ class _VerticalDestinationCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     child: Text(
                       destination.country.toUpperCase(),
                       style: AppTheme.eyebrow(
