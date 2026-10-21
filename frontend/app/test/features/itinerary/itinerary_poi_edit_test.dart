@@ -434,6 +434,39 @@ void main() {
     );
 
     testWidgets(
+      'categoria LANDMARK aparece traduzida ("Marco histórico"), nunca o '
+      'valor cru do enum do backend',
+      (tester) async {
+        final mockRepo = MockItineraryRepository();
+        final itinerary = sampleItinerary(
+          activities: [sampleActivity(id: 'act-1', title: 'Museu Atual')],
+        );
+
+        when(() => mockRepo.getAlternatives('itin-1', 'act-1'))
+            .thenAnswer((_) async => [
+                  PoiDetailModel.fromJson(poiJson(
+                    id: 'poi-2',
+                    title: 'Torre Eiffel',
+                    category: 'LANDMARK',
+                    images: const [],
+                  )),
+                ]);
+
+        await pumpItineraryScreen(
+          tester,
+          itinerary: itinerary,
+          mockRepo: mockRepo,
+        );
+
+        await tester.tap(find.byIcon(Icons.edit_outlined));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Marco histórico'), findsOneWidget);
+        expect(find.text('LANDMARK'), findsNothing);
+      },
+    );
+
+    testWidgets(
       'erro ao trocar (substitute) mantém o sheet aberto, mostra snackbar de '
       'erro e permite tentar de novo',
       (tester) async {

@@ -16,6 +16,20 @@ import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
 import '../providers/itinerary_provider.dart';
 
+/// Rótulo em português pra cada valor de PoiCategory (domain/enums/
+/// PoiCategory.java no backend) — nunca mostrar o nome do enum cru pro
+/// usuário (ex. "LANDMARK"). Usado por _ActivityTile e _AlternativeCard.
+const _poiCategoryLabels = {
+  'MUSEUM': 'Museu',
+  'RESTAURANT': 'Restaurante',
+  'HOTEL': 'Hotel',
+  'BEACH': 'Praia',
+  'PARK': 'Parque',
+  'SHOPPING': 'Shopping',
+  'NIGHTLIFE': 'Vida noturna',
+  'LANDMARK': 'Marco histórico',
+};
+
 class ItineraryScreen extends ConsumerWidget {
   final String id;
 
@@ -194,18 +208,21 @@ class _ItineraryBody extends StatelessWidget {
 
   List<Widget> _buildDaySlots(String itineraryId, ItineraryDayModel day) {
     const slots = ['MORNING', 'AFTERNOON', 'EVENING', 'FULL_DAY'];
-    final nonEmptySlots =
-        slots.where((s) => day.activitiesForSlot(s).isNotEmpty).toList();
+    final nonEmptySlots = slots
+        .where((s) => day.activitiesForSlot(s).isNotEmpty)
+        .toList();
 
     final widgets = <Widget>[];
     for (var i = 0; i < nonEmptySlots.length; i++) {
       final slot = nonEmptySlots[i];
       final activities = day.activitiesForSlot(slot);
-      widgets.add(_SlotSection(
-        itineraryId: itineraryId,
-        slot: slot,
-        activities: activities,
-      ));
+      widgets.add(
+        _SlotSection(
+          itineraryId: itineraryId,
+          slot: slot,
+          activities: activities,
+        ),
+      );
 
       if (i < nonEmptySlots.length - 1) {
         final nextActivities = day.activitiesForSlot(nonEmptySlots[i + 1]);
@@ -732,16 +749,6 @@ class _ActivityTile extends ConsumerWidget {
     this.isNoir = false,
   });
 
-  static const _categoryLabels = {
-    'MUSEUM': 'Museu',
-    'RESTAURANT': 'Restaurante',
-    'HOTEL': 'Hotel',
-    'BEACH': 'Praia',
-    'PARK': 'Parque',
-    'SHOPPING': 'Shopping',
-    'NIGHTLIFE': 'Vida noturna',
-  };
-
   static const _budgetLabels = {
     'ECONOMY': '€',
     'MODERATE': '€€',
@@ -764,7 +771,7 @@ class _ActivityTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final poi = activity.poi;
-    final categoryLabel = _categoryLabels[poi.category] ?? poi.category;
+    final categoryLabel = _poiCategoryLabels[poi.category] ?? poi.category;
     final budgetLabel = _budgetLabels[poi.budgetTier] ?? '';
     final duration = poi.averageDurationMinutes != null
         ? '${poi.averageDurationMinutes} min'
@@ -1014,10 +1021,7 @@ class _MapPreviewToggleState extends State<_MapPreviewToggle> {
             ],
           ),
         ),
-        if (_expanded) ...[
-          const SizedBox(height: 8),
-          widget.preview,
-        ],
+        if (_expanded) ...[const SizedBox(height: 8), widget.preview],
       ],
     );
   }
@@ -1190,16 +1194,6 @@ class _AlternativeCard extends StatelessWidget {
   final bool disabled;
   final VoidCallback onTap;
 
-  static const _categoryLabels = {
-    'MUSEUM': 'Museu',
-    'RESTAURANT': 'Restaurante',
-    'HOTEL': 'Hotel',
-    'BEACH': 'Praia',
-    'PARK': 'Parque',
-    'SHOPPING': 'Shopping',
-    'NIGHTLIFE': 'Vida noturna',
-  };
-
   const _AlternativeCard({
     required this.poi,
     required this.isSubstituting,
@@ -1209,7 +1203,7 @@ class _AlternativeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categoryLabel = _categoryLabels[poi.category] ?? poi.category;
+    final categoryLabel = _poiCategoryLabels[poi.category] ?? poi.category;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
