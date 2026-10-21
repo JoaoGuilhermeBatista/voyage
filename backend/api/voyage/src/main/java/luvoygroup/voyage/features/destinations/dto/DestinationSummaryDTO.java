@@ -14,12 +14,14 @@ public record DestinationSummaryDTO(
     String tagline,
     String heroImageUrl,
     String signature,
-    List<String> tags
+    List<String> tags,
+    String type
 ) {
     public static DestinationSummaryDTO from(Destination d) {
         return new DestinationSummaryDTO(
             d.getId(), d.getSlug(), d.getName(), d.getCountry(), d.getCity(),
-            d.getTagline(), d.getHeroImageUrl(), d.getSignature(), d.getTags()
+            d.getTagline(), d.getHeroImageUrl(), d.getSignature(), d.getTags(),
+            d.getType().name()
         );
     }
 }

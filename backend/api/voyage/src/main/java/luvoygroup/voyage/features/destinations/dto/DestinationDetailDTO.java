@@ -17,7 +17,8 @@ public record DestinationDetailDTO(
     String signature,
     List<String> tags,
     List<DestinationSectionDTO> sections,
-    List<PoiSummaryDTO> pois
+    List<PoiSummaryDTO> pois,
+    String type
 ) {
     public static DestinationDetailDTO from(Destination d) {
         List<DestinationSectionDTO> sections = d.getSections().stream()
@@ -30,7 +31,7 @@ public record DestinationDetailDTO(
         return new DestinationDetailDTO(
             d.getId(), d.getSlug(), d.getName(), d.getCountry(), d.getCity(),
             d.getTagline(), d.getDescription(), d.getHeroImageUrl(), d.getSignature(),
-            d.getTags(), sections, pois
+            d.getTags(), sections, pois, d.getType().name()
         );
     }
 }

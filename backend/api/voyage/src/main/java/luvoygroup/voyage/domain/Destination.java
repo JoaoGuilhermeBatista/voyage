@@ -2,6 +2,7 @@ package luvoygroup.voyage.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import luvoygroup.voyage.domain.enums.DestinationType;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -35,6 +36,17 @@ public class Destination {
 
     @Column(nullable = false)
     private String tagline;
+
+    /**
+     * Cidade, vilarejo, ilha, região, rota ou parque — campo pro filtro de
+     * tipo sugerido no Guia Mestre (ex.: Madeira/Creta/Tenerife/Lofoten/
+     * Ilhas Faroé/Riviera Albanesa são ilhas ou regiões, não cidades).
+     * Default CITY cobre a imensa maioria do catálogo atual.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private DestinationType type = DestinationType.CITY;
 
     @Column(columnDefinition = "TEXT")
     private String description;
