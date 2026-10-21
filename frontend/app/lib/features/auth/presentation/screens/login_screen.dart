@@ -29,10 +29,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() {
-          _errorMessage = null;
-          _infoMessage = null;
-        }));
+    _tabController.addListener(
+      () => setState(() {
+        _errorMessage = null;
+        _infoMessage = null;
+      }),
+    );
   }
 
   @override
@@ -116,31 +118,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState.isLoading;
 
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Column(
-            children: [
-              const SizedBox(height: 64),
-              _buildHeader(),
-              const SizedBox(height: 48),
-              _buildTabBar(),
-              const SizedBox(height: 32),
-              _buildForm(isLoading),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
-                _buildError(),
+    // Tela de login sempre clara, de propósito — não reage ao tema
+    // claro/escuro do app (nem ao modo do sistema): os campos de texto
+    // (TextField) não têm cor própria definida aqui, então herdam do
+    // Theme ambiente — sem esse wrap, iam escurecer junto com o resto do
+    // app quando o tema escuro estiver ativo, o que não faz sentido antes
+    // mesmo do usuário entrar.
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: Scaffold(
+        backgroundColor: AppTheme.background,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              children: [
+                const SizedBox(height: 64),
+                _buildHeader(),
+                const SizedBox(height: 48),
+                _buildTabBar(),
+                const SizedBox(height: 32),
+                _buildForm(isLoading),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  _buildError(),
+                ],
+                if (_infoMessage != null) ...[
+                  const SizedBox(height: 16),
+                  _buildInfo(),
+                ],
+                const SizedBox(height: 24),
+                _buildSubmitButton(isLoading),
+                const SizedBox(height: 40),
               ],
-              if (_infoMessage != null) ...[
-                const SizedBox(height: 16),
-                _buildInfo(),
-              ],
-              const SizedBox(height: 24),
-              _buildSubmitButton(isLoading),
-              const SizedBox(height: 40),
-            ],
+            ),
           ),
         ),
       ),
@@ -153,24 +164,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         Text(
           'LUVOY',
           style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                fontSize: 42,
-                letterSpacing: 8,
-                color: AppTheme.softBlack,
-              ),
+            fontSize: 42,
+            letterSpacing: 8,
+            color: AppTheme.softBlack,
+          ),
         ),
         const SizedBox(height: 8),
-        Container(
-          width: 40,
-          height: 1.5,
-          color: AppTheme.goldenOrange,
-        ),
+        Container(width: 40, height: 1.5, color: AppTheme.goldenOrange),
         const SizedBox(height: 12),
         Text(
           'Viagens de experiência',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha:0.5),
-                letterSpacing: 1.5,
-              ),
+            color: AppTheme.softBlack.withValues(alpha: 0.5),
+            letterSpacing: 1.5,
+          ),
         ),
       ],
     );
@@ -191,10 +198,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         labelColor: AppTheme.softWhite,
-        unselectedLabelColor: AppTheme.softBlack.withValues(alpha:0.5),
-        labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+        unselectedLabelColor: AppTheme.softBlack.withValues(alpha: 0.5),
+        labelStyle: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
         dividerColor: Colors.transparent,
         tabs: const [
           Tab(text: 'Entrar'),
@@ -213,10 +220,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           keyboardType: TextInputType.emailAddress,
           decoration: InputDecoration(
             hintText: 'Email',
-            hintStyle: TextStyle(color: AppTheme.softBlack.withValues(alpha:0.35)),
+            hintStyle: TextStyle(
+              color: AppTheme.softBlack.withValues(alpha: 0.35),
+            ),
             prefixIcon: Icon(
               Icons.mail_outline_rounded,
-              color: AppTheme.softBlack.withValues(alpha:0.4),
+              color: AppTheme.softBlack.withValues(alpha: 0.4),
               size: 20,
             ),
           ),
@@ -228,10 +237,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           obscureText: _obscurePassword,
           decoration: InputDecoration(
             hintText: 'Senha',
-            hintStyle: TextStyle(color: AppTheme.softBlack.withValues(alpha:0.35)),
+            hintStyle: TextStyle(
+              color: AppTheme.softBlack.withValues(alpha: 0.35),
+            ),
             prefixIcon: Icon(
               Icons.lock_outline_rounded,
-              color: AppTheme.softBlack.withValues(alpha:0.4),
+              color: AppTheme.softBlack.withValues(alpha: 0.4),
               size: 20,
             ),
             suffixIcon: IconButton(
@@ -239,7 +250,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                 _obscurePassword
                     ? Icons.visibility_off_outlined
                     : Icons.visibility_outlined,
-                color: AppTheme.softBlack.withValues(alpha:0.4),
+                color: AppTheme.softBlack.withValues(alpha: 0.4),
                 size: 20,
               ),
               onPressed: () =>
@@ -261,15 +272,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded,
-              color: Color(0xFFB00020), size: 18),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFB00020),
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               _errorMessage!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFFB00020),
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFFB00020)),
             ),
           ),
         ],
@@ -286,15 +300,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       ),
       child: Row(
         children: [
-          const Icon(Icons.mark_email_read_outlined,
-              color: AppTheme.primaryBlue, size: 18),
+          const Icon(
+            Icons.mark_email_read_outlined,
+            color: AppTheme.primaryBlue,
+            size: 18,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               _infoMessage!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.primaryBlue,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppTheme.primaryBlue),
             ),
           ),
         ],
@@ -316,9 +333,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   color: AppTheme.softWhite,
                 ),
               )
-            : Text(
-                _tabController.index == 0 ? 'Entrar' : 'Criar conta',
-              ),
+            : Text(_tabController.index == 0 ? 'Entrar' : 'Criar conta'),
       ),
     );
   }
