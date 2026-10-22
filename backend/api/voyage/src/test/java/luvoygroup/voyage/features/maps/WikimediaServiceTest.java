@@ -113,4 +113,32 @@ class WikimediaServiceTest {
 
         assertThat(result).isEmpty();
     }
+
+    // ─── Rate limit (gotcha real de 2026-10-22, ver Javadoc da classe): a 1ª
+    // versão não tinha atraso nenhum entre chamadas e foi bloqueada pela
+    // Wikimedia depois de poucos minutos (só 26 de 7307 POIs enriquecidos).
+    // Este teste garante que o atraso configurado é respeitado de verdade. ─
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void fetchPhotoUrl_respectsConfiguredThrottle_betweenEachHttpCall() {
+        RestClient mockRestClient = mock(RestClient.class);
+        RestClient.RequestHeadersUriSpec uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+        RestClient.RequestHeadersSpec headersSpec = mock(RestClient.RequestHeadersSpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        when(mockRestClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString(), any(Object[].class))).thenReturn(headersSpec);
+        when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(String.class)).thenReturn(SEARCH_WITH_RESULT, SUMMARY_WITH_THUMBNAIL);
+
+        long throttleMs = 60;
+        WikimediaService service = new WikimediaService(mockRestClient, throttleMs);
+
+        long start = System.currentTimeMillis();
+        service.fetchPhotoUrl("Torre Eiffel", "Paris");
+        long elapsed = System.currentTimeMillis() - start;
+
+        // 2 chamadas HTTP (busca + resumo) -> pelo menos 2x o throttle
+        assertThat(elapsed).isGreaterThanOrEqualTo(throttleMs * 2);
+    }
 }

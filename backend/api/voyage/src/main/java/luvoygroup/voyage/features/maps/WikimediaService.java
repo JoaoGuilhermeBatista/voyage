@@ -29,6 +29,16 @@ import java.util.Optional;
  * (sem resultado, erro de rede, página sem imagem) vira
  * {@code Optional.empty()}, logado como warning — mesmo contrato de
  * {@link PlacesService#fetchPhotoUrl}.
+ *
+ * <p><b>Rate limit (gotcha real, 2026-10-22)</b>: a primeira versão deste
+ * service disparava ~14 mil chamadas sem nenhum intervalo e foi bloqueada
+ * pela Wikimedia ("You are making too many requests") depois de poucos
+ * minutos — resultado: só 26 de 7307 POIs enriquecidos, o resto falhou
+ * silenciosamente (try/catch virando Optional.empty(), indistinguível de
+ * "sem artigo"). Corrigido com um atraso de {@link #THROTTLE_MS} antes de
+ * CADA chamada HTTP (busca e resumo contam separado) — mantém o uso bem
+ * abaixo do limite documentado da Wikimedia (a API pede no máximo ~1
+ * requisição/segundo pra clientes sem acordo especial).</p>
  */
 @Service
 @Slf4j
@@ -39,29 +49,46 @@ public class WikimediaService {
     private static final String SUMMARY_URL_TEMPLATE =
         "https://en.wikipedia.org/api/rest_v1/page/summary/{title}";
 
+    private static final long THROTTLE_MS = 350;
+
     private final RestClient restClient;
+    private final long throttleMs;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public WikimediaService() {
-        // User-Agent identificado — exigido pela política de uso da API
-        // pública da Wikimedia (requisições anônimas sem User-Agent podem
-        // ser limitadas/bloqueadas).
-        this(RestClient.builder()
-            .defaultHeader("User-Agent", "LuvoyApp/1.0 (contato admin via app)")
-            .build());
+        // User-Agent identificado com contato real — exigido pela política
+        // de uso da API pública da Wikimedia (requisições anônimas/vagas
+        // são as primeiras bloqueadas em caso de limite de taxa).
+        this(
+            RestClient.builder()
+                .defaultHeader(
+                    "User-Agent",
+                    "LuvoyApp/1.0 (https://github.com/JoaoGuilhermeBatista/luvoy)"
+                )
+                .build(),
+            THROTTLE_MS
+        );
     }
 
     /**
-     * Construtor package-private, usado pelos testes para injetar um
-     * {@link RestClient} mockado sem precisar subir o contexto Spring.
+     * Construtor package-private, usado pelos testes pra injetar um
+     * {@link RestClient} mockado sem precisar subir o contexto Spring —
+     * throttle zerado pra não deixar a suíte de testes lenta (não faz
+     * chamada de rede de verdade, não existe limite de taxa pra respeitar).
      */
     WikimediaService(RestClient restClient) {
+        this(restClient, 0);
+    }
+
+    WikimediaService(RestClient restClient, long throttleMs) {
         this.restClient = restClient;
+        this.throttleMs = throttleMs;
     }
 
     public Optional<String> fetchPhotoUrl(String title, String city) {
         try {
+            throttle();
             String searchJson = restClient.get()
                 .uri(SEARCH_URL_TEMPLATE, title + ", " + city)
                 .retrieve()
@@ -76,6 +103,7 @@ public class WikimediaService {
                 return Optional.empty();
             }
 
+            throttle();
             String summaryJson = restClient.get()
                 .uri(SUMMARY_URL_TEMPLATE, pageTitle)
                 .retrieve()
@@ -91,6 +119,15 @@ public class WikimediaService {
         } catch (Exception e) {
             log.warn("Erro ao buscar foto na Wikipedia para '{}' ({})", title, city, e);
             return Optional.empty();
+        }
+    }
+
+    private void throttle() {
+        if (throttleMs <= 0) return;
+        try {
+            Thread.sleep(throttleMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }
