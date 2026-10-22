@@ -50,6 +50,7 @@ class AdminServiceTest {
     private ItineraryTemplateService itineraryTemplateService;
     private UnusualPlaceService unusualPlaceService;
     private luvoygroup.voyage.features.maps.PlacesService placesService;
+    private luvoygroup.voyage.features.maps.WikimediaService wikimediaService;
 
     private AdminService service;
 
@@ -63,8 +64,9 @@ class AdminServiceTest {
         itineraryTemplateService = mock(ItineraryTemplateService.class);
         unusualPlaceService = mock(UnusualPlaceService.class);
         placesService = mock(luvoygroup.voyage.features.maps.PlacesService.class);
+        wikimediaService = mock(luvoygroup.voyage.features.maps.WikimediaService.class);
 
-        service = new AdminService(llmService, destinationRepo, poiRepo, itineraryTemplateService, unusualPlaceService, placesService);
+        service = new AdminService(llmService, destinationRepo, poiRepo, itineraryTemplateService, unusualPlaceService, placesService, wikimediaService);
 
         destination = Destination.builder()
             .id(UUID.randomUUID())

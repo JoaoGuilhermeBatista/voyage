@@ -11,6 +11,7 @@ import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
 import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
 import luvoygroup.voyage.features.maps.PlacesService;
+import luvoygroup.voyage.features.maps.WikimediaService;
 import luvoygroup.voyage.features.unusualplaces.UnusualPlaceService;
 import luvoygroup.voyage.repository.DestinationRepository;
 import luvoygroup.voyage.repository.PoiRepository;
@@ -35,6 +36,7 @@ public class AdminService {
     private final ItineraryTemplateService itineraryTemplateService;
     private final UnusualPlaceService unusualPlaceService;
     private final PlacesService placesService;
+    private final WikimediaService wikimediaService;
 
     @Transactional
     public DestinationSummaryDTO generateAndSaveDestination(GenerateDestinationRequest request) {
@@ -335,6 +337,58 @@ public class AdminService {
 
                 processed.add(destination.getSlug());
                 log.info("✓ {} — {} POIs enriquecidos com imagem", destination.getSlug(), enrichedForDestination);
+            } catch (Exception e) {
+                log.error("✗ Erro em {} — {} POIs ja enriquecidos antes da falha: {}",
+                    destination.getSlug(), enrichedForDestination, e.getMessage());
+                skipped++;
+            }
+        }
+
+        return new PoiEnrichmentReport(
+            processed.size(), skipped, totalEnriched, processed, null, null
+        );
+    }
+
+    /**
+     * Mesma ideia de {@link #enrichExistingPoisWithImages()}, mas via
+     * {@link WikimediaService#fetchPhotoUrl} (Wikipedia pública, SEM
+     * CUSTO) em vez do Google Places (pago) — usado enquanto o orçamento
+     * pra API paga não está aprovado (2026-10-22). Cobertura parcial por
+     * natureza: só POIs com artigo na Wikipedia (landmarks, museus,
+     * parques, praias famosas) encontram foto; restaurante/loja/balada
+     * local normalmente fica sem foto até o Google Places (pago) entrar
+     * como complemento no futuro.
+     */
+    public PoiEnrichmentReport enrichExistingPoisWithWikimediaImages() {
+        List<Destination> destinations = destinationRepo.findAllByActiveTrue();
+        log.info("Destinos ativos a verificar para enriquecimento de imagens (Wikipedia): {}", destinations.size());
+
+        List<String> processed = new ArrayList<>();
+        int totalEnriched = 0;
+        int skipped = 0;
+
+        for (Destination destination : destinations) {
+            List<Poi> poisWithoutImages = poiRepo.findAllByDestinationIdAndActiveTrue(destination.getId()).stream()
+                .filter(p -> p.getImages().isEmpty())
+                .toList();
+            if (poisWithoutImages.isEmpty()) {
+                skipped++;
+                continue;
+            }
+
+            int enrichedForDestination = 0;
+            try {
+                for (Poi poi : poisWithoutImages) {
+                    var photoUrl = wikimediaService.fetchPhotoUrl(poi.getTitle(), destination.getCity());
+                    if (photoUrl.isPresent()) {
+                        poi.getImages().add(photoUrl.get());
+                        poiRepo.save(poi);
+                        enrichedForDestination++;
+                        totalEnriched++;
+                    }
+                }
+                processed.add(destination.getSlug());
+                log.info("✓ {} — {} POIs enriquecidos com imagem (Wikipedia)", destination.getSlug(), enrichedForDestination);
             } catch (Exception e) {
                 log.error("✗ Erro em {} — {} POIs ja enriquecidos antes da falha: {}",
                     destination.getSlug(), enrichedForDestination, e.getMessage());

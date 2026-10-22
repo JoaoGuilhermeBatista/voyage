@@ -117,6 +117,21 @@ public class AdminController {
         return ResponseEntity.ok(adminService.enrichExistingPoisWithImages());
     }
 
+    @PostMapping("/pois/enrich-images-wikimedia")
+    @Operation(summary = "Busca retroativamente, via Wikipedia pública (SEM CUSTO, sem api-key), 1 foto real " +
+        "para cada POI já cadastrado que ainda não tem nenhuma em Poi.images, atualizando IN PLACE (nunca cria " +
+        "ou deleta POIs). Cobertura parcial: só acha foto pra POIs com artigo na Wikipedia (landmarks, museus, " +
+        "parques, praias famosas) — restaurante/loja/balada local geralmente fica sem foto até o Google Places " +
+        "(pago, ver /pois/enrich-images) entrar como complemento.")
+    public ResponseEntity<PoiEnrichmentReport> enrichPoiImagesWikimedia(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.ok(adminService.enrichExistingPoisWithWikimediaImages());
+    }
+
     @PostMapping("/destinations/{slug}/pois/generate")
     @Operation(summary = "Gera e ADICIONA POIs novos via GPT-4o a um destino que já existe (não sobrescreve " +
         "nem deleta os POIs já cadastrados) — usado para aprofundar destinos secundários com poucos POIs, " +
