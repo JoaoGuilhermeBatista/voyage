@@ -13,6 +13,7 @@ import '../../../destinations/presentation/providers/destination_provider.dart';
 import '../../../onboarding/presentation/widgets/preference_steps.dart'
     show interestOptions, interestLabels;
 import '../../../profile/data/user_model.dart';
+import '../../../profile/domain/traveler_archetype.dart';
 import '../../../profile/presentation/providers/user_provider.dart';
 
 // Rótulos específicos desta tela (mais descritivos que o texto curto usado
@@ -97,7 +98,14 @@ class RecommendationsScreen extends ConsumerWidget {
   // ── Header ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context, UserModel? user) {
-    final subtitle = _buildSubtitle(user);
+    final hasProfile = user != null && user.onboardingCompleted;
+    final archetype = hasProfile
+        ? computeTravelerArchetype(
+            _validInterests(user.interests),
+            rhythm: user.rhythm,
+          )
+        : null;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: Column(
@@ -115,43 +123,36 @@ class RecommendationsScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
-          ),
+          if (archetype == null)
+            Text(
+              'Complete seu perfil para ver destinos personalizados',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
+            )
+          else ...[
+            Text(
+              archetype.title,
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 20,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              archetype.description,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppTheme.mutedForeground,
+                height: 1.4,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
-
-  String _buildSubtitle(UserModel? user) {
-    if (user == null || !user.onboardingCompleted) {
-      return 'Complete seu perfil para ver destinos personalizados';
-    }
-    if (user.budget != null || user.rhythm != null) {
-      final parts = <String>[];
-      if (user.budget != null) parts.add(_budgetLabel(user.budget!));
-      if (user.rhythm != null) parts.add(_rhythmLabel(user.rhythm!));
-      return 'Perfil ${parts.join(', ')} · selecionado para você';
-    }
-    return 'Baseado no seu perfil de viajante';
-  }
-
-  String _budgetLabel(String budget) => switch (budget) {
-    'ECONOMY' => 'econômico',
-    'MODERATE' => 'moderado',
-    'LUXURY' => 'de luxo',
-    _ => budget.toLowerCase(),
-  };
-
-  String _rhythmLabel(String rhythm) => switch (rhythm) {
-    'RELAXED' => 'relaxado',
-    'MODERATE' => 'moderado',
-    'INTENSE' => 'intenso',
-    _ => rhythm.toLowerCase(),
-  };
 
   // ── Interest chips ──────────────────────────────────────────────────────────
 

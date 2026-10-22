@@ -39,12 +39,17 @@ void main() {
   final lyon = destination('lyon', 'Lyon', const ['gastronomia']);
   final roma = destination('roma', 'Roma', const ['arquitetura', 'história']);
 
-  UserModel user(List<String> interests) => UserModel(
+  UserModel user(
+    List<String> interests, {
+    bool onboardingCompleted = true,
+    String? rhythm,
+  }) => UserModel(
     id: 'u1',
     email: 'teste@luvoy.app',
-    onboardingCompleted: true,
+    onboardingCompleted: onboardingCompleted,
     isPremium: false,
     interests: interests,
+    rhythm: rhythm,
   );
 
   // A tela é um CustomScrollView com várias seções — viewport maior evita o
@@ -122,4 +127,51 @@ void main() {
       expect(find.text('praia'), findsNothing);
     },
   );
+
+  group('cabeçalho — perfil do viajante (#8/9)', () {
+    testWidgets(
+      'interesses de gastronomia/vinhos mostram o arquétipo "O Apreciador '
+      'de Sabores" com a descrição completa',
+      (tester) async {
+        useTallSurface(tester);
+        await tester.pumpWidget(
+          buildScreen(
+            destinations: [lyon, roma],
+            currentUser: user(const ['gastronomia', 'vinhos']),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('O Apreciador de Sabores'), findsOneWidget);
+        expect(
+          find.textContaining('Cada refeição vira uma lembrança.'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'onboarding incompleto mostra a mensagem de completar perfil, não '
+      'um arquétipo',
+      (tester) async {
+        useTallSurface(tester);
+        await tester.pumpWidget(
+          buildScreen(
+            destinations: [lyon, roma],
+            currentUser: user(
+              const ['gastronomia'],
+              onboardingCompleted: false,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Complete seu perfil para ver destinos personalizados'),
+          findsOneWidget,
+        );
+        expect(find.text('O Apreciador de Sabores'), findsNothing);
+      },
+    );
+  });
 }
