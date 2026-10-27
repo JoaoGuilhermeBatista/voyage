@@ -105,6 +105,16 @@ void main() {
       tester.takeException(); // não deixa a exceção vazar para o próximo expect
 
       expect(find.text('Sobre o LUVOY'), findsOneWidget);
+
+      // "Sair" fica abaixo da viewport fixa do teste (a linha "Tema" do
+      // seletor de tema empurrou o conteúdo) — o ListView só materializa
+      // esse widget depois de rolar até ele.
+      await tester.dragUntilVisible(
+        find.text('Sair'),
+        find.byType(ListView),
+        const Offset(0, -100),
+      );
+      await tester.pumpAndSettle();
       expect(find.text('Sair'), findsOneWidget);
     });
   });

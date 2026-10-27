@@ -32,7 +32,7 @@ class ItinerariesScreen extends ConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => Material(
-        color: AppTheme.background,
+        color: context.colors.background,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
@@ -76,7 +76,7 @@ class ItinerariesScreen extends ConsumerWidget {
     final showFab = trips == null || trips.isNotEmpty;
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.colors.background,
       floatingActionButton: showFab
           ? FloatingActionButton.extended(
               onPressed: () => _showCreateOptions(context),
@@ -127,7 +127,7 @@ class ItinerariesScreen extends ConsumerWidget {
             style: GoogleFonts.cormorantGaramond(
               fontSize: 36,
               fontWeight: FontWeight.w500,
-              color: AppTheme.softBlack,
+              color: context.colors.foreground,
               height: 1.2,
             ),
           ),
@@ -135,7 +135,7 @@ class ItinerariesScreen extends ConsumerWidget {
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.softBlack.withValues(alpha: 0.45),
+              color: context.colors.foreground.withValues(alpha: 0.45),
             ),
           ),
         ],
@@ -250,13 +250,13 @@ class ItinerariesScreen extends ConsumerWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+                color: context.colors.primary.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.map_outlined,
                 size: 34,
-                color: AppTheme.primaryBlue,
+                color: context.colors.primary,
               ),
             ),
             const SizedBox(height: 24),
@@ -265,7 +265,7 @@ class ItinerariesScreen extends ConsumerWidget {
               style: GoogleFonts.cormorantGaramond(
                 fontSize: 26,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.softBlack,
+                color: context.colors.foreground,
                 height: 1.25,
               ),
               textAlign: TextAlign.center,
@@ -274,7 +274,7 @@ class ItinerariesScreen extends ConsumerWidget {
             Text(
               'Explore um destino e toque em "Gerar Roteiro" para criar seu itinerário personalizado.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha: 0.5),
+                color: context.colors.foreground.withValues(alpha: 0.5),
                 height: 1.6,
               ),
               textAlign: TextAlign.center,
@@ -318,13 +318,13 @@ class ItinerariesScreen extends ConsumerWidget {
             Icon(
               Icons.wifi_off_rounded,
               size: 40,
-              color: AppTheme.softBlack.withValues(alpha: 0.3),
+              color: context.colors.foreground.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'Não foi possível carregar os roteiros',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha: 0.5),
+                color: context.colors.foreground.withValues(alpha: 0.5),
               ),
               textAlign: TextAlign.center,
             ),

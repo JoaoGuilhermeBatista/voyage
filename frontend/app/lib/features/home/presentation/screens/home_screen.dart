@@ -78,7 +78,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : ref.watch(destinationSearchProvider(_query));
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.colors.background,
       body: CustomScrollView(
         slivers: [
           // Hero bleeds até o topo (sem SafeArea) — só o wordmark/texto por
@@ -190,7 +190,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('DESTINO DA SEMANA', style: AppTheme.eyebrow()),
+                Text(
+                  'DESTINO DA SEMANA',
+                  style: AppTheme.eyebrow(color: AppTheme.primaryForeground),
+                ),
                 const SizedBox(height: 10),
                 Text(
                   featured.name,
@@ -230,15 +233,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('LUVOY · COLEÇÃO', style: AppTheme.eyebrow()),
+          Text(
+            'LUVOY · COLEÇÃO',
+            style: AppTheme.eyebrow(color: context.colors.primary),
+          ),
           const SizedBox(height: 10),
           Text('Explorar', style: Theme.of(context).textTheme.displayMedium),
           const SizedBox(height: 6),
           Text(
             'Destinos curados para cada tipo de viagem',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: context.colors.mutedForeground,
+            ),
           ),
         ],
       ),
@@ -253,20 +259,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: TextField(
         controller: _searchController,
         onChanged: (value) => setState(() => _query = value.trim()),
-        style: GoogleFonts.jost(fontSize: 14, color: AppTheme.foreground),
+        style: GoogleFonts.jost(fontSize: 14, color: context.colors.foreground),
         decoration: InputDecoration(
           hintText: 'Buscar destino...',
-          hintStyle: GoogleFonts.jost(color: AppTheme.mutedForeground),
+          hintStyle: GoogleFonts.jost(color: context.colors.mutedForeground),
           prefixIcon: Icon(
             Icons.search_rounded,
-            color: AppTheme.mutedForeground,
+            color: context.colors.mutedForeground,
             size: 20,
           ),
           suffixIcon: _query.isNotEmpty
               ? IconButton(
                   icon: Icon(
                     Icons.close_rounded,
-                    color: AppTheme.mutedForeground,
+                    color: context.colors.mutedForeground,
                     size: 18,
                   ),
                   onPressed: () {
@@ -277,7 +283,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               : null,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppTheme.border),
+            borderSide: BorderSide(color: context.colors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
@@ -299,7 +305,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Text(
               'Nenhum destino disponível',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha: 0.45),
+                color: context.colors.foreground.withValues(alpha: 0.45),
               ),
             ),
           ),
@@ -360,7 +366,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fontSize: 15,
                 fontStyle: FontStyle.italic,
                 fontWeight: FontWeight.w400,
-                color: AppTheme.mutedForeground,
+                color: context.colors.mutedForeground,
               ),
             ),
           ),
@@ -380,7 +386,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Text(
               'Nenhum destino encontrado',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha: 0.45),
+                color: context.colors.foreground.withValues(alpha: 0.45),
               ),
             ),
           ),
@@ -449,13 +455,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Icon(
               Icons.wifi_off_rounded,
               size: 40,
-              color: AppTheme.softBlack.withValues(alpha: 0.3),
+              color: context.colors.foreground.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'Não foi possível carregar os destinos',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha: 0.5),
+                color: context.colors.foreground.withValues(alpha: 0.5),
               ),
               textAlign: TextAlign.center,
             ),
@@ -491,7 +497,10 @@ class _SectionHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (eyebrow != null) ...[
-            Text(eyebrow!.toUpperCase(), style: AppTheme.eyebrow()),
+            Text(
+              eyebrow!.toUpperCase(),
+              style: AppTheme.eyebrow(color: context.colors.primary),
+            ),
             const SizedBox(height: 6),
           ],
           Text(
@@ -500,7 +509,7 @@ class _SectionHeader extends StatelessWidget {
               fontSize: 26,
               fontWeight: FontWeight.w500,
               fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-              color: AppTheme.foreground,
+              color: context.colors.foreground,
               height: 1.15,
             ),
           ),
@@ -600,7 +609,7 @@ class _DestinationCaptionCard extends StatelessWidget {
             style: GoogleFonts.cormorantGaramond(
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: AppTheme.foreground,
+              color: context.colors.foreground,
             ),
           ),
           const SizedBox(height: 2),
@@ -611,7 +620,7 @@ class _DestinationCaptionCard extends StatelessWidget {
             style: GoogleFonts.jost(
               fontSize: 12,
               fontWeight: FontWeight.w300,
-              color: AppTheme.mutedForeground,
+              color: context.colors.mutedForeground,
             ),
           ),
         ],

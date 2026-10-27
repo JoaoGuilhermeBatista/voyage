@@ -29,19 +29,39 @@ class _LuvoyNavBar extends StatelessWidget {
   const _LuvoyNavBar({required this.currentIndex, required this.onTap});
 
   static const _items = [
-    _NavItemData(icon: Icons.explore_outlined, activeIcon: Icons.explore, label: 'Explorar'),
-    _NavItemData(icon: Icons.auto_awesome_outlined, activeIcon: Icons.auto_awesome, label: 'Para você'),
-    _NavItemData(icon: Icons.map_outlined, activeIcon: Icons.map, label: 'Roteiros'),
-    _NavItemData(icon: Icons.favorite_border, activeIcon: Icons.favorite, label: 'Favoritos'),
-    _NavItemData(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Perfil'),
+    _NavItemData(
+      icon: Icons.explore_outlined,
+      activeIcon: Icons.explore,
+      label: 'Explorar',
+    ),
+    _NavItemData(
+      icon: Icons.auto_awesome_outlined,
+      activeIcon: Icons.auto_awesome,
+      label: 'Para você',
+    ),
+    _NavItemData(
+      icon: Icons.map_outlined,
+      activeIcon: Icons.map,
+      label: 'Roteiros',
+    ),
+    _NavItemData(
+      icon: Icons.favorite_border,
+      activeIcon: Icons.favorite,
+      label: 'Favoritos',
+    ),
+    _NavItemData(
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+      label: 'Perfil',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.softWhite,
-        border: Border(top: BorderSide(color: Color(0xFFE8E4DC))),
+      decoration: BoxDecoration(
+        color: context.colors.card,
+        border: Border(top: BorderSide(color: context.colors.border)),
       ),
       child: SafeArea(
         top: false,
@@ -67,7 +87,11 @@ class _NavItemData {
   final IconData icon;
   final IconData activeIcon;
   final String label;
-  const _NavItemData({required this.icon, required this.activeIcon, required this.label});
+  const _NavItemData({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+  });
 }
 
 class _NavItem extends StatelessWidget {
@@ -75,11 +99,17 @@ class _NavItem extends StatelessWidget {
   final bool isActive;
   final VoidCallback onTap;
 
-  const _NavItem({required this.data, required this.isActive, required this.onTap});
+  const _NavItem({
+    required this.data,
+    required this.isActive,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? AppTheme.goldenOrange : AppTheme.softBlack.withValues(alpha: 0.45);
+    final color = isActive
+        ? context.colors.primary
+        : context.colors.foreground.withValues(alpha: 0.45);
 
     return Expanded(
       child: GestureDetector(
@@ -88,7 +118,11 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(isActive ? data.activeIcon : data.icon, color: color, size: 22),
+            Icon(
+              isActive ? data.activeIcon : data.icon,
+              color: color,
+              size: 22,
+            ),
             const SizedBox(height: 3),
             Text(
               data.label,

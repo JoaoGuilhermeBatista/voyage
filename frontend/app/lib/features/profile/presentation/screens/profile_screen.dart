@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/themes/app_theme.dart';
+import '../../../../core/themes/theme_mode_provider.dart';
 import '../providers/user_provider.dart';
 
 /// Tela "Perfil" — spec LUVOY §8. Card "Meu Plano" reflete o campo real
@@ -20,9 +21,10 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.colors.background,
       body: SafeArea(
         child: userAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -38,6 +40,13 @@ class ProfileScreen extends ConsumerWidget {
                 title: 'Minhas preferências',
                 subtitle: 'Estilos de viagem, gastronomia e clima',
                 onTap: () => context.push('/perfil/preferencias'),
+              ),
+              const SizedBox(height: 12),
+              _ActionCard(
+                icon: Icons.dark_mode_outlined,
+                title: 'Tema',
+                subtitle: _themeModeLabel(themeMode),
+                onTap: () => _showThemeModeSheet(context, ref, themeMode),
               ),
               const SizedBox(height: 12),
               _PlanCard(
@@ -66,14 +75,14 @@ class ProfileScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppTheme.card,
+        backgroundColor: dialogContext.colors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: Text(
           'LUVOY',
           style: GoogleFonts.cormorantGaramond(
             fontSize: 24,
             fontWeight: FontWeight.w600,
-            color: AppTheme.foreground,
+            color: dialogContext.colors.foreground,
           ),
         ),
         content: Text(
@@ -81,7 +90,7 @@ class ProfileScreen extends ConsumerWidget {
           style: GoogleFonts.jost(
             fontSize: 14,
             fontWeight: FontWeight.w300,
-            color: AppTheme.mutedForeground,
+            color: dialogContext.colors.mutedForeground,
           ),
         ),
         actions: [
@@ -90,12 +99,61 @@ class ProfileScreen extends ConsumerWidget {
             child: Text(
               'Fechar',
               style: GoogleFonts.jost(
-                color: AppTheme.primary,
+                color: dialogContext.colors.primary,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  String _themeModeLabel(ThemeMode mode) => switch (mode) {
+    ThemeMode.light => 'Claro',
+    ThemeMode.dark => 'Escuro',
+    ThemeMode.system => 'Automático (sistema)',
+  };
+
+  void _showThemeModeSheet(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeMode current,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.colors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: RadioGroup<ThemeMode>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value != null) {
+              ref.read(themeModeProvider.notifier).setThemeMode(value);
+            }
+            Navigator.of(sheetContext).pop();
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              for (final mode in ThemeMode.values)
+                RadioListTile<ThemeMode>(
+                  title: Text(
+                    _themeModeLabel(mode),
+                    style: GoogleFonts.jost(
+                      color: sheetContext.colors.foreground,
+                    ),
+                  ),
+                  value: mode,
+                  activeColor: sheetContext.colors.primary,
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -127,8 +185,8 @@ class _ProfileHeader extends StatelessWidget {
           height: 96,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppTheme.secondary,
-            border: Border.all(color: AppTheme.primary, width: 1.5),
+            color: context.colors.secondary,
+            border: Border.all(color: context.colors.primary, width: 1.5),
           ),
           child: Center(
             child: Text(
@@ -136,7 +194,7 @@ class _ProfileHeader extends StatelessWidget {
               style: GoogleFonts.cormorantGaramond(
                 fontSize: 32,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.primary,
+                color: context.colors.primary,
               ),
             ),
           ),
@@ -156,7 +214,7 @@ class _ProfileHeader extends StatelessWidget {
           style: GoogleFonts.cormorantGaramond(
             fontSize: 28,
             fontWeight: FontWeight.w500,
-            color: AppTheme.foreground,
+            color: context.colors.foreground,
           ),
         ),
         const SizedBox(height: 4),
@@ -165,7 +223,7 @@ class _ProfileHeader extends StatelessWidget {
           style: GoogleFonts.jost(
             fontSize: 13,
             fontWeight: FontWeight.w300,
-            color: AppTheme.mutedForeground,
+            color: context.colors.mutedForeground,
           ),
         ),
       ],
@@ -191,7 +249,7 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.card,
+      color: context.colors.card,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -200,11 +258,11 @@ class _ActionCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.border),
+            border: Border.all(color: context.colors.border),
           ),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: AppTheme.mutedForeground),
+              Icon(icon, size: 20, color: context.colors.mutedForeground),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -215,7 +273,7 @@ class _ActionCard extends StatelessWidget {
                       style: GoogleFonts.jost(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.foreground,
+                        color: context.colors.foreground,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -224,7 +282,7 @@ class _ActionCard extends StatelessWidget {
                       style: GoogleFonts.jost(
                         fontSize: 12,
                         fontWeight: FontWeight.w300,
-                        color: AppTheme.mutedForeground,
+                        color: context.colors.mutedForeground,
                       ),
                     ),
                   ],
@@ -233,7 +291,7 @@ class _ActionCard extends StatelessWidget {
               Icon(
                 Icons.chevron_right,
                 size: 20,
-                color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+                color: context.colors.mutedForeground.withValues(alpha: 0.6),
               ),
             ],
           ),
@@ -272,16 +330,14 @@ class _PlanCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppTheme.goldNoir.withValues(alpha: 0.4),
-              ),
+              border: Border.all(color: AppTheme.naval.withValues(alpha: 0.4)),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.workspace_premium_outlined,
                   size: 22,
-                  color: AppTheme.goldNoir,
+                  color: AppTheme.naval,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -290,8 +346,8 @@ class _PlanCard extends StatelessWidget {
                     children: [
                       _Badge(
                         label: 'NOIR',
-                        background: AppTheme.goldNoir,
-                        foreground: AppTheme.ink,
+                        background: AppTheme.naval,
+                        foreground: Colors.white,
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -320,7 +376,7 @@ class _PlanCard extends StatelessWidget {
     }
 
     return Material(
-      color: AppTheme.card,
+      color: context.colors.card,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTapUpgrade,
@@ -329,14 +385,14 @@ class _PlanCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.border),
+            border: Border.all(color: context.colors.border),
           ),
           child: Row(
             children: [
               Icon(
                 Icons.workspace_premium_outlined,
                 size: 22,
-                color: AppTheme.primary,
+                color: context.colors.primary,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -347,7 +403,7 @@ class _PlanCard extends StatelessWidget {
                       label: 'GRATUITO',
                       background: AppTheme.goldSoft,
                       foreground: AppTheme.foreground,
-                      border: AppTheme.primary,
+                      border: context.colors.primary,
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -355,7 +411,7 @@ class _PlanCard extends StatelessWidget {
                       style: GoogleFonts.jost(
                         fontSize: 12,
                         fontWeight: FontWeight.w300,
-                        color: AppTheme.mutedForeground,
+                        color: context.colors.mutedForeground,
                       ),
                     ),
                   ],
@@ -364,7 +420,7 @@ class _PlanCard extends StatelessWidget {
               Icon(
                 Icons.chevron_right,
                 size: 20,
-                color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+                color: context.colors.mutedForeground.withValues(alpha: 0.6),
               ),
             ],
           ),
@@ -450,7 +506,7 @@ class _LogoutButtonState extends State<_LogoutButton> {
                 height: 12,
                 child: CircularProgressIndicator(
                   strokeWidth: 1.5,
-                  color: AppTheme.mutedForeground,
+                  color: context.colors.mutedForeground,
                 ),
               )
             : const Icon(Icons.logout, size: 14),
@@ -462,7 +518,9 @@ class _LogoutButtonState extends State<_LogoutButton> {
             letterSpacing: 2.2,
           ),
         ),
-        style: TextButton.styleFrom(foregroundColor: AppTheme.mutedForeground),
+        style: TextButton.styleFrom(
+          foregroundColor: context.colors.mutedForeground,
+        ),
       ),
     );
   }

@@ -212,7 +212,7 @@ class _StatusBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isPremium
-              ? AppTheme.goldNoir.withValues(alpha: 0.4)
+              ? AppTheme.naval.withValues(alpha: 0.4)
               : AppTheme.border,
         ),
       ),
@@ -221,7 +221,7 @@ class _StatusBanner extends StatelessWidget {
           Icon(
             Icons.workspace_premium_outlined,
             size: 24,
-            color: isPremium ? AppTheme.goldNoir : AppTheme.primary,
+            color: isPremium ? AppTheme.naval : AppTheme.primary,
           ),
           const SizedBox(width: 16),
           Expanded(

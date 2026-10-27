@@ -21,7 +21,7 @@ class FavoritesScreen extends ConsumerWidget {
     final favoritesAsync = ref.watch(favoritesProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.colors.background,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -69,14 +69,17 @@ class FavoritesScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('SUA COLEÇÃO', style: AppTheme.eyebrow()),
+          Text(
+            'SUA COLEÇÃO',
+            style: AppTheme.eyebrow(color: context.colors.foreground),
+          ),
           const SizedBox(height: 8),
           Text(
             'Favoritos',
             style: GoogleFonts.cormorantGaramond(
               fontSize: 36,
               fontWeight: FontWeight.w500,
-              color: AppTheme.foreground,
+              color: context.colors.foreground,
               height: 1.2,
             ),
           ),
@@ -86,7 +89,7 @@ class FavoritesScreen extends ConsumerWidget {
             style: GoogleFonts.jost(
               fontSize: 14,
               fontWeight: FontWeight.w300,
-              color: AppTheme.mutedForeground,
+              color: context.colors.mutedForeground,
             ),
           ),
         ],
@@ -105,9 +108,9 @@ class FavoritesScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
+          crossAxisCount: 3,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
           childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(
@@ -167,7 +170,7 @@ class FavoritesScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 56),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.border),
+            border: Border.all(color: context.colors.border),
           ),
           child: Column(
             children: [
@@ -177,7 +180,7 @@ class FavoritesScreen extends ConsumerWidget {
                   fontSize: 24,
                   fontStyle: FontStyle.italic,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.foreground,
+                  color: context.colors.foreground,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -187,7 +190,7 @@ class FavoritesScreen extends ConsumerWidget {
                 style: GoogleFonts.jost(
                   fontSize: 14,
                   fontWeight: FontWeight.w300,
-                  color: AppTheme.mutedForeground,
+                  color: context.colors.mutedForeground,
                   height: 1.6,
                 ),
                 textAlign: TextAlign.center,
@@ -211,9 +214,9 @@ class FavoritesScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
+          crossAxisCount: 3,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
           childAspectRatio: 1,
         ),
         delegate: SliverChildBuilderDelegate(
@@ -235,19 +238,22 @@ class FavoritesScreen extends ConsumerWidget {
             Icon(
               Icons.wifi_off_rounded,
               size: 40,
-              color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+              color: context.colors.mutedForeground,
             ),
             const SizedBox(height: 16),
             Text(
               'Não foi possível carregar os favoritos',
               style: GoogleFonts.jost(
                 fontSize: 14,
-                color: AppTheme.mutedForeground,
+                color: context.colors.mutedForeground,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: context.colors.primary,
+              ),
               onPressed: () => ref.refresh(favoritesProvider),
               child: const Text('Tentar novamente'),
             ),
@@ -305,96 +311,102 @@ class _FavoriteCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () => context.push('/destinos/${dest.slug}'),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (hasImage)
-              CachedNetworkImage(
-                imageUrl: dest.heroImageUrl,
-                fit: BoxFit.cover,
-                placeholder: (_, _) => Container(color: placeholder),
-                errorWidget: (_, _, _) => Container(color: placeholder),
-              )
-            else
-              Container(color: placeholder),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white, width: 0.5),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(7),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (hasImage)
+                CachedNetworkImage(
+                  imageUrl: dest.heroImageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => Container(color: placeholder),
+                  errorWidget: (_, _, _) => Container(color: placeholder),
+                )
+              else
+                Container(color: placeholder),
 
-            // Gradient overlay
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    AppTheme.overlay.withValues(alpha: 0.2),
-                    AppTheme.overlay.withValues(alpha: 0.78),
-                  ],
-                  stops: const [0.35, 0.6, 1.0],
-                ),
-              ),
-            ),
-
-            // Remove heart button
-            Positioned(
-              top: 8,
-              right: 8,
-              child: GestureDetector(
-                onTap: onRemove,
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: AppTheme.overlay.withValues(alpha: 0.35),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_rounded,
-                    color: Color(0xFFE57373),
-                    size: 15,
+              // Gradient overlay
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      AppTheme.overlay.withValues(alpha: 0.2),
+                      AppTheme.overlay.withValues(alpha: 0.78),
+                    ],
+                    stops: const [0.35, 0.6, 1.0],
                   ),
                 ),
               ),
-            ),
 
-            // Destination info
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      dest.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        height: 1.1,
-                      ),
+              // Remove heart button
+              Positioned(
+                top: 8,
+                right: 8,
+                child: GestureDetector(
+                  onTap: onRemove,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: AppTheme.overlay.withValues(alpha: 0.35),
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      dest.country.toUpperCase(),
-                      style: GoogleFonts.jost(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1.0,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: AppTheme.naval,
+                      size: 15,
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              // Destination info
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        dest.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.cormorantGaramond(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        dest.country.toUpperCase(),
+                        style: GoogleFonts.jost(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1.0,
+                          color: Colors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

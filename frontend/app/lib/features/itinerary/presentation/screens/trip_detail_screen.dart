@@ -20,8 +20,8 @@ class TripDetailScreen extends ConsumerWidget {
     final tripAsync = ref.watch(tripDetailProvider(tripGroupId));
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
-      appBar: AppBar(backgroundColor: AppTheme.background, elevation: 0),
+      backgroundColor: context.colors.background,
+      appBar: AppBar(backgroundColor: context.colors.background, elevation: 0),
       body: SafeArea(
         child: tripAsync.when(
           loading: () => const Padding(
@@ -44,7 +44,7 @@ class TripDetailScreen extends ConsumerWidget {
               'Não foi possível carregar a viagem',
               style: GoogleFonts.jost(
                 fontSize: 13,
-                color: AppTheme.mutedForeground,
+                color: context.colors.mutedForeground,
               ),
             ),
           ),
@@ -56,7 +56,7 @@ class TripDetailScreen extends ConsumerWidget {
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 30,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.foreground,
+                  color: context.colors.foreground,
                   height: 1.15,
                 ),
               ),
@@ -65,7 +65,7 @@ class TripDetailScreen extends ConsumerWidget {
                 '${trip.legs.length} trechos',
                 style: GoogleFonts.jost(
                   fontSize: 13,
-                  color: AppTheme.mutedForeground,
+                  color: context.colors.mutedForeground,
                 ),
               ),
               const SizedBox(height: 24),
@@ -76,8 +76,7 @@ class TripDetailScreen extends ConsumerWidget {
                     index: i,
                     leg: trip.legs[i],
                     legIds: trip.legs.map((l) => l.id).join(','),
-                    legDayCounts:
-                        trip.legs.map((l) => l.dayCount).join(','),
+                    legDayCounts: trip.legs.map((l) => l.dayCount).join(','),
                     tripGroupId: tripGroupId,
                   ),
                 ),
@@ -113,7 +112,10 @@ class _RouteBetweenLegs extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final directionsAsync = ref.watch(
-      directionsBetweenDestinationsProvider((from.destinationId, to.destinationId)),
+      directionsBetweenDestinationsProvider((
+        from.destinationId,
+        to.destinationId,
+      )),
     );
 
     return directionsAsync.when(
@@ -132,14 +134,14 @@ class _RouteBetweenLegs extends ConsumerWidget {
             Icon(
               Icons.directions_car_outlined,
               size: 13,
-              color: AppTheme.mutedForeground.withValues(alpha: 0.7),
+              color: context.colors.mutedForeground.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 6),
             Text(
               '$distance · $duration até o próximo destino',
               style: GoogleFonts.jost(
                 fontSize: 12,
-                color: AppTheme.mutedForeground,
+                color: context.colors.mutedForeground,
               ),
             ),
           ],
@@ -189,7 +191,7 @@ class _LegTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.card,
+      color: context.colors.card,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -201,7 +203,7 @@ class _LegTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.border),
+            border: Border.all(color: context.colors.border),
           ),
           child: Row(
             children: [
@@ -210,7 +212,7 @@ class _LegTile extends StatelessWidget {
                 height: 28,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: AppTheme.secondary,
+                  color: context.colors.secondary,
                   shape: BoxShape.circle,
                 ),
                 child: Text(
@@ -218,7 +220,7 @@ class _LegTile extends StatelessWidget {
                   style: GoogleFonts.jost(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.primary,
+                    color: context.colors.primary,
                   ),
                 ),
               ),
@@ -232,7 +234,7 @@ class _LegTile extends StatelessWidget {
                       style: GoogleFonts.jost(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.foreground,
+                        color: context.colors.foreground,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -241,7 +243,7 @@ class _LegTile extends StatelessWidget {
                       style: GoogleFonts.jost(
                         fontSize: 12,
                         fontWeight: FontWeight.w300,
-                        color: AppTheme.mutedForeground,
+                        color: context.colors.mutedForeground,
                       ),
                     ),
                   ],
@@ -250,7 +252,7 @@ class _LegTile extends StatelessWidget {
               Icon(
                 Icons.chevron_right,
                 size: 20,
-                color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+                color: context.colors.mutedForeground.withValues(alpha: 0.6),
               ),
             ],
           ),

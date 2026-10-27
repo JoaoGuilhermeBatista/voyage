@@ -62,7 +62,7 @@ class RecommendationsScreen extends ConsumerWidget {
     final validInterests = _validInterests(user?.interests ?? const []);
 
     return Scaffold(
-      backgroundColor: AppTheme.solara,
+      backgroundColor: context.colors.background,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -111,14 +111,17 @@ class RecommendationsScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('PARA VOCÊ', style: AppTheme.eyebrow()),
+          Text(
+            'PARA VOCÊ',
+            style: AppTheme.eyebrow(color: context.colors.foreground),
+          ),
           const SizedBox(height: 10),
           Text(
             'Selecionado para você',
             style: GoogleFonts.cormorantGaramond(
               fontSize: 36,
               fontWeight: FontWeight.w500,
-              color: AppTheme.foreground,
+              color: context.colors.foreground,
               height: 1.2,
             ),
           ),
@@ -126,9 +129,9 @@ class RecommendationsScreen extends ConsumerWidget {
           if (archetype == null)
             Text(
               'Complete seu perfil para ver destinos personalizados',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: context.colors.mutedForeground,
+              ),
             )
           else ...[
             Text(
@@ -137,14 +140,14 @@ class RecommendationsScreen extends ConsumerWidget {
                 fontSize: 20,
                 fontStyle: FontStyle.italic,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.foreground,
+                color: context.colors.foreground,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               archetype.description,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.mutedForeground,
+                color: context.colors.mutedForeground,
                 height: 1.4,
               ),
             ),
@@ -165,7 +168,7 @@ class RecommendationsScreen extends ConsumerWidget {
           Text(
             'SEUS INTERESSES',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: AppTheme.softBlack.withValues(alpha: 0.4),
+              color: context.colors.mutedForeground,
               letterSpacing: 1.2,
             ),
           ),
@@ -262,7 +265,7 @@ class RecommendationsScreen extends ConsumerWidget {
               style: GoogleFonts.cormorantGaramond(
                 fontSize: 26,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.softBlack,
+                color: context.colors.foreground,
                 height: 1.25,
               ),
               textAlign: TextAlign.center,
@@ -271,7 +274,7 @@ class RecommendationsScreen extends ConsumerWidget {
             Text(
               'Complete seu perfil de viajante para receber sugestões personalizadas baseadas nos seus gostos.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha: 0.5),
+                color: context.colors.mutedForeground,
                 height: 1.6,
               ),
               textAlign: TextAlign.center,
@@ -340,13 +343,13 @@ class RecommendationsScreen extends ConsumerWidget {
             Icon(
               Icons.wifi_off_rounded,
               size: 40,
-              color: AppTheme.softBlack.withValues(alpha: 0.3),
+              color: context.colors.mutedForeground,
             ),
             const SizedBox(height: 16),
             Text(
               'Não foi possível carregar os destinos',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.softBlack.withValues(alpha: 0.5),
+                color: context.colors.mutedForeground,
               ),
               textAlign: TextAlign.center,
             ),
@@ -377,7 +380,7 @@ class _SectionHeader extends StatelessWidget {
         style: GoogleFonts.cormorantGaramond(
           fontSize: 26,
           fontWeight: FontWeight.w500,
-          color: AppTheme.softBlack,
+          color: context.colors.foreground,
           height: 1.2,
         ),
       ),
@@ -552,7 +555,7 @@ class _InterestChip extends StatelessWidget {
         label,
         style: GoogleFonts.jost(
           fontSize: 11,
-          color: AppTheme.primary,
+          color: context.colors.foreground,
           letterSpacing: 0.4,
           fontWeight: FontWeight.w500,
         ),

@@ -6,6 +6,7 @@ import 'core/constants/api_constants.dart';
 import 'core/deeplink/deeplink_service.dart';
 import 'core/router/app_router.dart';
 import 'core/themes/app_theme.dart';
+import 'core/themes/theme_mode_provider.dart';
 
 /// Usado pelo DeeplinkService para mostrar feedback (ex: confirmação de
 /// pagamento) sem depender de um BuildContext de dentro da árvore de telas.
@@ -30,11 +31,7 @@ void main() async {
     publishableKey: ApiConstants.supabaseAnonKey,
   );
 
-  runApp(
-    const ProviderScope(
-      child: LuvoyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: LuvoyApp()));
 }
 
 class LuvoyApp extends ConsumerStatefulWidget {
@@ -67,10 +64,13 @@ class _LuvoyAppState extends ConsumerState<LuvoyApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp.router(
       title: 'Luvoy',
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       routerConfig: router,
       scrollBehavior: _AppScrollBehavior(),
       debugShowCheckedModeBanner: false,

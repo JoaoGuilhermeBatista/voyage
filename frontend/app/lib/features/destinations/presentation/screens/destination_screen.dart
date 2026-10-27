@@ -40,7 +40,7 @@ class DestinationScreen extends ConsumerWidget {
     final asyncValue = ref.watch(destinationDetailProvider(slug));
 
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: context.colors.background,
       bottomNavigationBar: asyncValue.hasValue
           ? SafeArea(
               child: Padding(
@@ -68,13 +68,11 @@ class DestinationScreen extends ConsumerWidget {
             )
           : null,
       body: asyncValue.when(
-        loading: () => const CustomScrollView(
+        loading: () => CustomScrollView(
           slivers: [
             SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(
-                  color: AppTheme.primaryBlue,
-                ),
+                child: CircularProgressIndicator(color: context.colors.primary),
               ),
             ),
           ],
@@ -93,7 +91,7 @@ class DestinationScreen extends ConsumerWidget {
                         textAlign: TextAlign.center,
                         style: GoogleFonts.jost(
                           fontSize: 15,
-                          color: AppTheme.softBlack,
+                          color: context.colors.foreground,
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -125,10 +123,9 @@ class _DestinationBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sections = destination.sections
-        .where((s) => s.content.isNotEmpty)
-        .toList()
-      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    final sections =
+        destination.sections.where((s) => s.content.isNotEmpty).toList()
+          ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
 
     return CustomScrollView(
       slivers: [
@@ -156,8 +153,7 @@ class _HeroAppBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final favoriteId =
-        ref.watch(destinationFavoriteIdProvider(destination.id));
+    final favoriteId = ref.watch(destinationFavoriteIdProvider(destination.id));
     final isFavorited = favoriteId != null;
 
     return SliverAppBar(
@@ -187,9 +183,7 @@ class _HeroAppBar extends ConsumerWidget {
                 isFavorited
                     ? Icons.favorite_rounded
                     : Icons.favorite_border_rounded,
-                color: isFavorited
-                    ? const Color(0xFFE57373)
-                    : Colors.white,
+                color: isFavorited ? AppTheme.naval : Colors.white,
                 size: 20,
               ),
               padding: EdgeInsets.zero,
@@ -208,7 +202,8 @@ class _HeroAppBar extends ConsumerWidget {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          content: Text('Erro ao atualizar favorito')),
+                        content: Text('Erro ao atualizar favorito'),
+                      ),
                     );
                   }
                 }
@@ -291,7 +286,7 @@ class _DestinationHeader extends StatelessWidget {
               style: GoogleFonts.cormorantGaramond(
                 fontSize: 44,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.foreground,
+                color: context.colors.foreground,
                 height: 1.05,
               ),
             ),
@@ -304,7 +299,7 @@ class _DestinationHeader extends StatelessWidget {
                 fontSize: 17,
                 fontStyle: FontStyle.italic,
                 fontWeight: FontWeight.w400,
-                color: AppTheme.mutedForeground,
+                color: context.colors.mutedForeground,
                 height: 1.5,
               ),
             ),
@@ -320,7 +315,7 @@ class _DestinationHeader extends StatelessWidget {
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 14,
                   fontStyle: FontStyle.italic,
-                  color: AppTheme.mutedForeground,
+                  color: context.colors.mutedForeground,
                   height: 1.5,
                 ),
               ),
@@ -374,7 +369,7 @@ class _DescriptionSliver extends StatelessWidget {
                 fontSize: 15,
                 fontWeight: FontWeight.w300,
                 height: 1.6,
-                color: AppTheme.foreground.withValues(alpha: 0.75),
+                color: context.colors.foreground.withValues(alpha: 0.75),
               ),
             ),
             const SizedBox(height: 24),
@@ -436,10 +431,7 @@ class _CuratedTemplatesSliver extends ConsumerWidget {
 class _CuratedTemplatesSection extends StatelessWidget {
   final String slug;
   final List<ItineraryTemplateSummaryModel> templates;
-  const _CuratedTemplatesSection({
-    required this.slug,
-    required this.templates,
-  });
+  const _CuratedTemplatesSection({required this.slug, required this.templates});
 
   @override
   Widget build(BuildContext context) {
@@ -456,7 +448,7 @@ class _CuratedTemplatesSection extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,
-              color: AppTheme.goldenOrange,
+              color: context.colors.primary,
             ),
           ),
           const SizedBox(height: 12),
@@ -467,10 +459,8 @@ class _CuratedTemplatesSection extends StatelessWidget {
               padding: EdgeInsets.zero,
               itemCount: templates.length,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, index) => _CuratedTemplateCard(
-                slug: slug,
-                template: templates[index],
-              ),
+              itemBuilder: (context, index) =>
+                  _CuratedTemplateCard(slug: slug, template: templates[index]),
             ),
           ),
           const SizedBox(height: 8),
@@ -499,10 +489,8 @@ class _CuratedTemplateCard extends StatelessWidget {
     } else {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => TemplatePreviewScreen(
-            slug: slug,
-            templateId: template.id,
-          ),
+          builder: (_) =>
+              TemplatePreviewScreen(slug: slug, templateId: template.id),
         ),
       );
     }
@@ -516,7 +504,7 @@ class _CuratedTemplateCard extends StatelessWidget {
     return SizedBox(
       width: 220,
       child: Material(
-        color: AppTheme.softWhite,
+        color: context.colors.card,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -526,7 +514,7 @@ class _CuratedTemplateCard extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AppTheme.softBlack.withValues(alpha: 0.08),
+                color: context.colors.foreground.withValues(alpha: 0.08),
               ),
             ),
             child: Column(
@@ -540,7 +528,7 @@ class _CuratedTemplateCard extends StatelessWidget {
                   style: GoogleFonts.cormorantGaramond(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.softBlack,
+                    color: context.colors.foreground,
                     height: 1.2,
                   ),
                 ),
@@ -550,14 +538,14 @@ class _CuratedTemplateCard extends StatelessWidget {
                     Icon(
                       Icons.calendar_today_outlined,
                       size: 12,
-                      color: AppTheme.softBlack.withValues(alpha: 0.4),
+                      color: context.colors.foreground.withValues(alpha: 0.4),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${template.durationDays} dias',
                       style: GoogleFonts.jost(
                         fontSize: 12,
-                        color: AppTheme.softBlack.withValues(alpha: 0.6),
+                        color: context.colors.foreground.withValues(alpha: 0.6),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -567,7 +555,7 @@ class _CuratedTemplateCard extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.goldenOrange.withValues(alpha: 0.12),
+                        color: context.colors.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -575,7 +563,7 @@ class _CuratedTemplateCard extends StatelessWidget {
                         style: GoogleFonts.jost(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: AppTheme.goldenOrange,
+                          color: context.colors.primary,
                         ),
                       ),
                     ),
@@ -613,9 +601,7 @@ class _UnusualPlacesSliver extends ConsumerWidget {
         if (places.isEmpty) {
           return const SliverToBoxAdapter(child: SizedBox.shrink());
         }
-        return SliverToBoxAdapter(
-          child: _UnusualPlacesSection(places: places),
-        );
+        return SliverToBoxAdapter(child: _UnusualPlacesSection(places: places));
       },
     );
   }
@@ -640,7 +626,7 @@ class _UnusualPlacesSection extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,
-              color: AppTheme.goldenOrange,
+              color: context.colors.primary,
             ),
           ),
           const SizedBox(height: 4),
@@ -648,7 +634,7 @@ class _UnusualPlacesSection extends StatelessWidget {
             'Fora do roteiro óbvio — recomendação de quem conhece a cidade.',
             style: GoogleFonts.jost(
               fontSize: 13,
-              color: AppTheme.mutedForeground,
+              color: context.colors.mutedForeground,
               height: 1.4,
             ),
           ),
@@ -678,7 +664,7 @@ class _UnusualPlaceTile extends StatelessWidget {
             Icon(
               Icons.lock_outline,
               size: 16,
-              color: AppTheme.mutedForeground.withValues(alpha: 0.6),
+              color: context.colors.mutedForeground.withValues(alpha: 0.6),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -687,7 +673,7 @@ class _UnusualPlaceTile extends StatelessWidget {
                 style: GoogleFonts.jost(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.mutedForeground,
+                  color: context.colors.mutedForeground,
                 ),
               ),
             ),
@@ -698,7 +684,7 @@ class _UnusualPlaceTile extends StatelessWidget {
                 style: GoogleFonts.jost(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.goldenOrange,
+                  color: context.colors.primary,
                 ),
               ),
             ),
@@ -721,7 +707,7 @@ class _UnusualPlaceTile extends StatelessWidget {
                   style: GoogleFonts.jost(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.softBlack,
+                    color: context.colors.foreground,
                     height: 1.3,
                   ),
                 ),
@@ -734,7 +720,7 @@ class _UnusualPlaceTile extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.goldenOrange.withValues(alpha: 0.12),
+                    color: context.colors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -742,7 +728,7 @@ class _UnusualPlaceTile extends StatelessWidget {
                     style: GoogleFonts.jost(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.goldenOrange,
+                      color: context.colors.primary,
                     ),
                   ),
                 ),
@@ -754,7 +740,7 @@ class _UnusualPlaceTile extends StatelessWidget {
               place.description!,
               style: GoogleFonts.jost(
                 fontSize: 13,
-                color: AppTheme.mutedForeground,
+                color: context.colors.mutedForeground,
                 height: 1.5,
               ),
             ),
@@ -775,8 +761,7 @@ class _SectionSliver extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label =
-        _sectionLabels[section.sectionType] ?? section.sectionType;
+    final label = _sectionLabels[section.sectionType] ?? section.sectionType;
 
     return SliverToBoxAdapter(
       child: Padding(
@@ -792,7 +777,7 @@ class _SectionSliver extends StatelessWidget {
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 1.5,
-                color: AppTheme.goldenOrange,
+                color: context.colors.primary,
               ),
             ),
             const SizedBox(height: 12),
@@ -802,8 +787,7 @@ class _SectionSliver extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (index > 0)
-                    const Divider(thickness: 0.5),
+                  if (index > 0) const Divider(thickness: 0.5),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Column(
@@ -814,7 +798,7 @@ class _SectionSliver extends StatelessWidget {
                           style: GoogleFonts.jost(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.softBlack,
+                            color: context.colors.foreground,
                             height: 1.3,
                           ),
                         ),
@@ -824,7 +808,7 @@ class _SectionSliver extends StatelessWidget {
                             item.desc!,
                             style: GoogleFonts.jost(
                               fontSize: 13,
-                              color: AppTheme.mutedForeground,
+                              color: context.colors.mutedForeground,
                               height: 1.5,
                             ),
                           ),
@@ -853,7 +837,10 @@ class _CountryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(country.toUpperCase(), style: AppTheme.eyebrow(color: AppTheme.gold));
+    return Text(
+      country.toUpperCase(),
+      style: AppTheme.eyebrow(color: context.colors.primary),
+    );
   }
 }
 
@@ -903,13 +890,13 @@ class _WeatherItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: AppTheme.mutedForeground),
+        Icon(icon, size: 14, color: context.colors.mutedForeground),
         const SizedBox(width: 4),
         Text(
           text,
           style: GoogleFonts.jost(
             fontSize: 13,
-            color: AppTheme.mutedForeground,
+            color: context.colors.mutedForeground,
           ),
         ),
       ],
@@ -928,7 +915,7 @@ class _TagChip extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
-          color: AppTheme.gold.withValues(alpha: 0.5),
+          color: context.colors.primary.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -937,7 +924,7 @@ class _TagChip extends StatelessWidget {
         style: GoogleFonts.jost(
           fontSize: 12,
           fontWeight: FontWeight.w400,
-          color: AppTheme.mutedForeground,
+          color: context.colors.mutedForeground,
         ),
       ),
     );
