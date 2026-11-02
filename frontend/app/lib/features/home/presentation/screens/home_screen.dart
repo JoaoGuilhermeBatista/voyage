@@ -233,12 +233,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'LUVOY · COLEÇÃO',
-            style: AppTheme.eyebrow(color: context.colors.primary),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'LUVOY · COLEÇÃO',
+                      style: AppTheme.eyebrow(color: context.colors.primary),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Explorar',
+                      style: Theme.of(context).textTheme.displayMedium,
+                    ),
+                  ],
+                ),
+              ),
+              // Entrada temporária pro #26 (Mapa) — ainda não entrou na
+              // bottom nav bar, isso fica pra quando reorganizarmos o
+              // ícone de perfil junto.
+              IconButton(
+                tooltip: 'Mapa',
+                onPressed: () => context.push('/mapa'),
+                icon: Icon(
+                  Icons.map_outlined,
+                  color: context.colors.foreground,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text('Explorar', style: Theme.of(context).textTheme.displayMedium),
           const SizedBox(height: 6),
           Text(
             'Destinos curados para cada tipo de viagem',

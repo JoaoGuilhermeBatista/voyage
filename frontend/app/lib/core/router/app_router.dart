@@ -13,6 +13,9 @@ import '../../features/itinerary/presentation/screens/itinerary_screen.dart';
 import '../../features/itinerary/presentation/screens/create_trip_screen.dart';
 import '../../features/itinerary/presentation/screens/trip_detail_screen.dart';
 import '../../features/destinations/presentation/screens/destination_screen.dart';
+import '../../features/explore_map/domain/continent.dart';
+import '../../features/explore_map/presentation/screens/explore_map_screen.dart';
+import '../../features/explore_map/presentation/screens/continent_destinations_screen.dart';
 import '../../features/itinerarytemplates/presentation/screens/template_preview_screen.dart';
 import '../../features/favorites/presentation/screens/favorites_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
@@ -151,6 +154,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           slug: state.pathParameters['slug']!,
           templateId: state.pathParameters['templateId']!,
         ),
+      ),
+      GoRoute(
+        path: '/mapa',
+        builder: (context, state) => const ExploreMapScreen(),
+      ),
+      GoRoute(
+        path: '/mapa/:continent',
+        builder: (context, state) {
+          final continent = Continent.values.firstWhere(
+            (c) => c.name == state.pathParameters['continent'],
+            orElse: () => Continent.europa,
+          );
+          return ContinentDestinationsScreen(continent: continent);
+        },
       ),
       GoRoute(
         path: '/perfil/preferencias',
