@@ -31,6 +31,37 @@ const _interestLabelOverrides = {
 String _interestLabel(String interest) =>
     _interestLabelOverrides[interest] ?? interestLabels[interest] ?? interest;
 
+const _diacriticsMap = {
+  'á': 'a',
+  'à': 'a',
+  'ã': 'a',
+  'â': 'a',
+  'é': 'e',
+  'ê': 'e',
+  'í': 'i',
+  'ó': 'o',
+  'õ': 'o',
+  'ô': 'o',
+  'ú': 'u',
+  'ç': 'c',
+};
+
+/// Normaliza pra comparar interesse (`interestOptions`, com hífen, ex.
+/// "vida-noturna") contra tag de destino (`destination_tags`, com espaço,
+/// ex. "vida noturna") — sem isso, `"vida noturna".contains("vida-noturna")`
+/// é sempre falso e a seção inteira some mesmo havendo destinos reais com
+/// aquela tag (bug real: 41 destinos tagueados "vida noturna" nunca
+/// apareciam em "Para Você"). Também remove acentos, pelo mesmo motivo
+/// ("música-trad" não batia com a chave "musica" sem acento).
+String _normalizeForMatch(String value) {
+  final lower = value.toLowerCase().replaceAll('-', ' ');
+  final buffer = StringBuffer();
+  for (final char in lower.split('')) {
+    buffer.write(_diacriticsMap[char] ?? char);
+  }
+  return buffer.toString();
+}
+
 /// Só os interesses que ainda existem no onboarding atual — descarta valores
 /// legados (ex. de uma versão antiga da lista de interesses) que não têm
 /// mais rótulo nem ícone definidos, em vez de mostrá-los crus na tela.
@@ -200,9 +231,9 @@ class RecommendationsScreen extends ConsumerWidget {
     // destinos reais com aquela tag.
     final sections = <({String label, List<DestinationSummaryModel> items})>[];
     for (final interest in interests) {
-      final key = interest.toLowerCase();
+      final key = _normalizeForMatch(interest);
       final matching = destinations
-          .where((d) => d.tags.any((t) => t.toLowerCase().contains(key)))
+          .where((d) => d.tags.any((t) => _normalizeForMatch(t).contains(key)))
           .toList();
       if (matching.isNotEmpty) {
         sections.add((

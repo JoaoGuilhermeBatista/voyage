@@ -74,41 +74,39 @@ void main() {
     );
   }
 
-  testWidgets(
-    'interesse válido (gastronomia) gera seção com rótulo correto',
-    (tester) async {
-      useTallSurface(tester);
-      await tester.pumpWidget(
-        buildScreen(
-          destinations: [lyon, roma],
-          currentUser: user(const ['gastronomia']),
-        ),
-      );
-      await tester.pumpAndSettle();
+  testWidgets('interesse válido (gastronomia) gera seção com rótulo correto', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(
+      buildScreen(
+        destinations: [lyon, roma],
+        currentUser: user(const ['gastronomia']),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('Gastronomia'), findsWidgets);
-    },
-  );
+    expect(find.text('Gastronomia'), findsWidgets);
+  });
 
-  testWidgets(
-    'interesse legado que não existe mais em interestOptions (ex. '
-    '"arquitetura") não gera seção nem chip cru em minúsculo',
-    (tester) async {
-      useTallSurface(tester);
-      await tester.pumpWidget(
-        buildScreen(
-          destinations: [lyon, roma],
-          currentUser: user(const ['gastronomia', 'arquitetura', 'praia']),
-        ),
-      );
-      await tester.pumpAndSettle();
+  testWidgets('interesse legado que não existe mais em interestOptions (ex. '
+      '"arquitetura") não gera seção nem chip cru em minúsculo', (
+    tester,
+  ) async {
+    useTallSurface(tester);
+    await tester.pumpWidget(
+      buildScreen(
+        destinations: [lyon, roma],
+        currentUser: user(const ['gastronomia', 'arquitetura', 'praia']),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text('arquitetura'), findsNothing);
-      expect(find.text('praia'), findsNothing);
-      // o interesse válido continua funcionando normalmente
-      expect(find.text('Gastronomia'), findsWidgets);
-    },
-  );
+    expect(find.text('arquitetura'), findsNothing);
+    expect(find.text('praia'), findsNothing);
+    // o interesse válido continua funcionando normalmente
+    expect(find.text('Gastronomia'), findsWidgets);
+  });
 
   testWidgets(
     'usuário só com interesses legados (nenhum válido) mostra estado vazio, '
@@ -127,6 +125,50 @@ void main() {
       expect(find.text('praia'), findsNothing);
     },
   );
+
+  group('normalização de interesse x tag (bug real de 2026-11-02)', () {
+    testWidgets(
+      'interesse "vida-noturna" (hífen) gera seção com destino tagueado '
+      '"vida noturna" (espaço) — sem normalizar, o .contains falha e a '
+      'seção inteira some mesmo havendo destino real',
+      (tester) async {
+        useTallSurface(tester);
+        final destino = destination('split', 'Split', const ['vida noturna']);
+        await tester.pumpWidget(
+          buildScreen(
+            destinations: [destino],
+            currentUser: user(const ['vida-noturna']),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // findsWidgets, não findsOneWidget: o rótulo aparece 2x de propósito
+        // (chip em "SEUS INTERESSES" + título da seção), mesmo critério já
+        // usado no teste de "Gastronomia" acima.
+        expect(find.text('Vida noturna'), findsWidgets);
+        expect(find.text('Split'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'interesse "musica" (sem acento) gera seção com destino tagueado '
+      '"música-trad" (com acento)',
+      (tester) async {
+        useTallSurface(tester);
+        final destino = destination('porto', 'Porto', const ['música-trad']);
+        await tester.pumpWidget(
+          buildScreen(
+            destinations: [destino],
+            currentUser: user(const ['musica']),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Música & shows'), findsWidgets);
+        expect(find.text('Porto'), findsOneWidget);
+      },
+    );
+  });
 
   group('cabeçalho — perfil do viajante (#8/9)', () {
     testWidgets(
@@ -158,10 +200,9 @@ void main() {
         await tester.pumpWidget(
           buildScreen(
             destinations: [lyon, roma],
-            currentUser: user(
-              const ['gastronomia'],
-              onboardingCompleted: false,
-            ),
+            currentUser: user(const [
+              'gastronomia',
+            ], onboardingCompleted: false),
           ),
         );
         await tester.pumpAndSettle();
