@@ -76,6 +76,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           backendCompleted || (userAsync.isLoading && onboardingCompleted);
 
       if (path == '/login') {
+        // Logo após logar, `userAsync` ainda carrega os dados da conta
+        // (`backendCompleted` começa false pro valor anterior, de quando
+        // não havia sessão). Sem esperar aqui, uma conta JÁ existente leva
+        // um flash indevido em /onboarding antes de corrigir pra /home
+        // assim que o fetch termina — mesmo tratamento de espera já usado
+        // logo abaixo pros outros caminhos autenticados.
+        if (!backendCompleted && userAsync.isLoading) return null;
         return effectiveOnboardingCompleted ? '/home' : '/onboarding';
       }
 
