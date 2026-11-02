@@ -11,6 +11,7 @@ import luvoygroup.voyage.features.itinerarytemplates.ItineraryTemplateService;
 import luvoygroup.voyage.features.itinerarytemplates.dto.GenerateTemplateRequest;
 import luvoygroup.voyage.features.itinerarytemplates.dto.ItineraryTemplateDTO;
 import luvoygroup.voyage.features.maps.PlacesService;
+import luvoygroup.voyage.features.maps.WikimediaCommonsService;
 import luvoygroup.voyage.features.maps.WikimediaService;
 import luvoygroup.voyage.features.unusualplaces.UnusualPlaceService;
 import luvoygroup.voyage.repository.DestinationRepository;
@@ -37,6 +38,7 @@ public class AdminService {
     private final UnusualPlaceService unusualPlaceService;
     private final PlacesService placesService;
     private final WikimediaService wikimediaService;
+    private final WikimediaCommonsService wikimediaCommonsService;
 
     @Transactional
     public DestinationSummaryDTO generateAndSaveDestination(GenerateDestinationRequest request) {
@@ -350,6 +352,67 @@ public class AdminService {
     }
 
     /**
+     * Enriquece {@code Destination.images} (fotos ADICIONAIS pra
+     * rotatividade — nunca mexe em {@code heroImageUrl}) via Wikimedia
+     * Commons, SEM CUSTO (ver {@link WikimediaCommonsService}).
+     *
+     * <p>Meta assimétrica por design (pedido real do usuário, 2026-11-02):
+     * destino que ainda não tem {@code heroImageUrl} (nenhuma foto até
+     * agora) busca até 2 fotos extras; destino que já tem {@code
+     * heroImageUrl} busca até 1. Por isso esse enriquecimento deve rodar
+     * ANTES da curadoria manual que preenche o {@code heroImageUrl} dos
+     * destinos que ainda não têm — depois disso o sinal `heroImageUrl vazio`
+     * deixa de distinguir os dois grupos. Idempotente: destino que já
+     * atingiu a meta é pulado.</p>
+     */
+    public DestinationImageEnrichmentReport enrichDestinationImages() {
+        List<Destination> destinations = destinationRepo.findAllByActiveTrue();
+        log.info("Destinos ativos a verificar para enriquecimento de imagens adicionais (Wikimedia Commons): {}", destinations.size());
+
+        List<String> processed = new ArrayList<>();
+        List<String> lowYield = new ArrayList<>();
+        int totalAdded = 0;
+        int skipped = 0;
+
+        for (Destination destination : destinations) {
+            boolean hadNoHeroImage = destination.getHeroImageUrl() == null || destination.getHeroImageUrl().isBlank();
+            int target = hadNoHeroImage ? 2 : 1;
+            int missing = target - destination.getImages().size();
+            if (missing <= 0) {
+                skipped++;
+                continue;
+            }
+
+            try {
+                String query = destination.getName() + ", " + destination.getCountry();
+                List<String> candidates = wikimediaCommonsService.searchImages(query, missing + destination.getImages().size());
+                int addedForDestination = 0;
+                for (String url : candidates) {
+                    if (addedForDestination >= missing) break;
+                    if (url.equals(destination.getHeroImageUrl()) || destination.getImages().contains(url)) continue;
+                    destination.getImages().add(url);
+                    addedForDestination++;
+                    totalAdded++;
+                }
+                destinationRepo.save(destination);
+                processed.add(destination.getSlug());
+                if (addedForDestination == 0) {
+                    lowYield.add(destination.getSlug());
+                }
+                log.info("✓ {} — {} fotos adicionais (Wikimedia Commons, meta {})",
+                    destination.getSlug(), addedForDestination, target);
+            } catch (Exception e) {
+                log.error("✗ Erro em {}: {}", destination.getSlug(), e.getMessage());
+                skipped++;
+            }
+        }
+
+        return new DestinationImageEnrichmentReport(
+            processed.size(), skipped, totalAdded, processed, lowYield, null
+        );
+    }
+
+    /**
      * Mesma ideia de {@link #enrichExistingPoisWithImages()}, mas via
      * {@link WikimediaService#fetchPhotoUrl} (Wikipedia pública, SEM
      * CUSTO) em vez do Google Places (pago) — usado enquanto o orçamento
@@ -359,6 +422,7 @@ public class AdminService {
      * local normalmente fica sem foto até o Google Places (pago) entrar
      * como complemento no futuro.
      */
+
     public PoiEnrichmentReport enrichExistingPoisWithWikimediaImages() {
         List<Destination> destinations = destinationRepo.findAllByActiveTrue();
         log.info("Destinos ativos a verificar para enriquecimento de imagens (Wikipedia): {}", destinations.size());

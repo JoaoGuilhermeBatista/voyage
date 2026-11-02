@@ -23,7 +23,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -51,6 +53,7 @@ class AdminServiceTest {
     private UnusualPlaceService unusualPlaceService;
     private luvoygroup.voyage.features.maps.PlacesService placesService;
     private luvoygroup.voyage.features.maps.WikimediaService wikimediaService;
+    private luvoygroup.voyage.features.maps.WikimediaCommonsService wikimediaCommonsService;
 
     private AdminService service;
 
@@ -65,8 +68,9 @@ class AdminServiceTest {
         unusualPlaceService = mock(UnusualPlaceService.class);
         placesService = mock(luvoygroup.voyage.features.maps.PlacesService.class);
         wikimediaService = mock(luvoygroup.voyage.features.maps.WikimediaService.class);
+        wikimediaCommonsService = mock(luvoygroup.voyage.features.maps.WikimediaCommonsService.class);
 
-        service = new AdminService(llmService, destinationRepo, poiRepo, itineraryTemplateService, unusualPlaceService, placesService, wikimediaService);
+        service = new AdminService(llmService, destinationRepo, poiRepo, itineraryTemplateService, unusualPlaceService, placesService, wikimediaService, wikimediaCommonsService);
 
         destination = Destination.builder()
             .id(UUID.randomUUID())
@@ -698,5 +702,76 @@ class AdminServiceTest {
         assertEquals("copenhague", report.destinationSlug());
         assertEquals(1, report.poisGenerated());
         verify(llmService).generatePois("Copenhagen", "Dinamarca", "RESTAURANT", List.of("Tivoli Gardens"));
+    }
+
+    // ─── enrichDestinationImages — meta assimétrica (2026-11-02): destino sem
+    // heroImageUrl busca até 2 fotos extras, destino com heroImageUrl busca
+    // até 1 — ver Javadoc do método em AdminService. ──────────────────────────
+
+    @Test
+    void enrichDestinationImages_fetchesUpToTwo_forDestinationWithoutHeroImage() {
+        destination.setHeroImageUrl(null);
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(destination));
+        when(wikimediaCommonsService.searchImages(eq("Copenhague, Dinamarca"), anyInt()))
+            .thenReturn(List.of("https://commons/a.jpg", "https://commons/b.jpg", "https://commons/c.jpg"));
+
+        var report = service.enrichDestinationImages();
+
+        assertEquals(2, destination.getImages().size());
+        assertEquals(2, report.totalImagesAdded());
+        assertEquals(1, report.destinationsProcessed());
+        assertEquals(0, report.destinationsSkipped());
+    }
+
+    @Test
+    void enrichDestinationImages_fetchesOnlyOne_forDestinationThatAlreadyHasHeroImage() {
+        destination.setHeroImageUrl("https://unsplash/hero.jpg");
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(destination));
+        when(wikimediaCommonsService.searchImages(eq("Copenhague, Dinamarca"), anyInt()))
+            .thenReturn(List.of("https://commons/a.jpg", "https://commons/b.jpg"));
+
+        var report = service.enrichDestinationImages();
+
+        assertEquals(1, destination.getImages().size());
+        assertEquals(1, report.totalImagesAdded());
+    }
+
+    @Test
+    void enrichDestinationImages_skipsDestination_thatAlreadyReachedItsTarget() {
+        destination.setHeroImageUrl("https://unsplash/hero.jpg");
+        destination.getImages().add("https://commons/already-there.jpg");
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(destination));
+
+        var report = service.enrichDestinationImages();
+
+        assertEquals(1, destination.getImages().size());
+        assertEquals(0, report.totalImagesAdded());
+        assertEquals(0, report.destinationsProcessed());
+        assertEquals(1, report.destinationsSkipped());
+        verifyNoInteractions(wikimediaCommonsService);
+    }
+
+    @Test
+    void enrichDestinationImages_neverAddsTheHeroImageUrlItselfAsAnExtraPhoto() {
+        destination.setHeroImageUrl("https://unsplash/hero.jpg");
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(destination));
+        when(wikimediaCommonsService.searchImages(eq("Copenhague, Dinamarca"), anyInt()))
+            .thenReturn(List.of("https://unsplash/hero.jpg", "https://commons/real-extra.jpg"));
+
+        service.enrichDestinationImages();
+
+        assertEquals(List.of("https://commons/real-extra.jpg"), destination.getImages());
+    }
+
+    @Test
+    void enrichDestinationImages_flagsLowYieldDestination_whenCommonsReturnsNothingUsable() {
+        destination.setHeroImageUrl(null);
+        when(destinationRepo.findAllByActiveTrue()).thenReturn(List.of(destination));
+        when(wikimediaCommonsService.searchImages(eq("Copenhague, Dinamarca"), anyInt()))
+            .thenReturn(List.of());
+
+        var report = service.enrichDestinationImages();
+
+        assertEquals(List.of("copenhague"), report.lowYieldSlugs());
     }
 }

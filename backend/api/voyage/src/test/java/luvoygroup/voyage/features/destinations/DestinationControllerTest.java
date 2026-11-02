@@ -45,7 +45,7 @@ class DestinationControllerTest {
         when(destinationService.findAllActive()).thenReturn(List.of(
             new luvoygroup.voyage.features.destinations.dto.DestinationSummaryDTO(
                 UUID.randomUUID(), "paris", "Paris", "França", "Paris",
-                "Cidade Luz", "https://img.jpg", "Eiffel · Louvre", List.of("cultura"), "CITY")
+                "Cidade Luz", "https://img.jpg", List.of(), "Eiffel · Louvre", List.of("cultura"), "CITY")
         ));
 
         mockMvc.perform(get("/api/v1/destinations"))

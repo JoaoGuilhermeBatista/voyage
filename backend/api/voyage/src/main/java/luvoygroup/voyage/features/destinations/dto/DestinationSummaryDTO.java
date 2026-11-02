@@ -13,6 +13,10 @@ public record DestinationSummaryDTO(
     String city,
     String tagline,
     String heroImageUrl,
+    // Fotos ADICIONAIS pra rotatividade na UI — heroImageUrl segue sendo a
+    // principal/primeira impressão, nunca entra nesta lista (ver
+    // AdminService#enrichDestinationImages).
+    List<String> images,
     String signature,
     List<String> tags,
     String type
@@ -20,7 +24,7 @@ public record DestinationSummaryDTO(
     public static DestinationSummaryDTO from(Destination d) {
         return new DestinationSummaryDTO(
             d.getId(), d.getSlug(), d.getName(), d.getCountry(), d.getCity(),
-            d.getTagline(), d.getHeroImageUrl(), d.getSignature(), d.getTags(),
+            d.getTagline(), d.getHeroImageUrl(), d.getImages(), d.getSignature(), d.getTags(),
             d.getType().name()
         );
     }

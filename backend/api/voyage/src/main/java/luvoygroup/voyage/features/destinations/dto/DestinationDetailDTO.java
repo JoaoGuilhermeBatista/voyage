@@ -14,6 +14,7 @@ public record DestinationDetailDTO(
     String tagline,
     String description,
     String heroImageUrl,
+    List<String> images,
     String signature,
     List<String> tags,
     List<DestinationSectionDTO> sections,
@@ -30,7 +31,7 @@ public record DestinationDetailDTO(
             .toList();
         return new DestinationDetailDTO(
             d.getId(), d.getSlug(), d.getName(), d.getCountry(), d.getCity(),
-            d.getTagline(), d.getDescription(), d.getHeroImageUrl(), d.getSignature(),
+            d.getTagline(), d.getDescription(), d.getHeroImageUrl(), d.getImages(), d.getSignature(),
             d.getTags(), sections, pois, d.getType().name()
         );
     }

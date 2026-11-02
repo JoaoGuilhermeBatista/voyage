@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import luvoygroup.voyage.features.admin.dto.BatchGenerationReport;
+import luvoygroup.voyage.features.admin.dto.DestinationImageEnrichmentReport;
 import luvoygroup.voyage.features.admin.dto.GenerateDestinationRequest;
 import luvoygroup.voyage.features.admin.dto.PoiEnrichmentReport;
 import luvoygroup.voyage.features.admin.dto.PoiTopUpReport;
@@ -130,6 +131,21 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithWikimediaImages());
+    }
+
+    @PostMapping("/destinations/enrich-images")
+    @Operation(summary = "Busca fotos ADICIONAIS (rotatividade — nunca mexe em heroImageUrl) via Wikimedia " +
+        "Commons, SEM CUSTO. Meta assimétrica: destino sem heroImageUrl busca até 2 fotos extras, destino com " +
+        "heroImageUrl busca até 1. Idempotente: destino que já atingiu a meta é pulado. Rodar ANTES de preencher " +
+        "manualmente o heroImageUrl dos destinos que ainda não têm, já que esse enriquecimento usa heroImageUrl " +
+        "vazio como sinal de qual meta aplicar.")
+    public ResponseEntity<DestinationImageEnrichmentReport> enrichDestinationImages(
+        @RequestHeader(value = "X-Admin-Token", required = false) String token
+    ) {
+        if (token == null || !adminToken.equals(token))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        return ResponseEntity.ok(adminService.enrichDestinationImages());
     }
 
     @PostMapping("/destinations/{slug}/pois/generate")
