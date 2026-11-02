@@ -530,58 +530,97 @@ class _TripSummaryCard extends StatelessWidget {
         (trip.tripGroupId ?? trip.title).codeUnits.fold(0, (a, b) => a + b) %
         _placeholders.length;
     final placeholder = _placeholders[colorIndex];
+    // Foto de capa da viagem = foto do primeiro trecho — mesmo campo já
+    // usado pelo card de roteiro avulso (`_ItinerarySummaryCard`), sem
+    // precisar de nenhum dado novo do backend. Antes este card não tinha
+    // foto nenhuma, só a cor-placeholder (bug real reportado pelo usuário).
+    final coverImageUrl = trip.legs.isNotEmpty
+        ? trip.legs.first.destinationHeroImageUrl
+        : '';
+    final hasImage = coverImageUrl.isNotEmpty;
 
     return GestureDetector(
       onTap: () => context.push('/roteiros/viagem/${trip.tripGroupId}'),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: Container(
+        child: SizedBox(
           height: 200,
-          color: placeholder,
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
+              if (hasImage)
+                CachedNetworkImage(
+                  imageUrl: coverImageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => Container(color: placeholder),
+                  errorWidget: (_, _, _) => Container(color: placeholder),
+                )
+              else
+                Container(color: placeholder),
+
+              DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    width: 0.5,
-                  ),
-                ),
-                child: Text(
-                  '${trip.legs.length} destinos',
-                  style: GoogleFonts.jost(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.2),
+                      Colors.black.withValues(alpha: 0.78),
+                    ],
+                    stops: const [0.3, 0.6, 1.0],
                   ),
                 ),
               ),
-              const Spacer(),
-              Text(
-                trip.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                _dateRange(),
-                style: GoogleFonts.jost(
-                  fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.75),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        '${trip.legs.length} destinos',
+                        style: GoogleFonts.jost(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      trip.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _dateRange(),
+                      style: GoogleFonts.jost(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
