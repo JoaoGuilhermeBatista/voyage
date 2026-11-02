@@ -217,38 +217,126 @@ class _HeroAppBar extends ConsumerWidget {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            // Hero image or dark placeholder
-            destination.heroImageUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: destination.heroImageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) =>
-                        const ColoredBox(color: Color(0xFF1A252F)),
-                    errorWidget: (_, _, _) =>
-                        const ColoredBox(color: Color(0xFF1A252F)),
-                  )
-                : const ColoredBox(color: Color(0xFF1A252F)),
+            _HeroCarousel(
+              imageUrls: [
+                if (destination.heroImageUrl.isNotEmpty)
+                  destination.heroImageUrl,
+                ...destination.images,
+              ],
+            ),
             // Bottom gradient so text is legible
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
               height: 150,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.transparent,
-                    ],
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.7),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Carrossel de fotos do hero — heroImageUrl (principal) + images (extras,
+// via Wikimedia Commons, ver backend Destination.images). Swipe horizontal
+// dentro do SliverAppBar/FlexibleSpaceBar; eixo ortogonal ao scroll vertical
+// da tela, sem conflito de gesto. Com 0 ou 1 foto não mostra nenhum chrome
+// de carrossel (bolinhas), fica idêntico ao comportamento de antes.
+// ---------------------------------------------------------------------------
+
+class _HeroCarousel extends StatefulWidget {
+  final List<String> imageUrls;
+  const _HeroCarousel({required this.imageUrls});
+
+  @override
+  State<_HeroCarousel> createState() => _HeroCarouselState();
+}
+
+class _HeroCarouselState extends State<_HeroCarousel> {
+  final _controller = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageUrls.isEmpty) {
+      return const ColoredBox(color: Color(0xFF1A252F));
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        PageView.builder(
+          controller: _controller,
+          itemCount: widget.imageUrls.length,
+          onPageChanged: (index) => setState(() => _page = index),
+          itemBuilder: (context, index) => CachedNetworkImage(
+            imageUrl: widget.imageUrls[index],
+            fit: BoxFit.cover,
+            placeholder: (_, _) => const ColoredBox(color: Color(0xFF1A252F)),
+            errorWidget: (_, _, _) =>
+                const ColoredBox(color: Color(0xFF1A252F)),
+          ),
+        ),
+        if (widget.imageUrls.length > 1)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 14,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < widget.imageUrls.length; i++)
+                  _CarouselDot(active: i == _page),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Bolinha de indicador do carrossel — widget próprio (não um
+/// `AnimatedContainer` inline) de propósito: `IconButton`/`Material` do
+/// Flutter também usam `AnimatedContainer` internamente, então mirar em
+/// `find.byType(AnimatedContainer)` nos testes pegaria os botões de
+/// voltar/favoritar do app bar junto — isolado aqui pra `find.byType`
+/// mirar só nisto.
+class _CarouselDot extends StatelessWidget {
+  final bool active;
+  const _CarouselDot({required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      width: active ? 16 : 6,
+      height: 6,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: active ? 0.95 : 0.5),
+        borderRadius: BorderRadius.circular(3),
       ),
     );
   }

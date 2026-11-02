@@ -7,6 +7,11 @@ class DestinationDetailModel {
   final String tagline;
   final String? description;
   final String heroImageUrl;
+
+  /// Fotos ADICIONAIS pra rotatividade (carrossel) — heroImageUrl segue
+  /// sendo a principal/primeira, nunca entra nesta lista (ver backend
+  /// Destination.images / luvoy-pendencias.md, 2026-11-02).
+  final List<String> images;
   final String? signature;
   final String? weatherTemp;
   final String? weatherCond;
@@ -25,6 +30,7 @@ class DestinationDetailModel {
     required this.tagline,
     this.description,
     required this.heroImageUrl,
+    this.images = const [],
     this.signature,
     this.weatherTemp,
     this.weatherCond,
@@ -45,17 +51,23 @@ class DestinationDetailModel {
       tagline: json['tagline'] as String,
       description: json['description'] as String?,
       heroImageUrl: json['heroImageUrl'] as String? ?? '',
+      images: (json['images'] as List<dynamic>?)?.cast<String>() ?? [],
       signature: json['signature'] as String?,
       weatherTemp: json['weatherTemp'] as String?,
       weatherCond: json['weatherCond'] as String?,
       sunrise: json['sunrise'] as String?,
       sunset: json['sunset'] as String?,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
-      sections: (json['sections'] as List<dynamic>?)
-              ?.map((s) => DestinationSectionModel.fromJson(s as Map<String, dynamic>))
+      sections:
+          (json['sections'] as List<dynamic>?)
+              ?.map(
+                (s) =>
+                    DestinationSectionModel.fromJson(s as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      pois: (json['pois'] as List<dynamic>?)
+      pois:
+          (json['pois'] as List<dynamic>?)
               ?.map((p) => PoiModel.fromJson(p as Map<String, dynamic>))
               .toList() ??
           [],
@@ -78,7 +90,8 @@ class DestinationSectionModel {
     return DestinationSectionModel(
       sectionType: json['sectionType'] as String,
       orderIndex: json['orderIndex'] as int,
-      content: (json['content'] as List<dynamic>?)
+      content:
+          (json['content'] as List<dynamic>?)
               ?.map((i) => SectionItemModel.fromJson(i as Map<String, dynamic>))
               .toList() ??
           [],
