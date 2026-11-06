@@ -3,13 +3,6 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/itinerary_models.dart';
 import '../../data/itinerary_repository.dart';
 
-final itinerariesProvider = FutureProvider<List<ItinerarySummaryModel>>((
-  ref,
-) async {
-  ref.watch(authStateProvider);
-  return ref.read(itineraryRepositoryProvider).fetchAll();
-});
-
 final itineraryDetailProvider = FutureProvider.family<ItineraryModel, String>((
   ref,
   id,

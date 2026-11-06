@@ -93,15 +93,7 @@ public class CurrencyService {
         Map.entry("Vietnã", "VND")
     );
 
-    /**
-     * Fallback aproximado (cotação manual, atualizada de vez em quando),
-     * usado SÓ quando a API key de câmbio não está configurada — rede de
-     * segurança equivalente à que existia antes desta classe passar a
-     * cobrir qualquer moeda por país. Mantido pequeno de propósito (só as
-     * 3 moedas mais comuns entre os destinos): um fallback fixo pras ~40
-     * moedas restantes ficaria desatualizado rápido demais pra ser
-     * confiável — nesses casos o chamador continua sem mostrar a barra.
-     */
+    /** Fallback manual só quando a API key não está configurada; não ampliar, fica desatualizado. */
     private static final Map<String, BigDecimal> OFFLINE_FALLBACK_RATES = Map.of(
         "EUR", new BigDecimal("5.90"),
         "GBP", new BigDecimal("6.85"),
@@ -155,13 +147,12 @@ public class CurrencyService {
     }
 
     // conversionRates from BRL base: 1 BRL = X <moeda> → inverte pra 1 <moeda> = Y BRL
-    private BigDecimal invertRate(Double rate) {
-        if (rate == null || rate == 0) return BigDecimal.ZERO;
+    private BigDecimal invertRate(double rate) {
+        if (rate == 0) return BigDecimal.ZERO;
         return BigDecimal.ONE.divide(BigDecimal.valueOf(rate), new MathContext(4));
     }
 
     private record ExchangeRateResponse(
-        String result,
         @JsonProperty("conversion_rates") Map<String, Double> conversionRates
     ) {}
 }

@@ -47,11 +47,7 @@ public class ItineraryTemplateService {
     private final DestinationRepository destinationRepo;
     private final PoiRepository poiRepo;
     private final ItineraryTemplateRepository templateRepo;
-    private final ItineraryTemplateDayRepository templateDayRepo;
-    private final ItineraryTemplateActivityRepository templateActivityRepo;
     private final ItineraryRepository itineraryRepo;
-    private final ItineraryDayRepository itineraryDayRepo;
-    private final ItineraryActivityRepository itineraryActivityRepo;
     private final UserRepository userRepo;
 
     public ItineraryTemplateDTO generateForDestination(String destinationSlug, int durationDays, BudgetTier budgetTier) {

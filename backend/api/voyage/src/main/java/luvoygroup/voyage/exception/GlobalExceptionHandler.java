@@ -13,18 +13,6 @@ import org.springframework.web.server.ResponseStatusException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(EmailAlreadyExistsException.class)
-    public ResponseEntity<ErrorResponse> handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(new ErrorResponse("CONFLICT", ex.getMessage(), 409));
-    }
-
-    @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(new ErrorResponse("UNAUTHORIZED", ex.getMessage(), 401));
-    }
-
     @ExceptionHandler(OnboardingNotCompletedException.class)
     public ResponseEntity<ErrorResponse> handleOnboardingNotCompleted(OnboardingNotCompletedException ex) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)

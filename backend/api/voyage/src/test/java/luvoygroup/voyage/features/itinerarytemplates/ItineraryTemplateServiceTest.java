@@ -57,11 +57,7 @@ class ItineraryTemplateServiceTest {
     private DestinationRepository destinationRepo;
     private PoiRepository poiRepo;
     private ItineraryTemplateRepository templateRepo;
-    private ItineraryTemplateDayRepository templateDayRepo;
-    private ItineraryTemplateActivityRepository templateActivityRepo;
     private ItineraryRepository itineraryRepo;
-    private ItineraryDayRepository itineraryDayRepo;
-    private ItineraryActivityRepository itineraryActivityRepo;
     private UserRepository userRepo;
 
     private ItineraryTemplateService service;
@@ -76,18 +72,11 @@ class ItineraryTemplateServiceTest {
         destinationRepo = mock(DestinationRepository.class);
         poiRepo = mock(PoiRepository.class);
         templateRepo = mock(ItineraryTemplateRepository.class);
-        templateDayRepo = mock(ItineraryTemplateDayRepository.class);
-        templateActivityRepo = mock(ItineraryTemplateActivityRepository.class);
         itineraryRepo = mock(ItineraryRepository.class);
-        itineraryDayRepo = mock(ItineraryDayRepository.class);
-        itineraryActivityRepo = mock(ItineraryActivityRepository.class);
         userRepo = mock(UserRepository.class);
 
         service = new ItineraryTemplateService(
-            chatClient, destinationRepo, poiRepo,
-            templateRepo, templateDayRepo, templateActivityRepo,
-            itineraryRepo, itineraryDayRepo, itineraryActivityRepo,
-            userRepo
+            chatClient, destinationRepo, poiRepo, templateRepo, itineraryRepo, userRepo
         );
     }
 

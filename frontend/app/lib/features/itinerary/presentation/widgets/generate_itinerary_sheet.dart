@@ -146,10 +146,10 @@ class _GenerateItinerarySheetState
     return switch (_currentStepName) {
       _StepName.city => _selectedDestinationId != null,
       _StepName.dates => _startDate != null && _endDate != null,
-      _StepName.area => true, // area is optional
+      _StepName.area => true,
       _StepName.vibe => _vibe != null,
-      _StepName.interests => true, // interests are optional
-      _StepName.rhythm => true, // rhythm is optional
+      _StepName.interests => true,
+      _StepName.rhythm => true,
       _StepName.companions => _companions != null,
       _StepName.budget => _budget != null,
     };
@@ -248,28 +248,11 @@ class _GenerateItinerarySheetState
     }
   }
 
-  /// Chama o repositório resolvendo tripInterests/tripRhythm — mantém a
-  /// chamada "enxuta" (sem esses dois parâmetros nomeados) quando nada foi
-  /// selecionado, preservando compatibilidade com o formato de chamada já
-  /// existente.
   Future<ItineraryModel> _callGenerate(String destinationId) {
     final repo = ref.read(itineraryRepositoryProvider);
     final stayArea = _areaController.text.trim().isEmpty
         ? null
         : _areaController.text.trim();
-    final tripInterests = _interests.isEmpty ? null : _interests.toList();
-
-    if (tripInterests == null && _rhythm == null) {
-      return repo.generate(
-        destinationId: destinationId,
-        startDate: _startDate!,
-        endDate: _endDate!,
-        stayArea: stayArea,
-        tripVibe: _vibe?.backendKey,
-        companions: _companions?.backendKey,
-        tripBudget: _budget?.backendKey,
-      );
-    }
 
     return repo.generate(
       destinationId: destinationId,
@@ -279,7 +262,7 @@ class _GenerateItinerarySheetState
       tripVibe: _vibe?.backendKey,
       companions: _companions?.backendKey,
       tripBudget: _budget?.backendKey,
-      tripInterests: tripInterests,
+      tripInterests: _interests.isEmpty ? null : _interests.toList(),
       tripRhythm: _rhythm,
     );
   }

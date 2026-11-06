@@ -20,22 +20,6 @@ public record UserProfileDTO(
     List<String> interests,
     String religion
 ) {
-    public static UserProfileDTO from(User user) {
-        return new UserProfileDTO(
-            user.getId(),
-            user.getEmail(),
-            user.getAvatarUrl(),
-            user.isOnboardingCompleted(),
-            user.hasActivePremium(),
-            user.getPremiumExpiresAt(),
-            null,
-            null,
-            null,
-            null,
-            null
-        );
-    }
-
     public static UserProfileDTO fromUserAndPrefs(User user, OnboardingPreferences prefs) {
         return new UserProfileDTO(
             user.getId(),

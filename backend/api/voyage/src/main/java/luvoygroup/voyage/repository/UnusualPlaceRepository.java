@@ -8,5 +8,4 @@ import java.util.UUID;
 
 public interface UnusualPlaceRepository extends JpaRepository<UnusualPlace, UUID> {
     List<UnusualPlace> findAllByDestinationIdOrderByOrderIndexAsc(UUID destinationId);
-    boolean existsByDestinationId(UUID destinationId);
 }

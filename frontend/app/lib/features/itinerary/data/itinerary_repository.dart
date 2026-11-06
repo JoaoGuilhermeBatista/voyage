@@ -7,13 +7,6 @@ class ItineraryRepository {
   final Dio _dio;
   ItineraryRepository(this._dio);
 
-  Future<List<ItinerarySummaryModel>> fetchAll() async {
-    final response = await _dio.get('/itineraries');
-    return (response.data as List<dynamic>)
-        .map((j) => ItinerarySummaryModel.fromJson(j as Map<String, dynamic>))
-        .toList();
-  }
-
   Future<ItineraryModel> fetchById(String id) async {
     final response = await _dio.get('/itineraries/$id');
     return ItineraryModel.fromJson(response.data as Map<String, dynamic>);

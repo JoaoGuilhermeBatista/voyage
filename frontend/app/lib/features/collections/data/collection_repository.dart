@@ -16,10 +16,6 @@ class CollectionRepository {
         .toList();
   }
 
-  Future<CollectionModel> fetchBySlug(String slug) async {
-    final response = await _dio.get('/collections/$slug');
-    return CollectionModel.fromJson(response.data as Map<String, dynamic>);
-  }
 }
 
 final collectionRepositoryProvider = Provider<CollectionRepository>((ref) {
