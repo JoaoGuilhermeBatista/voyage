@@ -187,17 +187,11 @@ public class PlacesService {
             .average()
             .orElseThrow();
 
-        // Não usamos computeIfAbsent aqui de propósito: ele cachearia uma
-        // lista vazia pra sempre mesmo quando ela veio de uma falha
-        // transitória (rede instável, quota momentânea da Nearby
-        // Search/Geocoding — discoverRealNeighborhoods captura qualquer
-        // exceção e devolve lista vazia, indistinguível de "sem bairro
-        // identificável de verdade"). Só um resultado NÃO-vazio é
-        // memoizado; um resultado vazio é recalculado na próxima chamada
-        // — mais caro pros poucos destinos genuinamente sem bairro
-        // identificável, mas evita a feature ficar travada em "sem
-        // sugestão" pro resto da vida do processo por causa de um erro
-        // pontual.
+        // Não usamos computeIfAbsent: uma lista vazia pode vir de uma falha
+        // transitória (rede, quota) indistinguível de "sem bairro
+        // identificável de verdade" — só memoizamos resultado NÃO-vazio,
+        // pra não travar a feature pro resto da vida do processo por causa
+        // de um erro pontual.
         List<String> candidates = discoveryCache.get(destinationId);
         if (candidates == null) {
             candidates = discoverRealNeighborhoods(centerLat, centerLng);
@@ -207,12 +201,6 @@ public class PlacesService {
         }
 
         if (candidates.isEmpty()) {
-            // Mesmo raciocínio do discoveryCache acima: não cacheamos —
-            // um resultado vazio aqui pode vir de um destino genuinamente
-            // sem bairro identificável (ok recalcular sempre, é barato:
-            // nem chama Nearby Search de novo, já que discoveryCache
-            // segue vazio também) ou de uma falha transitória que ainda
-            // não se resolveu.
             return new NeighborhoodSuggestionsDTO(true, List.of());
         }
 
@@ -225,9 +213,7 @@ public class PlacesService {
             result = List.of();
         }
 
-        // Idem: só memoiza um resultado de verdade — uma falha do LLM
-        // (rate limit, timeout) não pode travar as recomendações desse
-        // destino+budget pro resto da vida do processo.
+        // Mesmo motivo do discoveryCache acima: só memoiza resultado real.
         if (!result.isEmpty()) {
             recommendationCache.put(cacheKey, result);
         }
@@ -235,32 +221,11 @@ public class PlacesService {
     }
 
     /**
-     * STUB — a implementar por um próximo agente após revisão humana.
-     *
-     * Contrato:
-     * <ul>
-     *   <li>Chama a Google Places Nearby Search SEM filtro de preço (o
-     *       filtro minprice/maxprice não funciona de forma confiável para
-     *       lodging — o Google quase nunca preenche price_level para esse
-     *       tipo — por isso foi removido):
-     *       {@code https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={lat},{lng}&radius=6000&type=lodging&key={apiKey}}.</li>
-     *   <li>Para os primeiros {@value #MAX_LODGING_RESULTS_TO_GEOCODE}
-     *       resultados ({@code results[0..9]}, cap por custo — não
-     *       processar mais que isso), pega
-     *       {@code geometry.location.{lat,lng}} de cada um e chama
-     *       {@link GeocodingService#reverseGeocodeToNeighborhood(double, double)}.</li>
-     *   <li>Agrega os nomes de bairro retornados (ignora
-     *       {@code Optional.empty()}), deduplicando e ordenando por
-     *       frequência (mais frequente primeiro) — sem limite adicional
-     *       aqui, o corte final de quantos mostrar acontece depois, na
-     *       recomendação por LLM.</li>
-     *   <li>Se a Nearby Search der erro/status diferente de "OK"/
-     *       "ZERO_RESULTS", ou erro de rede/parsing: loga warning, retorna
-     *       lista vazia — NUNCA lança exceção.</li>
-     *   <li>Se "ZERO_RESULTS" ou nenhum resultado render um bairro
-     *       identificável: retorna lista vazia (comportamento esperado para
-     *       cidades sem esse tipo de dado, ex: Paris às vezes).</li>
-     * </ul>
+     * Busca lodging via Nearby Search (sem filtro de preço — o Google quase
+     * nunca preenche price_level pra esse tipo) nos primeiros
+     * {@value #MAX_LODGING_RESULTS_TO_GEOCODE} resultados, reverse-geocodifica
+     * cada um e retorna os nomes de bairro por frequência (mais frequente
+     * primeiro). Nunca lança exceção — erro ou zero resultado vira lista vazia.
      */
     private List<String> discoverRealNeighborhoods(double lat, double lng) {
         try {

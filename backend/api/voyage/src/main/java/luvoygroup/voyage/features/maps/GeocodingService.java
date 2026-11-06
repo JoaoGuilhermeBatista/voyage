@@ -15,29 +15,11 @@ import java.util.Optional;
 
 /**
  * Proxy do backend para a Google Geocoding API — converte um endereço
- * textual (ex.: "Bela Vista, São Paulo, Brasil") em coordenadas
- * lat/lng, usado para priorizar POIs próximos ao {@code stayArea}
- * informado no request de geração de roteiro.
- *
- * A checagem de {@code isConfigured()} é real e feita inline em
- * {@link #geocode(String)} (mesmo critério de
- * {@code MapsService.isConfigured()}: null/blank/"not-configured") — sem
- * api key, o método retorna {@code Optional.empty()} imediatamente, SEM
- * chamar o RestClient. O restante — a chamada HTTP à Geocoding API e o
- * parsing da resposta — é um STUB COMPLETO, a implementar por um próximo
- * agente após revisão humana. Contrato do trecho stub:
- * <ul>
- *   <li>Chama
- *       {@code https://maps.googleapis.com/maps/api/geocode/json?address={query}&key={apiKey}}
- *       (query deve ser URL-encoded corretamente).</li>
- *   <li>Se o status da resposta for "OK" e {@code results} não vazio →
- *       pega {@code results[0].geometry.location.lat} e
- *       {@code results[0].geometry.location.lng}, retorna
- *       {@code Optional.of(new LatLng(lat, lng))}.</li>
- *   <li>Qualquer outro status, resultado vazio, erro de rede ou parsing →
- *       loga warning, retorna {@code Optional.empty()} — NUNCA lança
- *       exceção.</li>
- * </ul>
+ * textual (ex.: "Bela Vista, São Paulo, Brasil") em coordenadas lat/lng,
+ * usado para priorizar POIs próximos ao {@code stayArea} informado no
+ * request de geração de roteiro. Sem api key configurada, os métodos
+ * retornam {@code Optional.empty()} sem chamar a API; erro de rede/parsing
+ * também vira {@code Optional.empty()} (nunca lança exceção).
  */
 @Service
 @Slf4j
@@ -109,40 +91,12 @@ public class GeocodingService {
     }
 
     /**
-     * Geocodificação REVERSA (lat/lng → nome de bairro), usada por
-     * {@code PlacesService#discoverRealNeighborhoods} para extrair um nome
-     * de bairro real a partir das coordenadas de cada resultado da Google
-     * Places Nearby Search (o campo {@code vicinity} da Nearby Search NÃO é
-     * confiável para isso — ver contexto na tarefa que introduziu este
-     * método).
-     *
-     * A checagem de {@code isConfigured()} é real e feita inline logo no
-     * início do método (mesmo critério de {@link #geocode(String)}:
-     * null/blank/"not-configured") — sem api key, retorna
-     * {@code Optional.empty()} imediatamente, SEM chamar o RestClient. O
-     * restante — a chamada HTTP à Geocoding API e o parsing da resposta — é
-     * um STUB COMPLETO, a implementar por um próximo agente após revisão
-     * humana. Contrato do trecho stub:
-     * <ul>
-     *   <li>Chama
-     *       {@code https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&key={apiKey}}.</li>
-     *   <li>Se o status da resposta não for "OK", ou {@code results} vier
-     *       vazio, ou der erro de rede/parsing → loga warning, retorna
-     *       {@code Optional.empty()} — NUNCA lança exceção.</li>
-     *   <li>No primeiro resultado ({@code results[0]}), procura em
-     *       {@code address_components[]} um componente cujo {@code types[]}
-     *       contenha, nesta ordem de prioridade: {@code
-     *       "sublocality_level_1"}, depois {@code "sublocality"}, depois
-     *       {@code "neighborhood"} — retorna o {@code long_name} do
-     *       PRIMEIRO componente encontrado nessa ordem de prioridade (não é
-     *       "o primeiro componente da lista que bate com qualquer um dos
-     *       três": é sempre preferir sublocality_level_1 sobre sublocality
-     *       sobre neighborhood, mesmo que apareçam fora de ordem no JSON).</li>
-     *   <li>Se {@code results[0]} não tiver nenhum componente com um desses
-     *       três types (ex.: Paris às vezes só tem arrondissement/locality),
-     *       retorna {@code Optional.empty()} — comportamento esperado, não
-     *       é erro.</li>
-     * </ul>
+     * Geocodificação reversa (lat/lng → nome de bairro), usada por
+     * {@code PlacesService#discoverRealNeighborhoods} porque o campo
+     * {@code vicinity} da Google Places Nearby Search não é confiável pra
+     * isso. Prioriza o primeiro {@code address_components[].types[]} que
+     * bater com sublocality_level_1 > sublocality > neighborhood, nessa
+     * ordem (não necessariamente a ordem em que aparecem no JSON).
      */
     public Optional<String> reverseGeocodeToNeighborhood(double lat, double lng) {
         if (!isConfigured()) {

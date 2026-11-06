@@ -18,8 +18,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
-// Trip-specific params (companions, tripBudget, tripVibe) override onboarding prefs when provided.
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -233,6 +231,9 @@ public class ItineraryEngineService {
             .max(Comparator.comparingInt(p -> scoreFor(p, interests, group, vibe, stayAreaLocation, ledger)));
     }
 
+    // POI só é compatível com o slot se já estiver aberto no horário em que
+    // esse período do dia começa (9h/13h/18h) — senão o visitante chegaria
+    // antes de abrir.
     private boolean isCompatible(Poi poi, ItinerarySlot slot) {
         if (poi.getOpeningTime() == null) return true;
         return switch (slot) {
@@ -358,6 +359,8 @@ public class ItineraryEngineService {
         };
     }
 
+    // Tier pedido sozinho não tem POIs suficientes — expande o pool pra
+    // baixo (luxury também aceita econômico/moderado) pra sempre ter opção.
     private List<BudgetTier> budgetTiers(BudgetTier budget) {
         return switch (budget) {
             case ECONOMY  -> List.of(BudgetTier.ECONOMY, BudgetTier.MODERATE);

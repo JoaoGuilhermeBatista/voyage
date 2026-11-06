@@ -131,14 +131,10 @@ public class LlmService {
     }
 
     /**
-     * Contrato: dado um destino (city, country) e a lista de títulos de POI
-     * JÁ CADASTRADOS e ativos desse destino, pergunta ao LLM quais desses
-     * títulos — e SOMENTE esses, verbatim, sem inventar — são igrejas,
-     * basílicas, catedrais ou santuários da Igreja Católica (não templos de
-     * outras religiões/denominações, nem marcos históricos em geral). Usada
-     * por AdminService#enrichExistingPoisWithCatholicChurchFlag para
-     * classificar retroativamente POIs que já existem no banco (criados
-     * antes do campo Poi#catholicChurch existir), sem recriá-los.
+     * Identifica, entre os títulos de POI já cadastrados, quais são igrejas
+     * católicas (não outras religiões/denominações) — usada por
+     * {@code AdminService#enrichExistingPoisWithCatholicChurchFlag} pra
+     * classificar retroativamente POIs já existentes, sem recriá-los.
      */
     public CatholicChurchClassification classifyCatholicChurches(String city, String country, List<String> poiTitles) {
         log.info("Classificando igrejas católicas via LLM para {}, {}", city, country);
@@ -181,19 +177,11 @@ public class LlmService {
     }
 
     /**
-     * Contrato: dado um destino (city, country) e a lista de POIs JÁ
-     * CADASTRADOS e ativos desse destino (título + categoria atual),
-     * pergunta ao LLM: (1) quais desses títulos — e SOMENTE esses, verbatim,
-     * sem inventar — são os 3 a 5 pontos mais icônicos/imperdíveis do
-     * destino (mesmo critério de mustSee usado em generatePois); e (2)
-     * quais desses títulos deveriam ser recategorizados como LANDMARK por
-     * terem sido catalogados incorretamente em outra categoria (ex: um
-     * monumento hoje como MUSEUM, uma praça/fonte hoje como PARK) — sem
-     * incluir museus ou parques de verdade, que devem permanecer como
-     * estão. Usada por AdminService#enrichExistingPoisWithMustSeeAndLandmark
-     * para classificar retroativamente POIs que já existem no banco (sem
-     * recriá-los), corrigindo destinos "clássicos" que não têm nenhum POI
-     * mustSee nem LANDMARK cadastrado.
+     * Entre os POIs já cadastrados, identifica os 3-5 mais icônicos
+     * (mustSee) e os que deveriam ser recategorizados como LANDMARK por
+     * erro de categoria (ex. monumento como MUSEUM) — usada por
+     * {@code AdminService#enrichExistingPoisWithMustSeeAndLandmark} pra
+     * corrigir destinos sem nenhum POI mustSee/LANDMARK, sem recriá-los.
      */
     public PoiEnrichmentClassification classifyMustSeeAndLandmarks(String city, String country, List<Poi> pois) {
         log.info("Classificando mustSee e LANDMARK via LLM para {}, {}", city, country);
@@ -240,18 +228,10 @@ public class LlmService {
     }
 
     /**
-     * Contrato: dado um destino (city, country) e a lista de títulos de POI
-     * JÁ CADASTRADOS e ativos desse destino, pergunta ao LLM quais desses
-     * títulos — e SOMENTE esses, verbatim, sem inventar — precisam mudar
-     * pra normalizar o idioma DENTRO do mesmo destino (achado: dentro da
-     * mesma cidade, alguns POIs têm título traduzido pro português e outros
-     * não, sem critério consistente — ver luvoy-pendencias.md). Usada por
-     * AdminService#enrichExistingPoisWithNormalizedTitleLanguage para
-     * corrigir retroativamente POIs que já existem no banco, IN PLACE (nunca
-     * recria/deleta — mesmo padrão de classifyMustSeeAndLandmarks). Retorna
-     * SOMENTE os títulos que precisam mudar; um título já correto (traduzido
-     * ou mantido no original, conforme o critério editorial abaixo) não deve
-     * aparecer na resposta.
+     * Identifica quais títulos de POI precisam mudar pra normalizar o
+     * idioma dentro do mesmo destino (achado: POIs da mesma cidade com
+     * título às vezes traduzido pro português, às vezes não, sem critério
+     * — ver luvoy-pendencias.md). Retorna só os que precisam mudar.
      */
     public PoiTitleNormalization normalizePoiTitleLanguage(String city, String country, List<String> poiTitles) {
         log.info("Normalizando idioma de título de POI via LLM para {}, {}", city, country);
@@ -303,49 +283,11 @@ public class LlmService {
     }
 
     /**
-     * STUB — a implementar por um próximo agente após revisão humana (esta
-     * é uma genuína decisão de prompt, mesmo tratamento dado a
-     * {@link #classifyMustSeeAndLandmarks(String, String, List)} quando foi
-     * criado).
-     *
-     * Contrato pretendido:
-     * <ul>
-     *   <li>Monta um prompt no MESMO padrão de
-     *       {@link #classifyMustSeeAndLandmarks(String, String, List)}: lista
-     *       EXATA de {@code candidateNeighborhoods} fornecida (um por
-     *       linha), pede pro LLM escolher um subconjunto de 3 a 6 bairros
-     *       dessa lista que melhor combinam com a faixa de budget informada.</li>
-     *   <li>Traduz {@code budgetTier} para termos em português no prompt:
-     *       {@code ECONOMY} → "econômico", {@code MODERATE} →
-     *       "custo-benefício"/"intermediário", {@code LUXURY} → "alto
-     *       padrão/luxo".</li>
-     *   <li>Pede, para cada bairro escolhido, uma frase curta (1 linha) em
-     *       português descrevendo a VANTAGEM de se hospedar ali para esse
-     *       perfil de budget.</li>
-     *   <li>Regra obrigatória no prompt: os nomes retornados devem ser
-     *       EXATAMENTE (verbatim) um subconjunto de
-     *       {@code candidateNeighborhoods} — nunca inventar nome de bairro
-     *       que não esteja na lista fornecida (mesmo espírito de
-     *       "guarda contra alucinação" de
-     *       {@link #classifyMustSeeAndLandmarks(String, String, List)}).</li>
-     *   <li>Chama
-     *       {@code chatClient.prompt().user(prompt).call().entity(NeighborhoodRecommendationList.class)}
-     *       e extrai {@code .recommendations()}.</li>
-     *   <li>Depois de receber a resposta do LLM: filtra fora qualquer
-     *       {@code NeighborhoodRecommendation} cujo {@code name()} não
-     *       esteja EXATAMENTE (verbatim, mesma grafia/acentuação) em
-     *       {@code candidateNeighborhoods} — guarda contra alucinação — e
-     *       loga um warning para cada recomendação filtrada dessa forma.</li>
-     * </ul>
-     *
-     * @param city                   cidade do destino
-     * @param country                país do destino
-     * @param candidateNeighborhoods lista EXATA de nomes de bairro reais
-     *                               descobertos via
-     *                               {@code PlacesService#discoverRealNeighborhoods}
-     *                               — o LLM só pode escolher entre eles
-     * @param budgetTier             faixa de budget para a qual as
-     *                               recomendações devem ser adequadas
+     * Escolhe, via LLM, 3 a 6 bairros de {@code candidateNeighborhoods} mais
+     * adequados ao {@code budgetTier}, com uma frase de vantagem cada.
+     * Guarda contra alucinação: descarta qualquer recomendação cujo nome não
+     * esteja verbatim na lista de candidatos (mesmo padrão de
+     * {@link #classifyMustSeeAndLandmarks(String, String, List)}).
      */
     public List<NeighborhoodRecommendation> recommendNeighborhoods(
         String city, String country, List<String> candidateNeighborhoods, BudgetTier budgetTier
