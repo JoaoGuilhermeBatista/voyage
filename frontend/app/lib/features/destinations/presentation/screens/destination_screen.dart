@@ -269,6 +269,8 @@ class _HeroCarousel extends StatefulWidget {
 }
 
 class _HeroCarouselState extends State<_HeroCarousel> {
+  static const _placeholder = ColoredBox(color: Color(0xFF1A252F));
+
   final _controller = PageController();
   int _page = 0;
 
@@ -281,7 +283,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
   @override
   Widget build(BuildContext context) {
     if (widget.imageUrls.isEmpty) {
-      return const ColoredBox(color: Color(0xFF1A252F));
+      return _placeholder;
     }
 
     return Stack(
@@ -294,9 +296,8 @@ class _HeroCarouselState extends State<_HeroCarousel> {
           itemBuilder: (context, index) => CachedNetworkImage(
             imageUrl: widget.imageUrls[index],
             fit: BoxFit.cover,
-            placeholder: (_, _) => const ColoredBox(color: Color(0xFF1A252F)),
-            errorWidget: (_, _, _) =>
-                const ColoredBox(color: Color(0xFF1A252F)),
+            placeholder: (_, _) => _placeholder,
+            errorWidget: (_, _, _) => _placeholder,
           ),
         ),
         if (widget.imageUrls.length > 1)
@@ -468,21 +469,8 @@ class _DescriptionSliver extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Curated itinerary templates — item 1 do backlog
-// ---------------------------------------------------------------------------
-//
-// Wrapper (_CuratedTemplatesSliver) implementado de verdade: o fallback
-// gracioso em loading/error/lista-vazia é o MESMO padrão trivial já usado em
-// _CurrencyRatesBar (itinerary_screen.dart) / RouteInfoBar (maps), então não
-// há motivo para stub aqui — e, mais importante, DestinationScreen é uma
-// tela já em uso; um stub que sempre lança em build() quebraria a navegação
-// para QUALQUER destino, mesmo sem templates configurados. Deixar esse
-// wrapper real limita o "raio de explosão" do estágio somente-testes: hoje
-// nenhum destino tem templates publicados, então o branch `data` com lista
-// não-vazia (onde mora o stub _CuratedTemplatesSection, que lança
-// UnimplementedError de propósito) nunca é exercitado em uso real.
-
+// Templates de roteiro curados pro destino — fallback gracioso em
+// loading/error/lista-vazia, mesmo padrão de _UnusualPlacesSliver.
 class _CuratedTemplatesSliver extends ConsumerWidget {
   final String slug;
   const _CuratedTemplatesSliver({required this.slug});

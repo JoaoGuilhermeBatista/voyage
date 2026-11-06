@@ -86,24 +86,13 @@ public class WikimediaCommonsService {
                 .body(String.class);
 
             JsonNode pages = objectMapper.readTree(json).path("query").path("pages");
-            List<String> results = new ArrayList<>();
             if (!pages.isObject()) {
-                return results;
+                return List.of();
             }
+            List<String> results = new ArrayList<>();
             for (JsonNode page : pages) {
                 if (results.size() >= limit) break;
-                String title = page.path("title").asText("");
-                if (isJunkFilename(title)) continue;
-
-                JsonNode imageInfoArray = page.path("imageinfo");
-                if (!imageInfoArray.isArray() || imageInfoArray.isEmpty()) continue;
-                JsonNode imageInfo = imageInfoArray.get(0);
-
-                int width = imageInfo.path("width").asInt(0);
-                int height = imageInfo.path("height").asInt(0);
-                if (Math.max(width, height) < MIN_DIMENSION) continue;
-
-                String url = imageInfo.path("url").asText(null);
+                String url = photoUrlOrNull(page);
                 if (url != null) {
                     results.add(url);
                 }
@@ -113,6 +102,25 @@ public class WikimediaCommonsService {
             log.warn("Erro ao buscar imagens no Wikimedia Commons para '{}'", query, e);
             return List.of();
         }
+    }
+
+    /**
+     * URL da página de arquivo se ela passar no filtro de qualidade (nome
+     * que não indica mapa/ícone/etc. e maior lado ≥ {@link #MIN_DIMENSION});
+     * {@code null} caso contrário.
+     */
+    private String photoUrlOrNull(JsonNode page) {
+        if (isJunkFilename(page.path("title").asText(""))) return null;
+
+        JsonNode imageInfoArray = page.path("imageinfo");
+        if (!imageInfoArray.isArray() || imageInfoArray.isEmpty()) return null;
+        JsonNode imageInfo = imageInfoArray.get(0);
+
+        int width = imageInfo.path("width").asInt(0);
+        int height = imageInfo.path("height").asInt(0);
+        if (Math.max(width, height) < MIN_DIMENSION) return null;
+
+        return imageInfo.path("url").asText(null);
     }
 
     private boolean isJunkFilename(String filename) {

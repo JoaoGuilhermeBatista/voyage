@@ -19,8 +19,12 @@ import static org.mockito.Mockito.when;
  */
 class WikimediaCommonsServiceTest {
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private WikimediaCommonsService serviceReturning(String json) {
+        return new WikimediaCommonsService(restClientReturning(json));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private RestClient restClientReturning(String json) {
         RestClient mockRestClient = mock(RestClient.class);
         RestClient.RequestHeadersUriSpec uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
         RestClient.RequestHeadersSpec headersSpec = mock(RestClient.RequestHeadersSpec.class);
@@ -29,7 +33,7 @@ class WikimediaCommonsServiceTest {
         when(uriSpec.uri(anyString(), any(Object[].class))).thenReturn(headersSpec);
         when(headersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.body(String.class)).thenReturn(json);
-        return new WikimediaCommonsService(mockRestClient);
+        return mockRestClient;
     }
 
     private static final String MIXED_RESULTS = """
@@ -101,20 +105,10 @@ class WikimediaCommonsServiceTest {
     // ─── Mesmo gotcha de rate limit já documentado em WikimediaService — este
     // service reaproveita o mesmo atraso antes de cada chamada HTTP. ─────────
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     @Test
     void searchImages_respectsConfiguredThrottle() {
-        RestClient mockRestClient = mock(RestClient.class);
-        RestClient.RequestHeadersUriSpec uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-        RestClient.RequestHeadersSpec headersSpec = mock(RestClient.RequestHeadersSpec.class);
-        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
-        when(mockRestClient.get()).thenReturn(uriSpec);
-        when(uriSpec.uri(anyString(), any(Object[].class))).thenReturn(headersSpec);
-        when(headersSpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.body(String.class)).thenReturn(MIXED_RESULTS);
-
         long throttleMs = 60;
-        WikimediaCommonsService service = new WikimediaCommonsService(mockRestClient, throttleMs);
+        WikimediaCommonsService service = new WikimediaCommonsService(restClientReturning(MIXED_RESULTS), throttleMs);
 
         long start = System.currentTimeMillis();
         service.searchImages("Torre Eiffel, Paris", 2);

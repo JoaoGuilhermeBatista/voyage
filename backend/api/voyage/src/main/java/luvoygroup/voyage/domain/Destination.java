@@ -57,16 +57,15 @@ public class Destination {
      * Fotos adicionais pra rotatividade na UI (além da {@link #heroImageUrl},
      * que segue sendo a foto principal/primeira impressão) — mesmo padrão de
      * {@code poi_images} em {@link Poi}, só que no nível de destino.
-     */
-    /**
-     * TEXT (não varchar(255)) de propósito: URLs reais do Wikimedia Commons
+     *
+     * <p>TEXT (não varchar(255)) de propósito: URLs reais do Wikimedia Commons
      * podem passar de 255 caracteres (nomes de arquivo com acentuação/CJK
      * URL-encoded) — gotcha real encontrado ao rodar o enriquecimento em
      * produção pela 1ª vez (2026-11-02): um INSERT estourando o limite da
      * coluna lançava exceção que "contaminava" a Session do Hibernate
      * (OSIV, 1 Session por request) e travava o restante do lote inteiro
      * com LazyInitializationException no destino seguinte, não só o que
-     * falhou.
+     * falhou.</p>
      */
     @ElementCollection
     @CollectionTable(name = "destination_images", joinColumns = @JoinColumn(name = "destination_id"))

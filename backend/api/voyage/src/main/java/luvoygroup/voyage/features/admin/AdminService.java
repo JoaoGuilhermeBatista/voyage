@@ -375,9 +375,11 @@ public class AdminService {
         int skipped = 0;
 
         for (Destination destination : destinations) {
-            boolean hadNoHeroImage = destination.getHeroImageUrl() == null || destination.getHeroImageUrl().isBlank();
-            int target = hadNoHeroImage ? 2 : 1;
-            int missing = target - destination.getImages().size();
+            String heroImageUrl = destination.getHeroImageUrl();
+            List<String> images = destination.getImages();
+            boolean hasHeroImage = heroImageUrl != null && !heroImageUrl.isBlank();
+            int target = hasHeroImage ? 1 : 2;
+            int missing = target - images.size();
             if (missing <= 0) {
                 skipped++;
                 continue;
@@ -385,15 +387,15 @@ public class AdminService {
 
             try {
                 String query = destination.getName() + ", " + destination.getCountry();
-                List<String> candidates = wikimediaCommonsService.searchImages(query, missing + destination.getImages().size());
+                List<String> candidates = wikimediaCommonsService.searchImages(query, target);
                 int addedForDestination = 0;
                 for (String url : candidates) {
                     if (addedForDestination >= missing) break;
-                    if (url.equals(destination.getHeroImageUrl()) || destination.getImages().contains(url)) continue;
-                    destination.getImages().add(url);
+                    if (url.equals(heroImageUrl) || images.contains(url)) continue;
+                    images.add(url);
                     addedForDestination++;
-                    totalAdded++;
                 }
+                totalAdded += addedForDestination;
                 destinationRepo.save(destination);
                 processed.add(destination.getSlug());
                 if (addedForDestination == 0) {
@@ -422,7 +424,6 @@ public class AdminService {
      * local normalmente fica sem foto até o Google Places (pago) entrar
      * como complemento no futuro.
      */
-
     public PoiEnrichmentReport enrichExistingPoisWithWikimediaImages() {
         List<Destination> destinations = destinationRepo.findAllByActiveTrue();
         log.info("Destinos ativos a verificar para enriquecimento de imagens (Wikipedia): {}", destinations.size());

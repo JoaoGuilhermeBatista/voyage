@@ -29,13 +29,12 @@ class _FakeFavoriteNotifier extends FavoriteNotifier {
 
 void main() {
   DestinationDetailModel destination({
-    String slug = 'paris',
     String heroImageUrl = '',
     List<String> images = const [],
   }) {
     return DestinationDetailModel(
       id: 'dest-1',
-      slug: slug,
+      slug: 'paris',
       name: 'Paris',
       country: 'França',
       city: 'Paris',
