@@ -3,6 +3,7 @@ package luvoygroup.voyage.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import luvoygroup.voyage.exception.ErrorResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -27,21 +28,31 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final ObjectMapper objectMapper;
 
+    // Mapa da API (inclusive quais endpoints /admin existem) fica público
+    // por padrão pra não quebrar o fluxo de dev atual — desligar setando
+    // API_DOCS_ENABLED=false (recomendado em produção, especialmente com
+    // o repositório público).
+    @Value("${api-docs.enabled:true}")
+    private boolean apiDocsEnabled;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/api/v1/destinations/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/collections/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/currency/**").permitAll()
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                .requestMatchers("/api/v1/stripe/webhook").permitAll()
-                .requestMatchers("/api/v1/admin/**").permitAll()
-                .anyRequest().authenticated()
-            )
+            .authorizeHttpRequests(auth -> {
+                auth
+                    .requestMatchers(HttpMethod.GET, "/api/v1/destinations/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/collections/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/v1/currency/**").permitAll()
+                    .requestMatchers("/api/v1/stripe/webhook").permitAll()
+                    .requestMatchers("/api/v1/admin/**").permitAll();
+                if (apiDocsEnabled) {
+                    auth.requestMatchers("/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html").permitAll();
+                }
+                auth.anyRequest().authenticated();
+            })
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((request, response, e) -> {
                     response.setStatus(401);
