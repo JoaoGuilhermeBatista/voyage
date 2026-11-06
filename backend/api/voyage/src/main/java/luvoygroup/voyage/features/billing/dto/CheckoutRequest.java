@@ -4,10 +4,9 @@ import jakarta.validation.constraints.NotBlank;
 
 /**
  * URLs de retorno após o checkout do Stripe (sucesso/cancelamento) —
- * passadas pelo cliente (Flutter) em vez de fixas no backend, porque hoje
- * ainda não existe domínio próprio nem esquema de deep-link definido pro
- * app (ver luvoy-pendencias.md); assim que isso existir, o app só troca o
- * valor que envia aqui, sem precisar mudar o backend.
+ * passadas pelo cliente em vez de fixas no backend. BillingService valida
+ * que ambas usam o deep-link scheme do app (luvoytravel://), pra não abrir
+ * redirect arbitrário vindo do cliente.
  */
 public record CheckoutRequest(
     @NotBlank String successUrl,

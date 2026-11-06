@@ -71,6 +71,26 @@ class BillingServiceTest {
         return ApiResource.GSON.fromJson(envelope, Event.class);
     }
 
+    // ─── Validação de successUrl/cancelUrl ─────────────────────────────────
+
+    @Test
+    void createSubscriptionCheckout_shouldReject_whenSuccessUrlIsNotTheAppDeeplinkScheme() {
+        when(userRepo.findById(USER_ID)).thenReturn(Optional.of(freeUser()));
+
+        assertThrows(IllegalArgumentException.class, () -> service.createSubscriptionCheckout(
+            USER_ID, "https://evil.example.com/phish", "luvoytravel://checkout-cancel"
+        ));
+    }
+
+    @Test
+    void createPixPremiumCheckout_shouldReject_whenCancelUrlIsNotTheAppDeeplinkScheme() {
+        when(userRepo.findById(USER_ID)).thenReturn(Optional.of(freeUser()));
+
+        assertThrows(IllegalArgumentException.class, () -> service.createPixPremiumCheckout(
+            USER_ID, "luvoytravel://checkout-success", "https://evil.example.com/phish"
+        ));
+    }
+
     // ─── Idempotência ───────────────────────────────────────────────────────
 
     @Test
@@ -433,7 +453,7 @@ class BillingServiceTest {
             mockedSession.when(() -> com.stripe.model.checkout.Session.create(captor.capture()))
                 .thenReturn(fakeSession);
 
-            var result = service.createPixPdfExportCheckout(USER_ID, "https://app/success", "https://app/cancel");
+            var result = service.createPixPdfExportCheckout(USER_ID, "luvoytravel://checkout-success", "luvoytravel://checkout-cancel");
 
             assertEquals("https://checkout.stripe.com/pay/cs_test_123", result.checkoutUrl());
             var params = captor.getValue();
@@ -459,7 +479,7 @@ class BillingServiceTest {
             mockedSession.when(() -> com.stripe.model.checkout.Session.create(captor.capture()))
                 .thenReturn(fakeSession);
 
-            service.createSubscriptionCheckout(USER_ID, "https://app/success", "https://app/cancel");
+            service.createSubscriptionCheckout(USER_ID, "luvoytravel://checkout-success", "luvoytravel://checkout-cancel");
 
             var params = captor.getValue();
             assertEquals("viajante@example.com", params.getCustomerEmail());

@@ -85,10 +85,18 @@ public class BillingService {
         ));
     }
 
+    // Único deep-link scheme que o app usa pra voltar do checkout — ver
+    // DeeplinkConstants.scheme no Flutter. Validado aqui pra não deixar o
+    // Stripe redirecionar pra uma URL arbitrária vinda do cliente.
+    private static final String ALLOWED_RETURN_URL_PREFIX = "luvoytravel://";
+
     private String createSession(
         User user, SessionCreateParams.Mode mode, SessionCreateParams.PaymentMethodType paymentMethodType,
         String priceId, String productType, String successUrl, String cancelUrl
     ) {
+        if (!successUrl.startsWith(ALLOWED_RETURN_URL_PREFIX) || !cancelUrl.startsWith(ALLOWED_RETURN_URL_PREFIX))
+            throw new IllegalArgumentException("successUrl/cancelUrl inválidos");
+
         var builder = SessionCreateParams.builder()
             .setMode(mode)
             .addPaymentMethodType(paymentMethodType)
