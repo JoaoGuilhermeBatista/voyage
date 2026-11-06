@@ -28,14 +28,27 @@ public class AdminController {
     @Value("${admin.token:not-configured}")
     private String adminToken;
 
+    /**
+     * Nunca autoriza se {@code admin.token} não foi de fato configurado —
+     * sem isto, o literal "not-configured" do application.yaml (visível
+     * em qualquer leitura do código-fonte) seria aceito como token válido
+     * se a env var ADMIN_TOKEN não estiver setada em produção.
+     */
+    private boolean isAuthorizedAdmin(String token) {
+        return token != null
+            && !adminToken.isBlank()
+            && !adminToken.equals("not-configured")
+            && adminToken.equals(token);
+    }
+
     @PostMapping("/destinations/generate")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Gera e salva um novo destino usando GPT-4o")
     public ResponseEntity<DestinationSummaryDTO> generateDestination(
-        @RequestHeader("X-Admin-Token") String token,
+        @RequestHeader(value = "X-Admin-Token", required = false) String token,
         @Valid @RequestBody GenerateDestinationRequest request
     ) {
-        if (!adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -45,9 +58,9 @@ public class AdminController {
     @PostMapping("/pois/generate-batch")
     @Operation(summary = "Gera POIs via GPT-4o para todos os destinos sem POIs, de 5 em 5. Para no primeiro erro.")
     public ResponseEntity<BatchGenerationReport> generatePoisBatch(
-        @RequestHeader("X-Admin-Token") String token
+        @RequestHeader(value = "X-Admin-Token", required = false) String token
     ) {
-        if (!adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.generatePoisBatch());
@@ -60,7 +73,7 @@ public class AdminController {
         @PathVariable String slug,
         @Valid @RequestBody GenerateTemplateRequest request
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -73,7 +86,7 @@ public class AdminController {
     public ResponseEntity<PoiEnrichmentReport> enrichCatholicChurchFlags(
         @RequestHeader(value = "X-Admin-Token", required = false) String token
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithCatholicChurchFlag());
@@ -86,7 +99,7 @@ public class AdminController {
     public ResponseEntity<PoiEnrichmentReport> enrichMustSeeAndLandmark(
         @RequestHeader(value = "X-Admin-Token", required = false) String token
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithMustSeeAndLandmark());
@@ -99,7 +112,7 @@ public class AdminController {
     public ResponseEntity<PoiEnrichmentReport> enrichTitleLanguage(
         @RequestHeader(value = "X-Admin-Token", required = false) String token
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithNormalizedTitleLanguage());
@@ -112,7 +125,7 @@ public class AdminController {
     public ResponseEntity<PoiEnrichmentReport> enrichPoiImages(
         @RequestHeader(value = "X-Admin-Token", required = false) String token
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithImages());
@@ -127,7 +140,7 @@ public class AdminController {
     public ResponseEntity<PoiEnrichmentReport> enrichPoiImagesWikimedia(
         @RequestHeader(value = "X-Admin-Token", required = false) String token
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichExistingPoisWithWikimediaImages());
@@ -142,7 +155,7 @@ public class AdminController {
     public ResponseEntity<DestinationImageEnrichmentReport> enrichDestinationImages(
         @RequestHeader(value = "X-Admin-Token", required = false) String token
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.ok(adminService.enrichDestinationImages());
@@ -157,7 +170,7 @@ public class AdminController {
         @PathVariable String slug,
         @RequestParam(required = false) String focusCategory
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         if (focusCategory == null)
@@ -174,7 +187,7 @@ public class AdminController {
         @RequestHeader(value = "X-Admin-Token", required = false) String token,
         @PathVariable String slug
     ) {
-        if (token == null || !adminToken.equals(token))
+        if (!isAuthorizedAdmin(token))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         return ResponseEntity.status(HttpStatus.CREATED).body(adminService.generateUnusualPlaces(slug));
